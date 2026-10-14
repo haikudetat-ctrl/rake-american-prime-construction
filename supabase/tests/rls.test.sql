@@ -2,7 +2,7 @@
 -- drivers never see money.
 begin;
 \ir support/fixtures.sql
-select plan(32);
+select plan(33);
 
 -- Build one rental with an invoice, a request, and stops for both drivers.
 select tests.act_as_service();
@@ -83,6 +83,10 @@ select lives_ok($$ insert into public.customers (company_id, name) select app.cu
   'office adds a customer');
 select throws_ok($$ select public.publish_price_book(1, 1, 1) $$, '42501', 'not authorized',
   'only owners change prices');
+reset role;
+select tests.act_as('00000000-0000-0000-0000-000000000001');
+select throws_ok($$ select * from public.qbo_connections $$, '42501', null,
+  'not even an owner can read QuickBooks tokens from the browser');
 reset role;
 
 -- Another company's owner sees none of it ---------------------------------------------

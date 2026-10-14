@@ -1,5 +1,6 @@
 import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { QuickBooksCard } from "@/app/office/settings/quickbooks-card";
 import { requireStaff } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
 import { loadTeam } from "@/lib/office/team";
@@ -60,6 +61,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
           <p className="text-sm text-muted">Only an owner can change prices.</p>
         )}
       </section>
+
+      {isOwner && <QuickBooksCard companyId={member.companyId} />}
 
       <section className="card space-y-3">
         <h2 className="font-semibold">Customer link</h2>

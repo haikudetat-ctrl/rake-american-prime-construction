@@ -352,6 +352,15 @@ export async function setMemberActive(form: FormData) {
   done("/office/settings", "Team updated.");
 }
 
+// QuickBooks -------------------------------------------------------------------------
+
+export async function disconnectQuickBooks() {
+  const owner = await requireOwner();
+  const { disconnect } = await import("@/lib/integrations/quickbooks/connection");
+  await disconnect(owner.companyId);
+  done("/office/settings", "QuickBooks disconnected.");
+}
+
 // Corrections (slice 2) --------------------------------------------------------------
 // Each one is a database function that checks the role again and refuses to
 // touch money already on a statement; these wrappers only route the result.
