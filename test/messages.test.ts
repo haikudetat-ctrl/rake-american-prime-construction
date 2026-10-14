@@ -8,6 +8,7 @@ const statement: StatementView = {
   issuedOn: "2026-10-19",
   dueOn: "2026-11-03",
   status: "open",
+  voidReason: null,
   sentAt: null,
   totalCents: 116500,
   paidCents: 0,
@@ -15,8 +16,8 @@ const statement: StatementView = {
   brand: { name: "American Prime Construction", phone: "+16095550100", email: null, address: "1 Main St, Trenton NJ" },
   customer: { name: "Shore Roofing", billingEmail: "billing@shore.example" },
   invoices: [
-    { number: 1002, address: "12 Ocean Ave", dates: "", totalCents: 56000, lines: [] },
-    { number: 1003, address: "9 Bay Rd", dates: "", totalCents: 60500, lines: [] },
+    { number: 1002, rentalId: null, address: "12 Ocean Ave", dates: "", totalCents: 56000, lines: [] },
+    { number: 1003, rentalId: null, address: "9 Bay Rd", dates: "", totalCents: 60500, lines: [] },
   ],
   payments: [],
 };

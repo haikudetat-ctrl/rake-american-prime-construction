@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { addCan, requestPickup, setCanService } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
@@ -41,7 +42,7 @@ export default async function CansPage({ searchParams }: PageProps<"/office/cans
               {(out ?? []).map((r) => (
                 <tr key={r.rental_id}>
                   <td>{r.can_label} <span className="text-xs text-muted">{r.size_yards} yd</span></td>
-                  <td>{r.customer_name}</td>
+                  <td><Link className="underline" href={`/office/rentals/${r.rental_id}`}>{r.customer_name}</Link></td>
                   <td>{r.address}{r.area && <div className="text-xs text-muted">{r.area}</div>}</td>
                   <td>
                     <span className={r.is_extended ? "font-semibold text-danger" : ""}>{r.days_out}</span>

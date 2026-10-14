@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Flash } from "@/app/_components/flash";
 import { getMember, homeFor } from "@/lib/auth";
+import { signInProblem } from "@/lib/sign-in";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -20,12 +21,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const origin = (await headers()).get("origin") ?? process.env.APP_URL ?? "";
     const supabase = await createSupabaseServerClient();
-    await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { shouldCreateUser: false, emailRedirectTo: `${origin}/auth/callback` },
     });
-    // Same response whether or not the address has an account.
-    redirect("/login?sent=1");
+    // Same response whether or not the address has an account; only failures
+    // that aren't about the address (limits, misconfiguration) are shown.
+    const problem = signInProblem(error);
+    redirect(problem ? `/login?error=${problem}` : "/login?sent=1");
   }
 
   return (
@@ -36,7 +39,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <p className="text-sm text-muted">Office sign-in</p>
         </div>
         {sent && <Flash tone="ok">If that address is on the team, a sign-in link is on its way.</Flash>}
-        {error && <Flash tone="error">That link expired or was already used. Send a new one.</Flash>}
+        {error === "link" && <Flash tone="error">That link expired or was already used. Send a new one.</Flash>}
+        {error === "rate" && <Flash tone="error">Too many sign-in attempts. Wait a few minutes and try again.</Flash>}
+        {error === "system" && <Flash tone="error">Couldn&apos;t send the link right now. Try again, or contact 2Stack support.</Flash>}
         <form action={sendLink} className="space-y-3">
           <label className="label">
             <span>Email</span>

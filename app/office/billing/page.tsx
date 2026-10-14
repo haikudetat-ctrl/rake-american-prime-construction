@@ -14,7 +14,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
   const [{ data: unbilled }, { data: statements }] = await Promise.all([
     supabase
       .from("invoices")
-      .select("id, number, status, total_cents, customers(name), rentals(sites(address))")
+      .select("id, number, status, total_cents, rental_id, customers(name), rentals(sites(address))")
       .in("status", ["draft", "final"])
       .order("number"),
     supabase
@@ -71,7 +71,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
                   <td className={overdue ? "font-semibold text-danger" : ""}>{formatDate(s.due_on)}</td>
                   <td>{formatCents(s.total_cents)}</td>
                   <td>{formatCents(s.total_cents - paid)}</td>
-                  <td>{overdue ? "overdue" : s.status}{!s.sent_at && s.status === "open" && <span className="ml-1 text-xs text-muted">(not emailed)</span>}</td>
+                  <td>{overdue ? "overdue" : s.status === "void" ? <span className="text-muted">void</span> : s.status}{!s.sent_at && s.status === "open" && <span className="ml-1 text-xs text-muted">(not emailed)</span>}</td>
                 </tr>
               );
             })}
@@ -85,6 +85,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
 type InvoiceRow = {
   id: string;
   number: number;
+  rental_id: string;
   total_cents: number;
   customers: { name: string } | { name: string }[] | null;
   rentals: { sites: { address: string } | { address: string }[] | null } | { sites: unknown }[] | null;
@@ -101,7 +102,7 @@ function InvoiceTable({ rows, empty }: { rows: InvoiceRow[]; empty: string }) {
             const rental = one(i.rentals) as { sites: { address: string } | { address: string }[] | null } | null;
             return (
               <tr key={i.id}>
-                <td>#{i.number}</td>
+                <td><Link className="underline" href={`/office/rentals/${i.rental_id}`}>#{i.number}</Link></td>
                 <td>{one(i.customers)?.name}</td>
                 <td>{one(rental?.sites)?.address}</td>
                 <td>{formatCents(i.total_cents)}</td>

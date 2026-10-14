@@ -94,7 +94,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/office">) 
                         <span className="pill">{KIND_LABEL[stop.kind]}</span>
                         {stop.status === "done" && <span className="ml-1 text-xs text-ok">done</span>}
                       </td>
-                      <td>{one(rental?.customers)?.name}</td>
+                      <td>{rental && <Link className="underline" href={`/office/rentals/${rental.id}`}>{one(rental.customers)?.name}</Link>}</td>
                       <td>
                         <div>{site?.address}</div>
                         {site?.area && <div className="text-xs text-muted">{site.area}</div>}
