@@ -334,6 +334,12 @@ alter table public.invoices enable row level security;
 alter table public.invoice_lines enable row level security;
 alter table public.payments enable row level security;
 
+revoke all on
+  public.yards, public.landfills, public.cans, public.price_books, public.customers,
+  public.customer_contacts, public.sites, public.request_links, public.rental_requests,
+  public.rentals, public.stops, public.scale_tickets, public.statements, public.invoices,
+  public.invoice_lines, public.payments
+  from anon, authenticated;
 grant select on
   public.yards, public.landfills, public.cans, public.price_books, public.customers,
   public.customer_contacts, public.sites, public.request_links, public.rental_requests,
@@ -426,6 +432,7 @@ join public.sites s on s.id = r.site_id
 join public.price_books pb on pb.id = r.price_book_id
 left join public.cans k on k.id = r.can_id
 where r.status in ('on_site', 'pickup_requested');
+revoke all on public.rentals_out from anon, authenticated;
 grant select on public.rentals_out to authenticated;
 
 -- Workflow functions ------------------------------------------------------------

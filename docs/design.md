@@ -1,7 +1,7 @@
 # Rake for American Prime — System Design
 
 **Date:** 2026-10-14
-**Status:** Approved direction; Phase 1 build not started
+**Status:** Phase 1 foundation built (branch `claude/phase-1-dumpster-ops`); schema live on Supabase
 **Client:** American Prime Construction (Andrey Fallas) — roofing and dumpster rental, South/Central NJ
 **Owner:** Chris Boland / 2Stack
 **Sources:** Discovery call, 2026-10-12 (Fathom); *American Prime Systems Plan* (Claude Docs, 2026-10-12)
@@ -116,16 +116,20 @@ user. Money is stored as integer cents.
 - `rentals` — the unit of work: customer, site, can, `price_book_id` (snapshot),
   status (`scheduled` → `on_site` → `pickup_requested` → `picked_up` → `dumped` →
   `closed`), `dropped_at`, `picked_up_at`, days-out (derived).
-- `stops` — the driver's run: `rental_id`, kind (`drop`, `pickup`, `swap`, `dump`),
-  scheduled date, assigned driver, sequence, status, completed_at, location.
+- `stops` — the driver's run: `rental_id`, kind (`drop`, `pickup`, `dump`),
+  scheduled date, assigned driver, sequence, status, completed_at. A pickup
+  creates the dump stop. (A swap is a pickup plus a new rental's drop.)
 - `scale_tickets` — rental, landfill, tons, fee (cents), photo (Storage path),
   entered_by.
 - `invoices` — one per rental: status (`draft` → `final` → `on_statement` →
   `paid` | `void`), `qbo_id` (nullable).
 - `invoice_lines` — `delivery`, `extended_days`, `tonnage`, `adjustment`.
-- `statements` — one per customer per week; PDF path; sent_at; due date.
-- `payments` — amount, method (`check`, `ach`, `qbo`), applied to statements.
-- `reminders` — scheduled/sent overdue reminders per statement.
+- `statements` — one per customer per week; due date; sent_at. The PDF is
+  rendered from the rows when needed, never stored.
+- `payments` — amount, method (`check`, `ach`, `cash`, `qbo`, `other`), applied
+  to a statement.
+- Reminders are outbox messages with a per-statement dedupe key, so the daily
+  cron can run any number of times without sending twice.
 
 Phase 2/3 tables (`leads`, `properties`, `proposals`, `jobs`, `job_costs`,
 `stock_items`, `referrals`, …) are added when those phases start; the core above is
@@ -180,28 +184,40 @@ view says whether to buy more cans before he does.
 ```
 app/
   request/[slug]/     public request form
-  office/             approvals, schedule, cans, customers, billing, numbers
-  driver/             today's run, stop detail, scale ticket capture
-  api/cron/           outbox + statement + reminder runners
+  office/             today, requests, cans, customers, billing, numbers, settings
+  driver/             today's run, drop/pickup, scale ticket capture
+  api/cron/           outbox (every 5 min); daily reminders + Monday statements
 lib/
-  billing/            pure invoice/statement math (unit tested)
-  dispatch/           stop ordering by area
-  integrations/       twilio, resend, google places, quickbooks (stub)
+  billing/            statement loader/shaper (shared by page, PDF, email)
+  dispatch/           nearest-next stop ordering
+  metrics/            can-turnaround math
+  outbox/             message wording + delivery
+  integrations/       twilio, resend, google geocoding
   i18n/               en, es dictionaries
-  jobs/               outbox + queue
   pdf/                statement document
 supabase/
-  migrations/
-  tests/              pgTAP RLS suites
+  migrations/         schema, RLS, workflow + billing functions
+  tests/              pgTAP: RLS, lifecycle, outbox
 docs/
 ```
 
+**Billing math lives in Postgres, not TypeScript.** Each workflow function
+(`complete_stop`, `record_scale_ticket`, `issue_statements`, `record_payment`)
+moves the can, writes the invoice lines and queues the message in one
+transaction. pgTAP tests the arithmetic end to end. QuickBooks is not stubbed
+in code yet; `customers.qbo_customer_id` and `invoices.qbo_invoice_id` are the
+seam, and a `qbo` outbox channel is the planned connector.
+
 ## 8. Testing
 
-- pgTAP: RLS per role per table, especially "drivers cannot see money".
-- vitest: billing math (delivery, extended days, tonnage pass-through, statement
-  rollup), price-book snapshotting, can-turnaround metric, stop ordering.
-- Playwright smoke: request → approve → drop → pickup → ticket → statement.
+- pgTAP (`npm run db:test`, 77 assertions): RLS per role, especially "drivers
+  cannot see money"; the full lifecycle with billing amounts, price-book
+  snapshotting, extended days, statements, payments and idempotent reminders;
+  outbox claiming and backoff.
+- vitest (35): money parsing, dates/timezone, phone normalization, stop
+  ordering, can turnaround, request validation and signed form token,
+  statement shaping, message wording.
+- Not yet: a Playwright run against a deployed preview.
 
 ## 9. Open items
 
@@ -224,7 +240,10 @@ data until these arrive:
 - Crew pay recording in Phase 3 follows the accountant's setup.
 
 **Infrastructure**
-- Supabase project `rake-american-prime` (us-east-1) in the 2Stack org — not yet
-  created.
-- Vercel project under the 2Stack team.
+- Supabase project `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`,
+  us-east-1) — migrations applied, smoke-tested.
+- Vercel project under the 2Stack team — not yet created.
+- Supabase Auth: redirect URLs, phone provider (Twilio Verify), first owner —
+  see README "Going live".
+- Twilio A2P 10DLC registration for the business number.
 - Intuit developer app for the QuickBooks connector.

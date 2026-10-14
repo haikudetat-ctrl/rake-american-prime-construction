@@ -213,15 +213,18 @@ $$;
 
 -- SKIP LOCKED so overlapping cron invocations never deliver a message twice.
 -- A message stuck in 'sending' for 10 minutes (worker died) is reclaimed.
-create function public.claim_outbox(batch_size int default 20)
+-- Only channels the deployment can deliver are claimed, so a message waits
+-- (rather than burning its retries) until Twilio or Resend is configured.
+create function public.claim_outbox(batch_size int, channels text[])
 returns setof public.outbox_messages
 language sql security definer set search_path = '' as $$
   update public.outbox_messages o
   set status = 'sending', locked_at = now(), attempts = o.attempts + 1
   where o.id in (
     select id from public.outbox_messages
-    where (status in ('pending', 'failed') and run_after <= now())
-       or (status = 'sending' and locked_at < now() - interval '10 minutes')
+    where channel = any(channels)
+      and ((status in ('pending', 'failed') and run_after <= now())
+        or (status = 'sending' and locked_at < now() - interval '10 minutes'))
     order by run_after
     limit batch_size
     for update skip locked
@@ -247,8 +250,8 @@ language sql security definer set search_path = '' as $$
   where id = p_id;
 $$;
 
-revoke execute on function public.claim_outbox(int), public.finish_outbox(uuid, text) from public, anon, authenticated;
-grant execute on function public.claim_outbox(int), public.finish_outbox(uuid, text) to service_role;
+revoke execute on function public.claim_outbox(int, text[]), public.finish_outbox(uuid, text) from public, anon, authenticated;
+grant execute on function public.claim_outbox(int, text[]), public.finish_outbox(uuid, text) to service_role;
 
 -- Document numbers --------------------------------------------------------------
 
@@ -277,6 +280,10 @@ alter table public.audit_log enable row level security;
 alter table public.domain_events enable row level security;
 alter table public.outbox_messages enable row level security;
 alter table public.number_sequences enable row level security;
+
+-- Supabase's default privileges can grant anon/authenticated everything on
+-- new tables. Start from nothing and grant exactly what each role needs.
+revoke all on all tables in schema public from anon, authenticated;
 
 grant select on public.companies, public.brands, public.profiles, public.memberships to authenticated;
 grant update on public.brands to authenticated;

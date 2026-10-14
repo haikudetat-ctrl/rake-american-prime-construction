@@ -1,6 +1,66 @@
 # Rake for American Prime
 
-Operations system for American Prime Construction: dumpster rental operations first,
-then roofing sales, job costing, reviews and referrals.
+Operations system for American Prime Construction. Phase 1 runs the dumpster
+business: customer request link → office approval → driver run → scale ticket →
+weekly statement → payment.
 
-See [docs/design.md](docs/design.md) for the system design and phase plan.
+Design: [docs/design.md](docs/design.md).
+
+## Stack
+
+Next.js 16, React 19, Supabase (Postgres 17, Auth, Storage), Tailwind v4, zod,
+vitest, pgTAP. Deployed on Vercel with two crons (`vercel.json`).
+
+Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us-east-1).
+
+## Layout
+
+```
+app/request/[slug]   public request link (no login)
+app/office           owner/office: today, requests, cans, customers, billing, numbers, settings
+app/driver           driver run, English/Spanish
+app/login            email link (office) and text code (drivers)
+app/api/cron         outbox delivery (5 min) and daily reminders + Monday statements
+lib/                 pure logic (money, dates, dispatch, turnaround, messages) + integrations
+supabase/migrations  schema, RLS and workflow functions — billing math lives here
+supabase/tests       pgTAP: RLS by role, full rental lifecycle, outbox
+```
+
+Every workflow step (drop, pickup, scale ticket, statement, payment) is a
+Postgres function, so the can, the invoice and the outbound message change in
+one transaction. The app reads with the signed-in user's client; RLS decides
+what each role sees. Drivers have no access to any table that carries prices.
+
+## Checks
+
+```bash
+npm ci
+npm run lint && npm run typecheck && npm test   # app
+npm run db:test                                 # pgTAP against a throwaway local Postgres 16
+```
+
+`db:test` needs `postgresql-16` and `postgresql-16-pgtap`; it applies the
+migrations on top of a small Supabase stand-in (`supabase/tests/support`). With
+Docker available, `supabase test db` runs the same suites.
+
+## Going live — one-time setup
+
+1. **Vercel:** create the project from this repo; set the variables in
+   `.env.example`.
+2. **Supabase Auth → URL configuration:** Site URL = `APP_URL`; add
+   `APP_URL/auth/callback` to redirect URLs. Disable "Allow new users to sign up".
+3. **Supabase Auth → Phone:** enable, provider Twilio Verify (drivers' sign-in codes).
+4. **First owner:** create the user in Supabase Auth (email), then run:
+   ```sql
+   insert into public.profiles (user_id, full_name, phone)
+   select id, 'Andrey', '+1XXXXXXXXXX' from auth.users where email = 'owner@example.com';
+   insert into public.memberships (user_id, company_id, role)
+   select u.id, c.id, 'owner' from auth.users u, public.companies c
+   where u.email = 'owner@example.com' and c.slug = 'american-prime';
+   ```
+   Everyone else is added from **Settings → Team**.
+5. **Settings:** publish real prices (clears the placeholder banner), add yard
+   and landfill addresses, cans, and the business phone/mailing address that
+   print on statements.
+6. **Twilio:** register the business number for A2P 10DLC before texts go to
+   customers; carrier approval takes weeks.
