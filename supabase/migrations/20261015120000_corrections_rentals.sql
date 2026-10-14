@@ -15,8 +15,7 @@ alter table public.rentals add column cancel_reason text;
 alter table public.statements add column void_reason text;
 
 -- Undoing a drop deletes the draft invoice it opened, so record deletions too.
-drop trigger invoices_audit on public.invoices;
-create trigger invoices_audit after insert or update or delete on public.invoices
+create trigger invoices_audit_delete after delete on public.invoices
   for each row execute function app.audit();
 create trigger scale_tickets_audit after insert or update or delete on public.scale_tickets
   for each row execute function app.audit();
