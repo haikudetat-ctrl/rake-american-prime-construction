@@ -351,3 +351,12 @@ export async function setMemberActive(form: FormData) {
   if (error) back("/office/settings", errorText(error), "error");
   done("/office/settings", "Team updated.");
 }
+
+// QuickBooks -------------------------------------------------------------------------
+
+export async function disconnectQuickBooks() {
+  const owner = await requireOwner();
+  const { disconnect } = await import("@/lib/integrations/quickbooks/connection");
+  await disconnect(owner.companyId);
+  done("/office/settings", "QuickBooks disconnected.");
+}
