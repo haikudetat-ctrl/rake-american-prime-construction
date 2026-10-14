@@ -31,6 +31,8 @@ const en = {
   "login.verify": "Sign in",
   "login.badPhone": "Enter a 10-digit phone number.",
   "login.badCode": "That code didn't work. Request a new one.",
+  "login.rateLimited": "Too many attempts. Wait a few minutes and try again.",
+  "login.systemError": "Couldn't send the code right now. Call the office.",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -66,6 +68,8 @@ const es: Record<MessageKey, string> = {
   "login.verify": "Entrar",
   "login.badPhone": "Escribe un número de 10 dígitos.",
   "login.badCode": "Ese código no funcionó. Pide uno nuevo.",
+  "login.rateLimited": "Demasiados intentos. Espera unos minutos e intenta de nuevo.",
+  "login.systemError": "No se pudo enviar el código ahora. Llama a la oficina.",
 };
 
 const dictionaries: Record<Locale, Record<MessageKey, string>> = { en, es };

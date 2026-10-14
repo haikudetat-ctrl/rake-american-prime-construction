@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { addContact, addSite, createRental, updateCustomer } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
@@ -116,10 +117,10 @@ export default async function CustomerPage({ params, searchParams }: PageProps<"
               const invoice = one(r.invoices);
               return (
                 <tr key={r.id}>
-                  <td>{formatDate(r.requested_drop_date)}</td>
+                  <td><Link className="underline" href={`/office/rentals/${r.id}`}>{formatDate(r.requested_drop_date)}</Link></td>
                   <td>{one(r.sites)?.address}</td>
                   <td>{one(r.cans)?.label ?? "—"}</td>
-                  <td>{r.status.replace("_", " ")}</td>
+                  <td>{r.status.replaceAll("_", " ")}</td>
                   <td>{invoice ? <>#{invoice.number} · {formatCents(invoice.total_cents)} · {invoice.status.replace("_", " ")}</> : "—"}</td>
                 </tr>
               );

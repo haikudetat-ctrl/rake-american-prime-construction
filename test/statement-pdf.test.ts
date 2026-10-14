@@ -10,6 +10,7 @@ describe("statement PDF", () => {
       issuedOn: "2026-10-19",
       dueOn: "2026-11-03",
       status: "open",
+      voidReason: null,
       sentAt: null,
       totalCents: 56000,
       paidCents: 0,
@@ -19,6 +20,7 @@ describe("statement PDF", () => {
       invoices: [
         {
           number: 1002,
+          rentalId: null,
           address: "12 Ocean Ave, Ventnor City, NJ",
           dates: "Mon, Oct 5 – Thu, Oct 15",
           totalCents: 56000,

@@ -8,6 +8,7 @@ export type StatementView = {
   issuedOn: string;
   dueOn: string;
   status: "open" | "paid" | "void";
+  voidReason: string | null;
   sentAt: string | null;
   totalCents: number;
   paidCents: number;
@@ -16,6 +17,7 @@ export type StatementView = {
   customer: { name: string; billingEmail: string | null };
   invoices: Array<{
     number: number;
+    rentalId: string | null;
     address: string;
     dates: string;
     totalCents: number;
@@ -27,10 +29,10 @@ export type StatementView = {
 const LINE_ORDER = ["delivery", "extended_days", "tonnage", "adjustment"];
 
 const SELECT = `
-  id, number, issued_on, due_on, status, sent_at, total_cents,
+  id, number, issued_on, due_on, status, void_reason, sent_at, total_cents,
   customers(name, billing_email),
   payments(amount_cents, method, reference, received_on),
-  invoices(number, total_cents,
+  invoices(number, total_cents, rental_id,
     invoice_lines(kind, description, amount_cents),
     rentals(dropped_at, picked_up_at, sites(address), brands(display_name, phone, email, address)))
 `;
@@ -45,6 +47,7 @@ export function shapeStatement(row: any): StatementView {
       const picked = rental?.picked_up_at ? formatDate(rental.picked_up_at.slice(0, 10)) : null;
       return {
         number: invoice.number,
+        rentalId: invoice.rental_id ?? null,
         address: one(rental?.sites as any)?.address ?? "",
         dates: [dropped, picked].filter(Boolean).join(" – "),
         totalCents: invoice.total_cents,
@@ -70,6 +73,7 @@ export function shapeStatement(row: any): StatementView {
     issuedOn: row.issued_on,
     dueOn: row.due_on,
     status: row.status,
+    voidReason: row.void_reason ?? null,
     sentAt: row.sent_at,
     totalCents: row.total_cents,
     paidCents,

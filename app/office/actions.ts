@@ -351,3 +351,72 @@ export async function setMemberActive(form: FormData) {
   if (error) back("/office/settings", errorText(error), "error");
   done("/office/settings", "Team updated.");
 }
+
+// Corrections (slice 2) --------------------------------------------------------------
+// Each one is a database function that checks the role again and refuses to
+// touch money already on a statement; these wrappers only route the result.
+
+async function correction(path: string, rpc: string, args: Record<string, unknown>, ok: string): Promise<never> {
+  const { supabase } = await staffClient();
+  const { error } = await supabase.rpc(rpc, args);
+  if (error) back(path, errorText(error), "error");
+  done(path, ok);
+}
+
+export async function cancelRental(form: FormData) {
+  const id = str(form, "rentalId");
+  await correction(`/office/rentals/${id}`, "cancel_rental", { p_rental_id: id, p_reason: str(form, "reason") }, "Rental cancelled.");
+}
+
+export async function swapCan(form: FormData) {
+  const id = str(form, "rentalId");
+  await correction(`/office/rentals/${id}`, "swap_can", { p_rental_id: id, p_can_id: str(form, "canId") }, "Can changed.");
+}
+
+export async function cancelPickup(form: FormData) {
+  const id = str(form, "rentalId");
+  await correction(`/office/rentals/${id}`, "cancel_pickup", { p_rental_id: id }, "Pickup cancelled; the can is back on the job.");
+}
+
+export async function undoStop(form: FormData) {
+  const id = str(form, "rentalId");
+  await correction(`/office/rentals/${id}`, "undo_stop", { p_stop_id: str(form, "stopId") }, "Step undone. It's back on the driver's run.");
+}
+
+export async function addAdjustment(form: FormData) {
+  const id = str(form, "rentalId");
+  const cents = parseDollarsToCents(str(form, "amount"));
+  if (!cents) back(`/office/rentals/${id}`, "Enter the amount in dollars.", "error");
+  const signed = str(form, "direction") === "credit" ? -cents : cents;
+  await correction(
+    `/office/rentals/${id}`,
+    "add_invoice_adjustment",
+    { p_invoice_id: str(form, "invoiceId"), p_description: str(form, "description"), p_amount_cents: signed },
+    "Adjustment added.",
+  );
+}
+
+export async function removeAdjustment(form: FormData) {
+  const id = str(form, "rentalId");
+  await correction(`/office/rentals/${id}`, "remove_invoice_adjustment", { p_line_id: str(form, "lineId") }, "Adjustment removed.");
+}
+
+export async function voidInvoice(form: FormData) {
+  const id = str(form, "rentalId");
+  await correction(
+    `/office/rentals/${id}`,
+    "void_invoice",
+    { p_invoice_id: str(form, "invoiceId"), p_reason: str(form, "reason") },
+    "Invoice voided. It will not be billed.",
+  );
+}
+
+export async function voidStatement(form: FormData) {
+  const id = str(form, "statementId");
+  await correction(
+    `/office/billing/${id}`,
+    "void_statement",
+    { p_statement_id: id, p_reason: str(form, "reason") },
+    "Statement voided. Its invoices are back in “Ready to bill”.",
+  );
+}

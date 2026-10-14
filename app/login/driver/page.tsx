@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Flash } from "@/app/_components/flash";
 import { getMember, homeFor } from "@/lib/auth";
+import { signInProblem } from "@/lib/sign-in";
 import { isLocale, translator } from "@/lib/i18n";
 import { formatPhone, toE164 } from "@/lib/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -24,7 +25,9 @@ export default async function DriverLoginPage({ searchParams }: PageProps<"/logi
     const to = toE164(String(formData.get("phone") ?? ""));
     if (!to) redirect(`/login/driver?error=phone&lang=${lang}`);
     const supabase = await createSupabaseServerClient();
-    await supabase.auth.signInWithOtp({ phone: to, options: { shouldCreateUser: false } });
+    const { error } = await supabase.auth.signInWithOtp({ phone: to, options: { shouldCreateUser: false } });
+    const problem = signInProblem(error);
+    if (problem) redirect(`/login/driver?error=${problem}&lang=${lang}`);
     redirect(`/login/driver?phone=${encodeURIComponent(to)}&lang=${lang}`);
   }
 
@@ -56,6 +59,8 @@ export default async function DriverLoginPage({ searchParams }: PageProps<"/logi
         </div>
         {error === "phone" && <Flash tone="error">{t("login.badPhone")}</Flash>}
         {error === "code" && <Flash tone="error">{t("login.badCode")}</Flash>}
+        {error === "rate" && <Flash tone="error">{t("login.rateLimited")}</Flash>}
+        {error === "system" && <Flash tone="error">{t("login.systemError")}</Flash>}
 
         {!e164 ? (
           <form action={sendCode} className="space-y-3">
