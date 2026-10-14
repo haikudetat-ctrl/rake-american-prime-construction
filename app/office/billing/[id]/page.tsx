@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { recordPayment } from "@/app/office/actions";
+import { recordPayment, voidStatement } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { companyToday, formatDate } from "@/lib/dates";
@@ -8,7 +9,7 @@ import { loadStatement } from "@/lib/billing/statement";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function StatementPage({ params, searchParams }: PageProps<"/office/billing/[id]">) {
-  await requireStaff();
+  const member = await requireStaff();
   const { id } = await params;
   const query = await searchParams;
   const statement = await loadStatement(await createSupabaseServerClient(), id);
@@ -24,6 +25,7 @@ export default async function StatementPage({ params, searchParams }: PageProps<
       <p className="text-sm text-muted">
         Issued {formatDate(statement.issuedOn)} · due {formatDate(statement.dueOn)} ·{" "}
         {statement.sentAt ? `emailed to ${statement.customer.billingEmail}` : statement.customer.billingEmail ? "email queued" : "no billing email on file"}
+        {statement.status === "void" && <strong> · Void: {statement.voidReason}</strong>}
       </p>
 
       <section className="card overflow-x-auto">
@@ -33,7 +35,11 @@ export default async function StatementPage({ params, searchParams }: PageProps<
             {statement.invoices.flatMap((invoice) =>
               invoice.lines.map((line, i) => (
                 <tr key={`${invoice.number}-${i}`}>
-                  <td>{i === 0 ? `#${invoice.number}` : ""}</td>
+                  <td>
+                    {i === 0 && (invoice.rentalId ? (
+                      <Link className="underline" href={`/office/rentals/${invoice.rentalId}`}>#{invoice.number}</Link>
+                    ) : `#${invoice.number}`)}
+                  </td>
                   <td>{i === 0 ? <>{invoice.address}<div className="text-xs text-muted">{invoice.dates}</div></> : ""}</td>
                   <td>{line.description}</td>
                   <td className="text-right">{formatCents(line.amountCents)}</td>
@@ -70,6 +76,21 @@ export default async function StatementPage({ params, searchParams }: PageProps<
           </form>
         )}
       </section>
+
+      {member.role === "owner" && statement.status === "open" && statement.payments.length === 0 && (
+        <section className="card space-y-2">
+          <h2 className="font-semibold">Void this statement</h2>
+          <p className="text-sm text-muted">
+            Use this to fix a charge after the statement went out. Its invoices go back to “Ready to bill”;
+            correct them on the rental page, then issue a new statement. Send the customer a note that the old one is replaced.
+          </p>
+          <form action={voidStatement} className="flex flex-wrap gap-2">
+            <input type="hidden" name="statementId" value={statement.id} />
+            <input name="reason" required placeholder="Reason" className="input flex-1" />
+            <button className="btn-secondary text-danger">Void statement</button>
+          </form>
+        </section>
+      )}
     </>
   );
 }
