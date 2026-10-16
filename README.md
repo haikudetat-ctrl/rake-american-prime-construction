@@ -4,7 +4,7 @@ Operations system for American Prime Construction. Phase 1 runs the dumpster
 business: customer request link → office approval → driver run → scale ticket →
 weekly statement → payment.
 
-Design: [docs/design.md](docs/design.md).
+Design: [docs/design.md](docs/design.md). Phase 2 (roofing): [docs/phase-2-design.md](docs/phase-2-design.md).
 
 ## Stack
 
