@@ -5,7 +5,7 @@ import { requireOwner, requireStaff } from "@/lib/auth";
 import { orderStops } from "@/lib/dispatch/order";
 import { back, errorText, optional, str } from "@/lib/flash";
 import { GoogleGeocodeProvider } from "@/lib/integrations/geocode";
-import { parseDollarsToCents } from "@/lib/money";
+import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
 import { adminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -359,6 +359,34 @@ export async function disconnectQuickBooks() {
   const { disconnect } = await import("@/lib/integrations/quickbooks/connection");
   await disconnect(owner.companyId);
   done("/office/settings", "QuickBooks disconnected.");
+}
+
+const QBO_ITEM_FIELDS = ["item_delivery", "item_extended_days", "item_tonnage", "item_adjustment"] as const;
+
+export async function saveQuickBooksSync(form: FormData) {
+  const owner = await requireOwner();
+  const row: Record<string, unknown> = {
+    company_id: owner.companyId,
+    sync_enabled: form.get("syncEnabled") === "on",
+    updated_by: owner.userId,
+    updated_at: new Date().toISOString(),
+  };
+  for (const field of QBO_ITEM_FIELDS) row[field] = optional(form, field);
+  // qbo_settings is server-only (no RLS policies): the owner check above is the gate.
+  const { error } = await adminClient().from("qbo_settings").upsert(row);
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", row.sync_enabled ? "QuickBooks sync saved and on." : "QuickBooks sync saved (off).");
+}
+
+export async function syncQuickBooksNow() {
+  const owner = await requireOwner();
+  const { syncCompany } = await import("@/lib/integrations/quickbooks/sync");
+  const r = await syncCompany(owner.companyId);
+  if (r.skipped) back("/office/settings", `Not synced: ${r.skipped}.`, "error");
+  if (r.error) back("/office/settings", r.error, "error");
+  const paid = r.paymentsRecordedCents ? `, ${formatCents(r.paymentsRecordedCents)} in payments recorded` : "";
+  const failed = r.failed ? `, ${r.failed} need attention` : "";
+  done("/office/settings", `QuickBooks synced: ${r.pushed} invoices sent, ${r.voided} voided${paid}${failed}.`);
 }
 
 // Corrections (slice 2) --------------------------------------------------------------

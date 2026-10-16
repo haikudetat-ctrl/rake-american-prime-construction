@@ -39,6 +39,10 @@ export default async function StatementPage({ params, searchParams }: PageProps<
                     {i === 0 && (invoice.rentalId ? (
                       <Link className="underline" href={`/office/rentals/${invoice.rentalId}`}>#{invoice.number}</Link>
                     ) : `#${invoice.number}`)}
+                    {i === 0 && invoice.quickbooks.synced && <div className="text-xs text-muted">In QuickBooks</div>}
+                    {i === 0 && invoice.quickbooks.error && (
+                      <div className="text-xs text-danger" title={invoice.quickbooks.error}>QuickBooks sync failed</div>
+                    )}
                   </td>
                   <td>{i === 0 ? <>{invoice.address}<div className="text-xs text-muted">{invoice.dates}</div></> : ""}</td>
                   <td>{line.description}</td>

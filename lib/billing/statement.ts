@@ -21,6 +21,8 @@ export type StatementView = {
     address: string;
     dates: string;
     totalCents: number;
+    /** In QuickBooks, waiting to sync, or the reason it didn't. */
+    quickbooks: { synced: boolean; error: string | null };
     lines: Array<{ description: string; amountCents: number }>;
   }>;
   payments: Array<{ amountCents: number; method: string; reference: string | null; receivedOn: string }>;
@@ -32,7 +34,7 @@ const SELECT = `
   id, number, issued_on, due_on, status, void_reason, sent_at, total_cents,
   customers(name, billing_email),
   payments(amount_cents, method, reference, received_on),
-  invoices(number, total_cents, rental_id,
+  invoices(number, total_cents, rental_id, qbo_invoice_id, qbo_sync_error,
     invoice_lines(kind, description, amount_cents),
     rentals(dropped_at, picked_up_at, sites(address), brands(display_name, phone, email, address)))
 `;
@@ -51,6 +53,7 @@ export function shapeStatement(row: any): StatementView {
         address: one(rental?.sites as any)?.address ?? "",
         dates: [dropped, picked].filter(Boolean).join(" – "),
         totalCents: invoice.total_cents,
+        quickbooks: { synced: Boolean(invoice.qbo_invoice_id), error: invoice.qbo_sync_error ?? null },
         lines: [...(invoice.invoice_lines ?? [])]
           .sort((a: any, b: any) => LINE_ORDER.indexOf(a.kind) - LINE_ORDER.indexOf(b.kind))
           .map((line: any) => ({ description: line.description, amountCents: line.amount_cents })),
