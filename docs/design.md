@@ -159,9 +159,12 @@ built so they attach to `companies`, `brands`, and `memberships` without change.
 4. **Monday** → one statement per customer covering all final invoices; PDF emailed
    via Resend. Payment instructions: check or ACH (QuickBooks link once synced).
 5. **Reminders** at 3 and 5 days past due. No automatic late fees.
-6. **QuickBooks connector** (off by default): pushes final invoices and statements to
-   QBO, pulls payments back. Our ledger stays the operational source of truth;
-   QuickBooks stays the books.
+6. **QuickBooks connector** (off by default; built in slice 3): pushes each invoice
+   on an issued statement to QBO (creating or linking the customer), voids what is
+   voided here, and pulls payments back from QBO invoice balances. Which QBO
+   product/service each line kind posts to is an owner setting, pending the
+   accountant. Our ledger stays the operational source of truth; QuickBooks stays
+   the books. Details: [quickbooks.md](quickbooks.md).
 
 ### Weekly numbers
 Rentals this week; days from pickup to invoice; average days a can stays out; can

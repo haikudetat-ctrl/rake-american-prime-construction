@@ -21,6 +21,7 @@ describe("statement PDF", () => {
         {
           number: 1002,
           rentalId: null,
+          quickbooks: { synced: false, error: null },
           address: "12 Ocean Ave, Ventnor City, NJ",
           dates: "Mon, Oct 5 – Thu, Oct 15",
           totalCents: 56000,

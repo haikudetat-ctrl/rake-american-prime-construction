@@ -47,3 +47,36 @@ export async function getUserInfo(companyId: string): Promise<unknown> {
     return response.getJson();
   });
 }
+
+/** Pinned so responses don't change shape under us; Intuit's current minor version. */
+export const MINOR_VERSION = "75";
+
+/**
+ * A QBO Accounting API call under /v3/company/{realmId}/. `path` is relative
+ * to that, e.g. "invoice" or "query".
+ */
+export async function qboRequest<T = unknown>(
+  companyId: string,
+  req: { method: "GET" | "POST"; path: string; body?: unknown; params?: Record<string, string> },
+): Promise<T> {
+  return withToken(companyId, async (client, connection) => {
+    const realm = encodeURIComponent(connection.realmId);
+    const response = await client.makeApiCall({
+      url: `v3/company/${realm}/${req.path}`,
+      method: req.method,
+      body: req.body,
+      params: { minorversion: MINOR_VERSION, ...req.params },
+    });
+    return response.json as T;
+  });
+}
+
+/** QBO query language: SELECT ... FROM Entity WHERE ... (read-only). */
+export async function qboQuery<T>(companyId: string, entity: string, query: string): Promise<T[]> {
+  const json = await qboRequest<{ QueryResponse?: Record<string, T[] | undefined> }>(companyId, {
+    method: "GET",
+    path: "query",
+    params: { query },
+  });
+  return json.QueryResponse?.[entity] ?? [];
+}

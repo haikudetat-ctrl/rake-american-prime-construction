@@ -30,6 +30,8 @@ export class QboError extends Error {
     detail?: string,
     readonly intuitTid?: string,
     readonly status?: number,
+    /** QuickBooks Fault error codes, e.g. "6240" for a duplicate customer name. */
+    readonly faultCodes: string[] = [],
   ) {
     super(detail ? `${ADVICE[kind]} (${detail})` : ADVICE[kind]);
     this.name = "QboError";
@@ -39,6 +41,8 @@ export class QboError extends Error {
     return { error: this.kind, message: this.message, intuit_tid: this.intuitTid ?? null };
   }
 }
+
+const CODE_STATUS: Record<string, number> = { RATE_LIMIT_EXCEEDED: 429, INTERNAL_SERVER_ERROR: 500 };
 
 type SdkError = {
   error?: string;
@@ -50,7 +54,7 @@ type SdkError = {
   status?: number;
   response?: { status?: number };
   authResponse?: { response?: { status?: number } };
-  fault?: { errors?: Array<{ message?: string; detail?: string }> };
+  fault?: { errors?: Array<{ message?: string; detail?: string; code?: string }> };
   message?: string;
 };
 
@@ -62,8 +66,17 @@ export function toQboError(err: unknown): QboError {
   if (err instanceof QboError) return err;
   const e = (err ?? {}) as SdkError;
   const tid = e.intuit_tid ?? e.intuitTid;
-  const status = e.status ?? e.response?.status ?? e.authResponse?.response?.status;
+  // intuit-oauth's makeApiCall reports the HTTP status in `code` ("401",
+  // "RATE_LIMIT_EXCEEDED", ...) rather than a status field.
+  const status =
+    e.status ??
+    e.response?.status ??
+    e.authResponse?.response?.status ??
+    // A Fault's code is a QuickBooks error number (e.g. "610"), not an HTTP status.
+    (!e.fault && e.code && /^\d{3}$/.test(e.code) ? Number(e.code) : undefined) ??
+    CODE_STATUS[e.code ?? ""];
   const oauthCode = e.error ?? e.code;
+  const faultCodes = (e.fault?.errors ?? []).map((f) => f.code).filter((c): c is string => Boolean(c));
   const detail =
     e.fault?.errors?.map((f) => [f.message, f.detail].filter(Boolean).join(": ")).join("; ") ||
     e.error_description ||
@@ -76,5 +89,6 @@ export function toQboError(err: unknown): QboError {
   if (status === 403) return new QboError("forbidden", detail, tid, status);
   if (status === 429) return new QboError("rate_limited", detail, tid, status);
   if (status !== undefined && status >= 500) return new QboError("unavailable", detail, tid, status);
-  return new QboError("request", detail, tid, status);
+  if (e.code === "NETWORK_ERROR" || e.code === "TIMEOUT_ERROR") return new QboError("unavailable", detail, tid);
+  return new QboError("request", detail, tid, status, faultCodes);
 }
