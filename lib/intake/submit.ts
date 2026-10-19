@@ -9,23 +9,38 @@ export type SubmitResult =
   | { ok: true }
   | { ok: false; error: "invalid" | "rate_limited" | "unknown_link" | "past_date" | "failed"; fields?: string[] };
 
-/** Looks up the brand behind a public link, or null if the link is unknown or off. */
-export async function loadRequestLink(slug: string) {
+/**
+ * Looks up the brand behind a public link, or null if the link is unknown, off,
+ * or belongs to the other business (a dumpster link never opens the roofing
+ * form, and the reverse).
+ */
+export async function loadRequestLink(slug: string, kind: "dumpster" | "roofing" = "dumpster") {
   const { data } = await adminClient()
     .from("request_links")
-    .select("slug, brands(display_name, phone)")
+    .select("slug, brand_id, brands!inner(kind, display_name, phone)")
     .eq("slug", slug)
     .eq("is_active", true)
+    .eq("brands.kind", kind)
     .maybeSingle();
   if (!data) return null;
   const brand = Array.isArray(data.brands) ? data.brands[0] : data.brands;
-  return { slug: data.slug as string, brandName: brand?.display_name as string, brandPhone: brand?.phone as string | null };
+  return {
+    slug: data.slug as string,
+    brandId: data.brand_id as string,
+    brandName: brand?.display_name as string,
+    brandPhone: brand?.phone as string | null,
+  };
 }
 
-function intakeSecret(): string {
+export function intakeSecret(): string {
   const secret = process.env.INTAKE_SECRET;
   if (!secret) throw new Error("Missing INTAKE_SECRET");
   return secret;
+}
+
+/** Who submitted, for rate limiting, without storing the IP itself. */
+export function hashSubmitter(clientIp: string): string {
+  return createHash("sha256").update(`${clientIp}:${intakeSecret()}`).digest("hex");
 }
 
 /** Signed render stamp for the request form (see lib/intake/token.ts). */
@@ -33,7 +48,7 @@ export function newFormToken(): string {
   return issueFormToken(intakeSecret());
 }
 
-async function geocode(address: string): Promise<GeocodeResult | null> {
+export async function geocode(address: string): Promise<GeocodeResult | null> {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return null;
   try {
@@ -63,9 +78,7 @@ export async function submitRentalRequest(slug: string, form: FormData, clientIp
   if (renderedAt === null || isTooFast(renderedAt)) return { ok: true };
 
   const place = await geocode(input.address);
-  const submitterHash = createHash("sha256")
-    .update(`${clientIp}:${intakeSecret()}`)
-    .digest("hex");
+  const submitterHash = hashSubmitter(clientIp);
 
   const { error } = await adminClient().rpc("submit_rental_request", {
     p_slug: slug,

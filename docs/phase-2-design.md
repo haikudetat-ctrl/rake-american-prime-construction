@@ -17,9 +17,9 @@ Same Supabase project, same app, same roles. Crews never see prices (as with dri
 
 ## What gets built, in order
 
-### 2a. Leads, intake link, pipeline
+### 2a. Leads, intake link, pipeline — built (Oct 19)
 
-- **Roofing request link** (`/roof/<slug>`, public, no login). Same pattern as the dumpster
+- **Roofing request link** (`/roof/<slug>`; live as `/roof/roof`, public, no login). Same pattern as the dumpster
   link: signed form token, honeypot, rate limit, NJ-restricted geocoding. Homeowner enters
   name, phone, email, address, what they need (replacement, repair, inspection, gutters, storm
   damage), notes and optional photos. A text-consent checkbox with the disclosure text is

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate, weekStart } from "@/lib/dates";
 import { cansNeeded, fleetVerdict, maxDaysPerTurn } from "@/lib/metrics/turnaround";
+import { SOURCE_LABEL, STAGE_LABEL, winRate, type Stage } from "@/lib/leads/schema";
 import { formatCents } from "@/lib/money";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -71,6 +72,57 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
           {verdict === "short" && "Get pickups sooner, or plan for more cans."}
         </p>
       )}
+      <RoofingNumbers />
     </>
+  );
+}
+
+const ROOFING_DAYS = 90;
+
+/** The sales side: what is in the pipeline now, and how the last 90 days closed. */
+async function RoofingNumbers() {
+  const supabase = await createSupabaseServerClient();
+  const since = addDays(companyToday(), -ROOFING_DAYS);
+  const { data } = await supabase.rpc("lead_numbers", { p_since: since }).single<{
+    by_stage: Partial<Record<Stage, number>>;
+    new_since: number;
+    by_source: Record<string, number>;
+    won: number;
+    lost: number;
+    stale_proposals: number;
+    uncontacted: number;
+  }>();
+  if (!data) return null;
+  const rate = winRate(data.won, data.lost);
+  const open = (["new", "contacted", "appointment", "proposal_sent"] as Stage[])
+    .map((s) => `${STAGE_LABEL[s]} ${data.by_stage[s] ?? 0}`).join(" · ");
+  const tiles = [
+    { label: "Proposals out", value: String(data.by_stage.proposal_sent ?? 0), note: data.stale_proposals ? `${data.stale_proposals} waiting over a week` : undefined },
+    { label: "Not contacted yet", value: String(data.by_stage.new ?? 0), note: data.uncontacted ? `${data.uncontacted} over a day old` : undefined },
+    { label: `Win rate, last ${ROOFING_DAYS} days`, value: rate === null ? "—" : `${rate}%`, note: `${data.won} won, ${data.lost} lost` },
+    { label: `New leads, last ${ROOFING_DAYS} days`, value: String(data.new_since) },
+  ];
+  const sources = Object.entries(data.by_source).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Roofing</h2>
+        <Link className="text-sm underline" href="/office/leads">Open the pipeline</Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="card">
+            <p className="text-sm text-muted">{tile.label}</p>
+            <p className="text-2xl font-semibold">{tile.value}</p>
+            {tile.note && <p className="text-xs text-warn">{tile.note}</p>}
+          </div>
+        ))}
+      </div>
+      <p className="card text-sm">
+        Open now: {open}.
+        {sources.length > 0 && <> Where leads came from: {sources.map(([s, n]) => `${SOURCE_LABEL[s] ?? s} ${n}`).join(", ")}.</>}
+      </p>
+    </section>
   );
 }
