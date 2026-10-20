@@ -5,12 +5,16 @@ import { sendEmail } from "@/lib/integrations/resend";
 import { SmsProviderError, TwilioMessagingClient } from "@/lib/integrations/twilio";
 import {
   leadReceivedSms,
+  proposalLinkEmail,
+  proposalLinkSms,
+  proposalSignedEmail,
+  proposalSignedSms,
   reminderEmail,
-  textReceivedSms,
-  voicemailReceivedSms,
   requestApprovedSms,
   requestReceivedSms,
   statementEmail,
+  textReceivedSms,
+  voicemailReceivedSms,
   type Brand,
 } from "@/lib/outbox/messages";
 import { renderStatementPdf } from "@/lib/pdf/render";
@@ -44,6 +48,45 @@ function smsClient() {
 function emailConfig() {
   const { RESEND_API_KEY, EMAIL_FROM } = process.env;
   return RESEND_API_KEY && EMAIL_FROM ? { apiKey: RESEND_API_KEY, from: EMAIL_FROM } : null;
+}
+
+async function roofingBrand(companyId: string): Promise<Brand & { email: string | null }> {
+  const { data } = await adminClient()
+    .from("brands")
+    .select("display_name, phone, email")
+    .eq("company_id", companyId)
+    .eq("kind", "roofing")
+    .single();
+  return { name: data?.display_name ?? "American Prime Construction", phone: data?.phone ?? null, email: data?.email ?? null };
+}
+
+/** Proposal emails: the link to review and sign, and the signed copy with its PDF. */
+async function deliverProposalEmail(message: OutboxMessage, email: { apiKey: string; from: string }, appUrl: string) {
+  const p = message.payload;
+  const { loadFullProposal } = await import("@/lib/proposals/server");
+  const proposal = await loadFullProposal({ id: String(p.proposal_id) });
+  if (!proposal) throw new Skip("proposal not found");
+  const brand = await roofingBrand(message.company_id);
+  if (message.kind === "proposal_link") {
+    if (proposal.status !== "sent") throw new Skip(`proposal is ${proposal.status}`);
+    const content = proposalLinkEmail({ name: String(p.name), number: proposal.content.number, link: `${appUrl}/p/${p.token}` }, brand);
+    await sendEmail({ apiKey: email.apiKey, from: `${brand.name} <${email.from}>`, to: String(p.to), replyTo: brand.email, ...content });
+    return;
+  }
+  if (!proposal.signature) throw new Skip("not signed");
+  const { proposalPdf } = await import("@/lib/proposals/pdf");
+  const content = proposalSignedEmail(
+    { name: proposal.lead.name, number: proposal.content.number, option: proposal.signature.option.name, totalCents: proposal.signature.totalCents },
+    brand,
+  );
+  await sendEmail({
+    apiKey: email.apiKey,
+    from: `${brand.name} <${email.from}>`,
+    to: String(p.to),
+    replyTo: brand.email,
+    ...content,
+    attachments: [{ filename: `agreement-${proposal.content.number}.pdf`, content: await proposalPdf(proposal) }],
+  });
 }
 
 async function dumpsterBrand(companyId: string): Promise<Brand & { email: string | null }> {
@@ -131,6 +174,16 @@ async function deliver(message: OutboxMessage): Promise<void> {
         },
         appUrl,
       );
+    } else if (message.kind === "proposal_link") {
+      body = proposalLinkSms({ name: String(p.name), link: `${appUrl}/p/${p.token}` }, await roofingBrand(message.company_id));
+    } else if (message.kind === "proposal_signed") {
+      body = proposalSignedSms(
+        {
+          name: String(p.name), option: String(p.option), totalCents: Number(p.total_cents), leadId: String(p.lead_id),
+          locale: isLocale(p.locale) ? p.locale : "en",
+        },
+        appUrl,
+      );
     } else if (message.kind === "reply") {
       await sendReply(sms, message);
       return;
@@ -145,6 +198,10 @@ async function deliver(message: OutboxMessage): Promise<void> {
 
   const email = emailConfig();
   if (!email) throw new Error("Email not configured");
+  if (message.kind === "proposal_link" || message.kind === "proposal_signed") {
+    await deliverProposalEmail(message, email, appUrl);
+    return;
+  }
   const statement = await loadStatement(adminClient(), String(p.statement_id));
   if (!statement) throw new Skip("statement not found");
   if (message.kind === "statement_reminder" && statement.status !== "open") throw new Skip("statement no longer open");

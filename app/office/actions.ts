@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireOwner, requireStaff } from "@/lib/auth";
+import { getMember, requireOwner, requireStaff } from "@/lib/auth";
 import { orderStops } from "@/lib/dispatch/order";
 import { back, errorText, optional, str } from "@/lib/flash";
 import { GoogleGeocodeProvider } from "@/lib/integrations/geocode";
@@ -10,6 +10,8 @@ import { applySection, PriceListFormError } from "@/lib/estimate/form";
 import { parseRoofrText } from "@/lib/estimate/roofr";
 import { activeCatalog, MEASUREMENT_COLUMNS, priceAndSaveProposal } from "@/lib/estimate/server";
 import { officeLeadSchema, STAGE_LABEL, type Stage } from "@/lib/leads/schema";
+import { contentHash, newProposalToken } from "@/lib/proposals/content";
+import { loadFullProposal, loadProposalSettings } from "@/lib/proposals/server";
 import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
@@ -752,4 +754,81 @@ export async function savePriceList(form: FormData) {
   const { error } = await supabase.rpc("publish_catalog", { p_data: valid.data, p_needs_confirmation: needsConfirmation });
   if (error) back("/office/pricing", errorText(error), "error");
   done("/office/pricing", `Price list version ${current.version + 1} published. Estimates already built keep their prices.`);
+}
+
+// Sending and signing (phase 2d) --------------------------------------------------------
+
+export async function sendProposal(form: FormData) {
+  const { supabase, member } = await staffClient();
+  const id = str(form, "proposalId");
+  const path = `/office/proposals/${id}`;
+  // RLS first: the member must be able to see this proposal.
+  const { data: visible } = await supabase.from("proposals").select("id").eq("id", id).maybeSingle();
+  if (!visible) back("/office/leads", "Proposal not found.", "error");
+  const p = await loadFullProposal({ id });
+  if (!p) back(path, "Proposal not found.", "error");
+  const settings = await loadProposalSettings(member.companyId);
+  const content = { ...p.content, terms: settings.terms };
+  const { error } = await adminClient().rpc("send_proposal", {
+    p_company_id: member.companyId,
+    p_actor: member.userId,
+    p_proposal_id: id,
+    p_token: newProposalToken(),
+    p_content_hash: contentHash(content),
+    p_terms: settings.terms,
+    p_valid_days: settings.validDays,
+    p_by_text: form.get("byText") === "on",
+    p_by_email: form.get("byEmail") === "on",
+  });
+  if (error) back(path, errorText(error), "error");
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  done(path, "Sent. The homeowner can open it, pick an option and sign on their phone.");
+}
+
+export async function reviseProposal(form: FormData) {
+  const { supabase } = await staffClient();
+  const { data: id, error } = await supabase.rpc("revise_proposal", { p_proposal_id: str(form, "proposalId") });
+  if (error) back(`/office/proposals/${str(form, "proposalId")}`, errorText(error), "error");
+  done(`/office/proposals/${id}`, "New version drafted. Change it, then send it; sending replaces the old one.");
+}
+
+export async function saveProposalSettings(form: FormData) {
+  const owner = await requireOwner();
+  const terms = str(form, "terms");
+  if (terms.length < 20) back("/office/settings", "Enter the contract terms.", "error");
+  const { error } = await adminClient().from("proposal_settings").upsert({
+    company_id: owner.companyId,
+    terms: terms.slice(0, 20000),
+    valid_days: Math.min(365, Math.max(1, Number(str(form, "validDays")) || 30)),
+    hic_number: optional(form, "hicNumber"),
+    updated_by: owner.userId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Proposal terms saved. Proposals already sent keep the terms they were sent with.");
+}
+
+export async function scheduleRoofingJob(form: FormData) {
+  const { supabase } = await staffClient();
+  const { error } = await supabase.rpc("schedule_roofing_job", {
+    p_job_id: str(form, "jobId"),
+    p_install_date: optional(form, "installDate"),
+    p_crew_ids: form.getAll("crewId").map(String),
+    p_notes: optional(form, "notes"),
+  });
+  if (error) back("/office/jobs", errorText(error), "error");
+  done("/office/jobs", "Job updated.");
+}
+
+/** Crew and staff: start or finish a roofing job. */
+export async function setRoofingJobStatus(form: FormData) {
+  const member = await getMember();
+  if (!member) back("/login", "Sign in first.", "error");
+  const supabase = await createSupabaseServerClient();
+  const returnTo = optional(form, "returnTo") ?? (member.role === "crew" ? "/crew" : "/office/jobs");
+  const { error } = await supabase.rpc("set_roofing_job_status", { p_job_id: str(form, "jobId"), p_status: str(form, "status") });
+  if (error) back(returnTo, errorText(error), "error");
+  revalidatePath("/crew");
+  done(returnTo, "Updated.");
 }

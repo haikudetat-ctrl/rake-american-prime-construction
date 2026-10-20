@@ -3,6 +3,7 @@ import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand
 import { Notice } from "@/app/office/_notice";
 import { GalleryCard } from "@/app/office/settings/gallery-card";
 import { PhoneCard } from "@/app/office/settings/phone-card";
+import { ProposalTermsCard } from "@/app/office/settings/proposal-terms-card";
 import { QuickBooksCard } from "@/app/office/settings/quickbooks-card";
 import { requireStaff } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
@@ -75,6 +76,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
           <Link className="btn-secondary" href="/office/pricing">Open price list</Link>
         </section>
       )}
+      {isOwner && <ProposalTermsCard companyId={member.companyId} />}
       {isOwner && <PhoneCard companyId={member.companyId} />}
       {isOwner && <QuickBooksCard companyId={member.companyId} />}
 

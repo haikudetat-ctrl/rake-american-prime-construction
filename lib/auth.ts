@@ -48,10 +48,10 @@ export function isStaff(role: Role): boolean {
   return role === "owner" || role === "office";
 }
 
-export function homeFor(role: Role): "/office" | "/driver" | "/login" {
+export function homeFor(role: Role): "/office" | "/driver" | "/crew" {
   if (isStaff(role)) return "/office";
   if (role === "driver") return "/driver";
-  return "/login";
+  return "/crew";
 }
 
 export async function requireStaff(): Promise<Member> {
@@ -64,6 +64,13 @@ export async function requireStaff(): Promise<Member> {
 export async function requireOwner(): Promise<Member> {
   const member = await requireStaff();
   if (member.role !== "owner") redirect("/office");
+  return member;
+}
+
+/** Roofing crew screens. Anyone on the team can be put on a job; staff may open them too. */
+export async function requireTeamMember(): Promise<Member> {
+  const member = await getMember();
+  if (!member) redirect("/login/driver");
   return member;
 }
 

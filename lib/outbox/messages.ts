@@ -64,6 +64,51 @@ export function voicemailReceivedSms(
     : `Voicemail from ${who}, ${p.seconds}s. Listen: ${link}`;
 }
 
+export function proposalLinkSms(p: { name: string; link: string }, brand: Brand): string {
+  const first = p.name.split(/\s+/)[0];
+  return `${brand.name}: hi ${first}, your roofing proposal is ready. Review the options and sign here: ${p.link} Reply STOP to opt out.`;
+}
+
+export function proposalLinkEmail(p: { name: string; link: string; number: number }, brand: Brand): { subject: string; text: string } {
+  return {
+    subject: `Your roofing proposal #${p.number} from ${brand.name}`,
+    text: [
+      `Hi ${p.name.split(/\s+/)[0]},`,
+      "",
+      "Thanks for having us out. Your proposal is ready: it shows the options we talked about, with prices and warranties.",
+      "You can pick an option and sign right on your phone:",
+      "",
+      p.link,
+      "",
+      "Questions? Just reply to this email" + (brand.phone ? ` or call ${formatPhone(brand.phone)}.` : "."),
+      "",
+      brand.name,
+    ].join("\n"),
+  };
+}
+
+export function proposalSignedEmail(p: { name: string; number: number; option: string; totalCents: number }, brand: Brand): { subject: string; text: string } {
+  return {
+    subject: `Signed: roofing agreement #${p.number} with ${brand.name}`,
+    text: [
+      `Hi ${p.name.split(/\s+/)[0]},`,
+      "",
+      `Thank you! You signed for ${p.option}, total ${formatCents(p.totalCents)}. Your signed copy is attached.`,
+      "We'll be in touch to schedule the work.",
+      "",
+      brand.name,
+      brand.phone ? formatPhone(brand.phone) : "",
+    ].join("\n").trimEnd(),
+  };
+}
+
+export function proposalSignedSms(p: { name: string; option: string; totalCents: number; leadId: string; locale?: Locale }, appUrl: string): string {
+  const link = `${appUrl}/office/leads/${p.leadId}`;
+  return p.locale === "es"
+    ? `¡Firmado! ${p.name}: ${p.option}, ${formatCents(p.totalCents)}. ${link}`
+    : `Signed! ${p.name}: ${p.option}, ${formatCents(p.totalCents)}. ${link}`;
+}
+
 export function requestApprovedSms(p: { date: string; address: string }, brand: Brand): string {
   const contact = brand.phone ? ` Changes? Call ${formatPhone(brand.phone)}.` : "";
   return `${brand.name}: your dumpster is booked for ${formatDate(p.date)} at ${p.address}.${contact} Reply STOP to opt out.`;

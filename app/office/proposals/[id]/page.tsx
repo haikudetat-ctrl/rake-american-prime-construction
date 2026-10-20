@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { overrideOptionPrice } from "@/app/office/actions";
+import { overrideOptionPrice, reviseProposal, sendProposal } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/dates";
 import type { CostLine } from "@/lib/estimate/price";
 import { formatCents } from "@/lib/money";
+import { formatPhone } from "@/lib/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Option = {
@@ -35,11 +36,12 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
   const supabase = await createSupabaseServerClient();
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("*, leads(id, name, address)")
+    .select("*, leads(id, name, address, phone, email), proposal_signatures(signer_name, signed_at, total_cents, option, addons, ip)")
     .eq("id", id)
     .maybeSingle();
   if (!proposal) notFound();
   const lead = Array.isArray(proposal.leads) ? proposal.leads[0] : proposal.leads;
+  const signature = Array.isArray(proposal.proposal_signatures) ? proposal.proposal_signatures[0] : proposal.proposal_signatures;
   // Owners only (RLS): the cost build-up behind each price.
   const { data: costRow } = isOwner
     ? await supabase.from("proposal_costs").select("breakdown").eq("proposal_id", id).maybeSingle()
@@ -56,12 +58,19 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
       <p className="text-sm"><Link className="underline" href={`/office/leads/${lead?.id}`}>← {lead?.name}</Link></p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-xl font-semibold">Estimate #{proposal.number}</h1>
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <span className="pill">{proposal.status}</span>
+          <a className="btn-secondary" href={`/office/proposals/${proposal.id}/pdf`} target="_blank" rel="noreferrer">PDF</a>
           {draft && (
             <Link className="btn-secondary" href={`/office/leads/${lead?.id}/estimate?p=${proposal.id}&m=${proposal.measurement_id}`}>
               Change and re-price
             </Link>
+          )}
+          {(proposal.status === "sent" || proposal.status === "void") && (
+            <form action={reviseProposal}>
+              <input type="hidden" name="proposalId" value={proposal.id} />
+              <button className="btn-secondary">Make a new version</button>
+            </form>
           )}
         </div>
       </div>
@@ -73,6 +82,39 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
         <p className="card border-warn/40 bg-warn/10 text-sm">
           Priced from placeholder numbers. Confirm the roofing price list before sending this to a homeowner.
         </p>
+      )}
+      {signature && (
+        <section className="card border-ok/40 bg-ok/10 text-sm">
+          <p className="font-semibold">
+            Signed by {signature.signer_name} on {formatDateTime(signature.signed_at)}: {signature.option.name}
+            {signature.addons.length > 0 && ` + ${signature.addons.map((a: { name: string }) => a.name).join(", ")}`}, total {formatCents(signature.total_cents)}.
+          </p>
+          <p className="text-xs text-muted">From IP {signature.ip ?? "unknown"}. The signed agreement is the PDF above. <Link className="underline" href="/office/jobs">Schedule the job</Link></p>
+        </section>
+      )}
+      {proposal.status === "sent" && (
+        <section className="card text-sm">
+          <p>
+            Sent {formatDateTime(proposal.sent_at)} · {proposal.viewed_at ? `opened ${formatDateTime(proposal.viewed_at)}` : "not opened yet"} ·
+            good until {formatDateTime(proposal.expires_at)}
+          </p>
+          <p className="break-all text-xs text-muted">Homeowner link: {process.env.APP_URL ?? ""}/p/{proposal.public_token}</p>
+        </section>
+      )}
+      {proposal.status === "void" && <p className="card text-sm text-muted">Replaced: {proposal.void_reason}.</p>}
+      {draft && (
+        <form action={sendProposal} className="card flex flex-wrap items-center gap-4 text-sm">
+          <input type="hidden" name="proposalId" value={proposal.id} />
+          <span className="font-semibold">Send to {lead?.name}</span>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="byText" defaultChecked={Boolean(lead?.phone)} disabled={!lead?.phone} /> Text {lead?.phone ? formatPhone(lead.phone) : "(no phone)"}
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="byEmail" defaultChecked={Boolean(lead?.email)} disabled={!lead?.email} /> Email {lead?.email ?? "(no email)"}
+          </label>
+          <button className="btn" disabled={proposal.needs_confirmation}>Send proposal</button>
+          {proposal.needs_confirmation && <span className="text-warn">Confirm the price list and re-price before sending.</span>}
+        </form>
       )}
       {warnings.length > 0 && (
         <ul className="card list-disc space-y-1 pl-8 text-sm text-warn">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
@@ -152,7 +194,6 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
           </table>
         </section>
       )}
-      <p className="text-xs text-muted">Sending and signing come next: this estimate stays a draft for now.</p>
     </>
   );
 }

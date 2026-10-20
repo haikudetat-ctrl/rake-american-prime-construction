@@ -13,7 +13,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const member = await getMember();
-  if (member && member.role !== "crew") redirect(homeFor(member.role));
+  if (member) redirect(homeFor(member.role));
   const { sent, error } = await searchParams;
 
   async function sendLink(formData: FormData) {

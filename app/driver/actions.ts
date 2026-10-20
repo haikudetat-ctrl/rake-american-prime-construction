@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireDriver } from "@/lib/auth";
+import { requireDriver, requireTeamMember } from "@/lib/auth";
 import { companyToday } from "@/lib/dates";
 import { errorText, optional, str } from "@/lib/flash";
 import { isLocale } from "@/lib/i18n";
@@ -80,11 +80,13 @@ export async function recordTicket(form: FormData): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Anyone on the team (drivers, crew, staff) picks their language. */
 export async function setLocale(form: FormData) {
-  const member = await requireDriver();
+  const member = await requireTeamMember();
   const locale = str(form, "locale");
   if (!isLocale(locale)) return;
   const supabase = await createSupabaseServerClient();
   await supabase.from("profiles").update({ locale }).eq("user_id", member.userId);
   revalidatePath("/driver");
+  revalidatePath("/crew");
 }

@@ -96,7 +96,21 @@ Built as described below, with these specifics:
 - Pricing math lives in one pure, unit-tested module; the database stores the result as an
   immutable snapshot on the proposal.
 
-### 2d. Proposal, signing, won job
+### 2d. Proposal, signing, won job — built (Oct 20), with placeholder terms
+
+Built as described below, with these specifics:
+- Sending is blocked while the estimate is on placeholder prices. Sending locks the proposal: link
+  token (256-bit), terms copy, SHA-256 of what the homeowner sees, "good until" date (Settings →
+  Proposal terms). "Make a new version" copies it to a draft; sending that voids the old one.
+- `/p/<token>`: satellite photo (server-proxied; **enable "Maps Static API" on the Google key**),
+  scope, options, add-ons, terms, and the signing form (option, add-ons, typed name, drawn signature,
+  e-sign consent). The database recomputes the total from the stored proposal and checks the hash.
+- Signed copy: PDF with the chosen option, total, terms, signature and a signing record (time, IP,
+  device, fingerprint); emailed to the homeowner, downloadable from the link; owner/office get a text.
+- Won → `roofing_jobs`: Office → Jobs schedules date and crew; `/crew` (English/Spanish) shows the
+  crew their jobs with Map/Call and Start/Done, no prices.
+- **Terms are placeholders** until Andrey's attorney-reviewed terms are pasted in Settings.
+
 
 - **Proposal**: cover with a satellite photo of the house (Google Maps Static, same API key;
   reuses `staticMapUrl`), scope of work from the measurements, good/better/best with price
