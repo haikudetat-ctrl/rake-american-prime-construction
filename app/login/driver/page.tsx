@@ -41,7 +41,7 @@ export default async function DriverLoginPage({ searchParams }: PageProps<"/logi
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.verifyOtp({ phone: to, token, type: "sms" });
     if (error) redirect(`/login/driver?phone=${encodeURIComponent(to)}&error=code&lang=${lang}`);
-    redirect("/");
+    redirect("/login/driver");
   }
 
   const other = locale === "en" ? "es" : "en";

@@ -16,6 +16,7 @@ Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us
 ## Layout
 
 ```
+app/                 public dumpster landing page (all request CTAs → /request/dumpster)
 app/request/[slug]   public dumpster request link (no login)
 app/roof/[slug]      public roofing estimate link (no login), with past-job photos
 app/office           owner/office: today, requests, leads, inbox (texts, calls), jobs (P&L, aftercare), stock, referrals, cans, customers, billing, numbers, settings
@@ -75,3 +76,15 @@ Docker available, `supabase test db` runs the same suites.
    URLs shown there.
 7. **Twilio:** register the business number for A2P 10DLC before texts go to
    customers; carrier approval takes weeks.
+
+## Public landing page
+
+The homepage is a public, indexable dumpster-rental landing page with Bebas Neue
+headings. All rental, size-card, and availability links open `/request/dumpster`;
+the existing intake and confirmation flow are unchanged. Team sign-in is available
+in the navigation and footer. Successful office and driver sign-ins return through
+their respective login pages, which route members to their role-specific screens.
+
+The hero image in `public/images/dumpster-hero.webp` is an AI-generated illustrative
+construction scene. The dumpster diagrams and service-area graphic are illustrative;
+delivery coverage, size availability, and rental details are confirmed by the team.
