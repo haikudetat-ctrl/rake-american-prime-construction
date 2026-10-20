@@ -24,7 +24,7 @@ export default async function StockPage({ searchParams }: PageProps<"/office/sto
     <>
       <Notice searchParams={query} />
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Stock</h1>
+        <h1 className="page-title">Stock</h1>
         <p className="text-sm text-muted">On the shelf: {formatCents(Math.round(value))} at average cost</p>
       </div>
       <p className="text-sm text-muted">

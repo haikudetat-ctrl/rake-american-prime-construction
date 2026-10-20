@@ -29,7 +29,7 @@ export default async function PricingPage({ searchParams }: PageProps<"/office/p
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href="/office/settings">← Settings</Link></p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Roofing price list</h1>
+        <h1 className="page-title">Roofing price list</h1>
         <span className="pill">version {catalog.version}</span>
       </div>
       <p className="text-sm text-muted">

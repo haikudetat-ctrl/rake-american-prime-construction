@@ -71,12 +71,12 @@ export function SignForm({
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Your option</legend>
         {options.map((o) => (
-          <label key={o.systemId} className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+          <label key={o.systemId} className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-border bg-surface p-3 has-[:checked]:border-2 has-[:checked]:border-brand">
             <span className="flex items-center gap-2">
               <input type="radio" name="choice" value={o.systemId} checked={choice === o.systemId} onChange={() => setChoice(o.systemId)} />
               <span>{o.name} <span className="text-xs text-muted">({o.tierLabel})</span></span>
             </span>
-            <span className="font-semibold">{formatCents(optionPrice(o))}</span>
+            <span className="font-display text-2xl font-bold">{formatCents(optionPrice(o))}</span>
           </label>
         ))}
       </fieldset>
@@ -145,7 +145,7 @@ export function SignForm({
         <span>{ESIGN_CONSENT}</span>
       </label>
       {error && <p className="text-sm text-danger">{error}</p>}
-      <button disabled={pending} className="btn w-full py-3 text-base">{pending ? "Signing…" : "Sign"}</button>
+      <button disabled={pending} className="btn w-full py-3 font-display text-lg tracking-wider uppercase">{pending ? "Signing…" : "Choose and sign"}</button>
     </form>
   );
 }

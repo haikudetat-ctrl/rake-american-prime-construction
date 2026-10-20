@@ -1,13 +1,22 @@
 @import "tailwindcss";
 
+/* "Job Site" look: warm concrete page, dark steel chrome, safety orange. */
 :root {
-  --background: #f6f6f4;
+  --background: #f4f2ee;
   --surface: #ffffff;
-  --foreground: #1c1c1a;
-  --muted: #6b6b66;
-  --border: #e2e1dc;
+  --sunken: #e9e6e0;
+  --foreground: #1c1917;
+  --muted: #6b6560;
+  --border: #e7e5e4;
+  /* Buttons, links and badges: #c2410c keeps white text at AA contrast. */
   --accent: #c2410c;
   --accent-foreground: #ffffff;
+  /* Safety orange for stripes, rules and focus rings (never under text). */
+  --brand: #ea580c;
+  --ink: #1c1917;
+  --ink-foreground: #e7e5e4;
+  --ink-muted: #a8a29e;
+  --ink-active: #44403c;
   --ok: #15803d;
   --warn: #b45309;
   --danger: #b91c1c;
@@ -15,13 +24,19 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #141413;
-    --surface: #1e1e1c;
-    --foreground: #ecebe6;
-    --muted: #a3a29b;
-    --border: #34332f;
+    --background: #141210;
+    --surface: #1f1c1a;
+    --sunken: #181614;
+    --foreground: #ece9e5;
+    --muted: #a8a29e;
+    --border: #3a3633;
     --accent: #f97316;
-    --accent-foreground: #141413;
+    --accent-foreground: #141210;
+    --brand: #f97316;
+    --ink: #0c0a09;
+    --ink-foreground: #e7e5e4;
+    --ink-muted: #a8a29e;
+    --ink-active: #292524;
     --ok: #4ade80;
     --warn: #fbbf24;
     --danger: #f87171;
@@ -31,49 +46,97 @@
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-brand: var(--brand);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-active: var(--ink-active);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-barlow-condensed);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+@layer base {
+  h1,
+  h2 {
+    font-family: var(--font-barlow-condensed), var(--font-inter), sans-serif;
+    text-transform: uppercase;
+    line-height: 1.1;
+  }
+  h1 {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  h2 {
+    font-size: 1.125rem;
+    letter-spacing: 0.04em;
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+  input[type="radio"],
+  input[type="checkbox"] {
+    accent-color: var(--accent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
 }
 
 @layer components {
+  .page-title {
+    @apply font-display text-3xl font-bold uppercase sm:text-4xl;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold tracking-widest text-muted uppercase;
+  }
   .card {
-    @apply rounded-lg border border-border bg-surface p-4;
+    @apply rounded-md border border-border bg-surface p-4;
+  }
+  /* Card with a safety-stripe top edge, for stats and highlights. */
+  .card-stripe {
+    @apply rounded-md border border-t-4 border-border border-t-brand bg-surface p-4;
+  }
+  .stat-value {
+    @apply font-display text-3xl leading-tight font-bold;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground hover:brightness-110 disabled:opacity-50;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md border-2 border-foreground bg-transparent px-4 py-2 text-sm font-semibold hover:bg-sunken disabled:opacity-50;
   }
   .input {
-    @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-base sm:text-sm;
+    @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-base focus:border-brand sm:text-sm;
   }
   .label {
-    @apply block space-y-1 text-sm;
+    @apply block space-y-1 text-sm font-medium;
   }
   .table {
     @apply w-full text-left text-sm;
   }
   .table th {
-    @apply border-b border-border px-2 py-2 font-medium text-muted;
+    @apply border-b-2 border-border px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase;
   }
   .table td {
     @apply border-b border-border px-2 py-2 align-top;
   }
   .pill {
-    @apply inline-flex rounded-full border border-border px-2 py-0.5 text-xs;
+    @apply inline-flex rounded-full border border-border px-2 py-0.5 text-xs font-medium;
   }
 }

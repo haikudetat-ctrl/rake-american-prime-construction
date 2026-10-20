@@ -47,7 +47,7 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">Week of {formatDate(week)}</h1>
+        <h1 className="page-title">Week of {formatDate(week)}</h1>
         <div className="flex gap-2">
           <Link className="btn-secondary" href={`/office/numbers?week=${addDays(week, -7)}`}>← Prev</Link>
           <Link className="btn-secondary" href="/office/numbers">This week</Link>
@@ -56,9 +56,9 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {tiles.map((tile) => (
-          <div key={tile.label} className="card">
-            <p className="text-sm text-muted">{tile.label}</p>
-            <p className="text-2xl font-semibold">{tile.value}</p>
+          <div key={tile.label} className="card-stripe">
+            <p className="eyebrow">{tile.label}</p>
+            <p className="stat-value">{tile.value}</p>
             {tile.note && <p className="text-xs text-muted">{tile.note}</p>}
           </div>
         ))}
@@ -114,9 +114,9 @@ async function RoofingNumbers() {
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {tiles.map((tile) => (
-          <div key={tile.label} className="card">
-            <p className="text-sm text-muted">{tile.label}</p>
-            <p className="text-2xl font-semibold">{tile.value}</p>
+          <div key={tile.label} className="card-stripe">
+            <p className="eyebrow">{tile.label}</p>
+            <p className="stat-value">{tile.value}</p>
             {tile.note && <p className="text-xs text-warn">{tile.note}</p>}
           </div>
         ))}
@@ -146,7 +146,7 @@ async function CashView() {
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Cash</h2>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <div className="card"><p className="text-sm text-muted">Owed to you</p><p className="text-2xl font-semibold">{formatCents(owedTotal)}</p>
+        <div className="card-stripe"><p className="eyebrow">Owed to you</p><p className="stat-value">{formatCents(owedTotal)}</p>
           <p className="text-xs text-muted">Roofing {formatCents(Number(owed.roofing_cents))} · dumpsters {formatCents(Number(owed.dumpster_cents))}</p></div>
       </div>
       <div className="card overflow-x-auto">
@@ -197,9 +197,9 @@ async function ReviewNumbers() {
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {tiles.map((tile) => (
-          <div key={tile.label} className="card">
-            <p className="text-sm text-muted">{tile.label}</p>
-            <p className="text-2xl font-semibold">{tile.value}</p>
+          <div key={tile.label} className="card-stripe">
+            <p className="eyebrow">{tile.label}</p>
+            <p className="stat-value">{tile.value}</p>
             {tile.note && <p className="text-xs text-muted">{tile.note}</p>}
           </div>
         ))}

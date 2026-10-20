@@ -30,7 +30,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
   return (
     <>
       <Notice searchParams={params} />
-      <h1 className="text-xl font-semibold">Billing</h1>
+      <h1 className="page-title">Billing</h1>
       <p className="text-sm text-muted">
         Statements go out automatically every Monday morning. Use the button to send one now.
       </p>

@@ -79,7 +79,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href="/office/leads">← Leads</Link></p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">{lead.name}</h1>
+        <h1 className="page-title">{lead.name}</h1>
         <span className="pill">{STAGE_LABEL[stage]}</span>
       </div>
       <p className="text-sm text-muted">

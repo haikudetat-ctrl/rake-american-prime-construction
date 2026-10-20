@@ -80,7 +80,7 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
     <>
       <Notice searchParams={query} />
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">
+        <h1 className="page-title">
           {customer?.name} · {site?.address}
         </h1>
         <span className="pill">{STATUS[rental.status] ?? rental.status}</span>

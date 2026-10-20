@@ -6,6 +6,7 @@ import { LeadForm } from "@/app/roof/[slug]/lead-form";
 import { newFormToken } from "@/lib/intake/submit";
 import { loadGallery, loadReferrer, submitReferralLead } from "@/lib/leads/submit";
 import { adminClient } from "@/lib/supabase/admin";
+import { BrandBar } from "@/app/_components/brand";
 
 export const metadata: Metadata = { title: "Roofing estimate", robots: { index: false, follow: false } };
 
@@ -37,22 +38,24 @@ export default async function ReferralPage({ params, searchParams }: PageProps<"
   }
 
   return (
-    <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
-      <header>
-        <p className="text-sm text-muted">{brand?.display_name ?? "American Prime Construction"}</p>
-        <h1 className="text-2xl font-semibold">{referrer.firstName} sent you our way</h1>
-        <p className="text-sm text-muted">Tell us about your house and we&apos;ll call or text to set up a free estimate.</p>
-      </header>
-      {typeof error === "string" && ERRORS[error] && <Flash tone="error">{ERRORS[error]}</Flash>}
-      <LeadForm action={submit} formToken={newFormToken()} bad={typeof fields === "string" ? fields.split(",") : []} />
-      {gallery.length > 0 && (
-        <section className="grid grid-cols-2 gap-2">
-          {gallery.slice(0, 4).map((photo) => (
-            // eslint-disable-next-line @next/next/no-img-element -- Supabase public URLs
-            <img key={photo.url} src={photo.url} alt={photo.caption ?? "A roof we finished"} loading="lazy" className="aspect-[4/3] w-full rounded-md object-cover" />
-          ))}
-        </section>
-      )}
-    </main>
+    <>
+      <BrandBar name={brand?.display_name ?? "American Prime Construction"} />
+      <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
+        <header>
+          <h1 className="page-title">{referrer.firstName} sent you our way</h1>
+          <p className="text-sm text-muted">Tell us about your house and we&apos;ll call or text to set up a free estimate.</p>
+        </header>
+        {typeof error === "string" && ERRORS[error] && <Flash tone="error">{ERRORS[error]}</Flash>}
+        <LeadForm action={submit} formToken={newFormToken()} bad={typeof fields === "string" ? fields.split(",") : []} />
+        {gallery.length > 0 && (
+          <section className="grid grid-cols-2 gap-2">
+            {gallery.slice(0, 4).map((photo) => (
+              // eslint-disable-next-line @next/next/no-img-element -- Supabase public URLs
+              <img key={photo.url} src={photo.url} alt={photo.caption ?? "A roof we finished"} loading="lazy" className="aspect-[4/3] w-full rounded-md object-cover" />
+            ))}
+          </section>
+        )}
+      </main>
+    </>
   );
 }

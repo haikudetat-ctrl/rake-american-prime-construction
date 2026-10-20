@@ -32,7 +32,7 @@ export default async function ThreadPage({ params, searchParams }: PageProps<"/o
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href="/office/inbox">← Inbox</Link></p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">{lead?.name ?? customer?.name ?? formatPhone(phone)}</h1>
+        <h1 className="page-title">{lead?.name ?? customer?.name ?? formatPhone(phone)}</h1>
         <div className="flex gap-3 text-sm">
           <a className="underline" href={`tel:${phone}`}>Call {formatPhone(phone)}</a>
           {lead && <Link className="underline" href={`/office/leads/${lead.id}`}>Lead</Link>}

@@ -29,7 +29,7 @@ export default async function CansPage({ searchParams }: PageProps<"/office/cans
   return (
     <>
       <Notice searchParams={params} />
-      <h1 className="text-xl font-semibold">Cans out</h1>
+      <h1 className="page-title">Cans out</h1>
       <section className="card overflow-x-auto">
         {(out ?? []).length === 0 ? (
           <p className="text-muted">Every can is in the yard.</p>

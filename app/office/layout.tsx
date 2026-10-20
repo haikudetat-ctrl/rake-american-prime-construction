@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BrandLogo } from "@/app/_components/brand";
+import { OfficeNav, type NavItem } from "./_nav";
 import { requireStaff } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -27,48 +29,51 @@ export default async function OfficeLayout({ children }: LayoutProps<"/office">)
     supabase.from("price_books").select("needs_confirmation").eq("is_active", true).maybeSingle(),
   ]);
 
+  const items: NavItem[] = NAV.map((item) => ({
+    ...item,
+    badge:
+      item.href === "/office/requests" ? pending : item.href === "/office/inbox" ? unread : item.href === "/office/leads" ? newLeads : null,
+  }));
+
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-          <Link href="/office" className="font-semibold">American Prime</Link>
-          <nav className="flex flex-1 gap-1 overflow-x-auto text-sm">
-            {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="rounded-md px-2 py-1 whitespace-nowrap hover:bg-background">
-                {item.label}
-                {item.href === "/office/requests" && pending ? (
-                  <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-accent-foreground">{pending}</span>
-                ) : null}
-                {item.href === "/office/inbox" && unread ? (
-                  <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-accent-foreground">{unread}</span>
-                ) : null}
-                {item.href === "/office/leads" && newLeads ? (
-                  <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-accent-foreground">{newLeads}</span>
-                ) : null}
-              </Link>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <Link href="/driver" className="hover:underline">Driver view</Link>
-            <span>·</span>
-            <span>{member.name}</span>
+    <div className="flex flex-1 flex-col lg:flex-row">
+      <aside className="bg-ink text-ink-foreground lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col lg:overflow-y-auto">
+        <div className="flex items-center justify-between gap-3 px-4 pt-4 lg:block lg:px-4 lg:pt-6">
+          <Link href="/office" className="block w-36 lg:w-full">
+            <BrandLogo />
+          </Link>
+          <p className="hidden text-xs tracking-widest text-ink-muted uppercase lg:mt-3 lg:mb-5 lg:block">Roofing · Dumpsters</p>
+          <form action="/auth/signout" method="post" className="lg:hidden">
+            <button className="text-sm text-ink-muted hover:text-white hover:underline">Sign out</button>
+          </form>
+        </div>
+        <div className="px-2 py-3 lg:flex-1 lg:px-3 lg:py-0">
+          <OfficeNav items={items} />
+        </div>
+        <div className="hidden border-t border-ink-active px-4 py-4 text-sm text-ink-muted lg:block">
+          <p className="font-medium text-ink-foreground">{member.name}</p>
+          <p className="mt-1 flex gap-2">
+            <Link href="/driver" className="hover:text-white hover:underline">Driver view</Link>
+            <span aria-hidden="true">·</span>
             <form action="/auth/signout" method="post">
-              <button className="hover:underline">Sign out</button>
+              <button className="hover:text-white hover:underline">Sign out</button>
             </form>
+          </p>
+        </div>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {priceBook?.needs_confirmation && (
+          <div className="border-b border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm">
+            Prices are placeholders until confirmed.{" "}
+            {member.role === "owner" ? (
+              <Link href="/office/settings" className="underline">Set the delivery fee and extended charge</Link>
+            ) : (
+              "Ask an owner to set them in Settings."
+            )}
           </div>
-        </div>
-      </header>
-      {priceBook?.needs_confirmation && (
-        <div className="border-b border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm">
-          Prices are placeholders until confirmed.{" "}
-          {member.role === "owner" ? (
-            <Link href="/office/settings" className="underline">Set the delivery fee and extended charge</Link>
-          ) : (
-            "Ask an owner to set them in Settings."
-          )}
-        </div>
-      )}
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-4 p-4">{children}</main>
+        )}
+        <main className="mx-auto w-full max-w-6xl flex-1 space-y-5 px-4 py-5 lg:px-8 lg:py-7">{children}</main>
+      </div>
     </div>
   );
 }

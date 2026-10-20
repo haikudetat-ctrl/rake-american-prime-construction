@@ -6,6 +6,7 @@ import { LeadForm } from "@/app/roof/[slug]/lead-form";
 import { loadRequestLink, newFormToken } from "@/lib/intake/submit";
 import { loadGallery, submitLeadRequest } from "@/lib/leads/submit";
 import { formatPhone } from "@/lib/phone";
+import { BrandBar } from "@/app/_components/brand";
 
 export const metadata: Metadata = { title: "Roofing estimate" };
 
@@ -35,35 +36,37 @@ export default async function RoofRequestPage({ params, searchParams }: PageProp
   }
 
   return (
-    <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
-      <header>
-        <p className="text-sm text-muted">{link.brandName}</p>
-        <h1 className="text-2xl font-semibold">Get a roofing estimate</h1>
-        <p className="text-sm text-muted">
-          Tell us about the house. We&apos;ll call or text to set up a visit.
-          {link.brandPhone && <> Or call <a className="underline" href={`tel:${link.brandPhone}`}>{formatPhone(link.brandPhone)}</a>.</>}
-        </p>
-      </header>
+    <>
+      <BrandBar name={link.brandName} />
+      <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
+        <header>
+          <h1 className="page-title">Get a roofing estimate</h1>
+          <p className="text-sm text-muted">
+            Tell us about the house. We&apos;ll call or text to set up a visit.
+            {link.brandPhone && <> Or call <a className="underline" href={`tel:${link.brandPhone}`}>{formatPhone(link.brandPhone)}</a>.</>}
+          </p>
+        </header>
 
-      {typeof error === "string" && ERRORS[error] && <Flash tone="error">{ERRORS[error]}</Flash>}
+        {typeof error === "string" && ERRORS[error] && <Flash tone="error">{ERRORS[error]}</Flash>}
 
-      <LeadForm action={submit} formToken={newFormToken()} bad={typeof fields === "string" ? fields.split(",") : []} />
+        <LeadForm action={submit} formToken={newFormToken()} bad={typeof fields === "string" ? fields.split(",") : []} />
 
-      {gallery.length > 0 && (
-        <section className="space-y-2">
-          <h2 className="font-semibold">Recent jobs</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {gallery.map((photo) => (
-              <figure key={photo.url} className="space-y-1">
-                {/* eslint-disable-next-line @next/next/no-img-element -- Supabase public URLs; no image optimizer configured. */}
-                <img src={photo.url} alt={photo.caption ?? "A roof we finished"} loading="lazy"
-                  className="aspect-[4/3] w-full rounded-md object-cover" />
-                {photo.caption && <figcaption className="text-xs text-muted">{photo.caption}</figcaption>}
-              </figure>
-            ))}
-          </div>
-        </section>
-      )}
-    </main>
+        {gallery.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="font-semibold">Recent jobs</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {gallery.map((photo) => (
+                <figure key={photo.url} className="space-y-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Supabase public URLs; no image optimizer configured. */}
+                  <img src={photo.url} alt={photo.caption ?? "A roof we finished"} loading="lazy"
+                    className="aspect-[4/3] w-full rounded-md object-cover" />
+                  {photo.caption && <figcaption className="text-xs text-muted">{photo.caption}</figcaption>}
+                </figure>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </>
   );
 }

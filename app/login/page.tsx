@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { BrandLogo } from "@/app/_components/brand";
 import { Flash } from "@/app/_components/flash";
 import { getMember, homeFor } from "@/lib/auth";
 import { signInProblem } from "@/lib/sign-in";
@@ -32,10 +33,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
-      <div className="card w-full max-w-sm space-y-4">
+    <main className="flex flex-1 items-center justify-center bg-ink p-4">
+      <div className="card-stripe w-full max-w-sm space-y-4 shadow-xl">
+        <BrandLogo plate={false} className="mx-auto w-52" />
         <div>
-          <h1 className="text-lg font-semibold">American Prime</h1>
+          <h1 className="font-display text-2xl font-bold">Sign in</h1>
           <p className="text-sm text-muted">Office sign-in</p>
         </div>
         {sent && <Flash tone="ok">If that address is on the team, a sign-in link is on its way.</Flash>}
