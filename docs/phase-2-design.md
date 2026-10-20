@@ -50,7 +50,24 @@ Same Supabase project, same app, same roles. Crews never see prices (as with dri
   while the first is screening?), caller ID pass-through, voicemail playback and texted photos.
 - Calls work as soon as the number exists. Texts to customers wait on A2P 10DLC approval.
 
-### 2c. Measurements and the estimate builder
+### 2c. Measurements and the estimate builder — built (Oct 20), on placeholder prices
+
+Built as described below, with these specifics:
+- The price list is one versioned JSON document (`catalog_versions`), edited at Office → Settings →
+  Roofing price list (`/office/pricing`, owner only). It starts from a placeholder list
+  (`lib/estimate/catalog.ts`) flagged "placeholder prices" on every estimate until an owner ticks
+  "these are real prices".
+- Quantities: each material is measured by one driver (squares, eaves, eaves + rakes, ridges + hips,
+  eaves + valleys, counts…), waste added, rounded up to whole units. Labor by pitch band, extra per
+  story, tear-off per layer, decking per sheet; dumpster and permit per job. Price = cost ÷ (1 −
+  margin), rounded up to $10 (add-ons to $5).
+- Estimates are priced on the server from stored measurements and the active list; office staff see
+  prices, owners also see the build-up and margin, and only owners can set a different price (with a
+  reason, logged on the lead).
+- Roofr upload reads area, pitch, layers/stories areas, and edge lengths. **Edge-length reading is
+  unverified until we have Andrey's real reports**; every value is shown for checking before saving.
+  PDFs over 4 MB must be entered by hand (server request limit).
+
 
 - **Roofr import**: upload the PDF on the lead; parse total area and squares, pitch by area
   (predominant and max), layers, stories, and the edge lengths — eaves, rakes, ridges, hips,

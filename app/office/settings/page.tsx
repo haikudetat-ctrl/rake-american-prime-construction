@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { GalleryCard } from "@/app/office/settings/gallery-card";
@@ -65,6 +66,15 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
         )}
       </section>
 
+      {isOwner && (
+        <section className="card flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Roofing price list</h2>
+            <p className="text-sm text-muted">Materials, labor, systems, add-ons and margin used to price estimates.</p>
+          </div>
+          <Link className="btn-secondary" href="/office/pricing">Open price list</Link>
+        </section>
+      )}
       {isOwner && <PhoneCard companyId={member.companyId} />}
       {isOwner && <QuickBooksCard companyId={member.companyId} />}
 

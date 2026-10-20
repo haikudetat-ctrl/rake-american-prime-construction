@@ -5,6 +5,10 @@ import { requireOwner, requireStaff } from "@/lib/auth";
 import { orderStops } from "@/lib/dispatch/order";
 import { back, errorText, optional, str } from "@/lib/flash";
 import { GoogleGeocodeProvider } from "@/lib/integrations/geocode";
+import { catalogSchema } from "@/lib/estimate/catalog";
+import { applySection, PriceListFormError } from "@/lib/estimate/form";
+import { parseRoofrText } from "@/lib/estimate/roofr";
+import { activeCatalog, MEASUREMENT_COLUMNS, priceAndSaveProposal } from "@/lib/estimate/server";
 import { officeLeadSchema, STAGE_LABEL, type Stage } from "@/lib/leads/schema";
 import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
@@ -626,4 +630,126 @@ export async function savePhoneSettings(form: FormData) {
   });
   if (error) back("/office/settings", errorText(error), "error");
   done("/office/settings", "Phone settings saved.");
+}
+
+// Measurements, estimates and the roofing price list (phase 2c) ------------------------
+
+function measurementValues(form: FormData): Record<string, number> {
+  const values: Record<string, number> = {};
+  for (const key of MEASUREMENT_COLUMNS) {
+    const n = Number(str(form, key) || 0);
+    values[key] = Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+  return values;
+}
+
+export async function uploadRoofReport(form: FormData) {
+  const { supabase, member } = await staffClient();
+  const leadId = str(form, "leadId");
+  const file = form.get("report");
+  const leadPath = `/office/leads/${leadId}`;
+  if (!(file instanceof File) || file.size === 0) back(leadPath, "Choose the Roofr report PDF.", "error");
+  if (file.size > 4_000_000) back(leadPath, "That PDF is over 4 MB. Enter the measurements by hand instead.", "error");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const { pdfText } = await import("@/lib/estimate/roofr-pdf");
+  const text = await pdfText(bytes);
+  if (!text) back(leadPath, "That file isn't a readable PDF.", "error");
+  const parsed = parseRoofrText(text);
+  if (!parsed.squares) back(leadPath, "Couldn't find the roof area in that report. Enter the measurements by hand.", "error");
+
+  const path = `${member.companyId}/${leadId}/${Date.now()}.pdf`;
+  const { error: uploadError } = await adminClient().storage.from("roof-reports").upload(path, bytes, { contentType: "application/pdf" });
+  if (uploadError) back(leadPath, errorText(uploadError), "error");
+  const values: Record<string, number> = { stories: parsed.twoStorySquares ? 2 : 1, layers: parsed.twoLayerSquares ? 2 : 1 };
+  for (const key of ["squares", "pitch", "eaves", "rakes", "ridges", "hips", "valleys", "step_flashing", "wall_flashing"] as const) {
+    if (parsed[key] !== null) values[key] = parsed[key]!;
+  }
+  const { data: id, error } = await supabase.rpc("save_measurement", {
+    p_lead_id: leadId, p_source: "roofr", p_report_path: path, p_values: values, p_parsed: parsed,
+  });
+  if (error) back(leadPath, errorText(error), "error");
+  done(`${leadPath}/measure?m=${id}`, `Read ${parsed.found.length} values from the report. Check them, add counts (pipe boots, skylights, decking), then save.`);
+}
+
+export async function saveMeasurement(form: FormData) {
+  const { supabase } = await staffClient();
+  const leadId = str(form, "leadId");
+  const from = optional(form, "fromId");
+  let source = "manual";
+  let reportPath: string | null = null;
+  if (from) {
+    const { data: prior } = await supabase.from("measurements").select("source, report_path").eq("id", from).maybeSingle();
+    if (prior) ({ source, report_path: reportPath } = prior);
+  }
+  const values = measurementValues(form);
+  if (!values.squares) back(`/office/leads/${leadId}/measure${from ? `?m=${from}` : ""}`, "Enter the roof area in squares.", "error");
+  const { data: id, error } = await supabase.rpc("save_measurement", {
+    p_lead_id: leadId, p_source: source, p_report_path: reportPath, p_values: values, p_parsed: null,
+  });
+  if (error) back(`/office/leads/${leadId}/measure`, errorText(error), "error");
+  done(`/office/leads/${leadId}/estimate?m=${id}`, "Measurements saved. Choose the options to price.");
+}
+
+export async function saveEstimate(form: FormData) {
+  const { member } = await staffClient();
+  const leadId = str(form, "leadId");
+  const measurementId = str(form, "measurementId");
+  const proposalId = optional(form, "proposalId");
+  const addons: Record<string, number> = {};
+  for (const [key, value] of form.entries()) {
+    const m = /^addon_(.+)$/.exec(key);
+    if (m && form.get(`use_${m[1]}`) === "on") addons[m[1]] = Number(value) || 0;
+  }
+  const inputs = {
+    systemIds: form.getAll("systemId").map(String).slice(0, 3),
+    addons,
+    includeDumpster: form.get("includeDumpster") === "on",
+    includePermit: form.get("includePermit") === "on",
+  };
+  const retry = `/office/leads/${leadId}/estimate?m=${measurementId}${proposalId ? `&p=${proposalId}` : ""}`;
+  if (inputs.systemIds.length === 0) back(retry, "Choose at least one roof system.", "error");
+  let id: string;
+  try {
+    id = await priceAndSaveProposal({ companyId: member.companyId, actorId: member.userId, leadId, proposalId, measurementId, inputs });
+  } catch (err) {
+    back(retry, (err as Error).message, "error");
+  }
+  done(`/office/proposals/${id}`, proposalId ? "Estimate re-priced." : "Estimate drafted.");
+}
+
+export async function overrideOptionPrice(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const id = str(form, "proposalId");
+  const clear = form.get("clear") === "1";
+  const cents = clear ? null : parseDollarsToCents(str(form, "price"));
+  if (!clear && cents === null) back(`/office/proposals/${id}`, "Enter the price in dollars.", "error");
+  const { error } = await supabase.rpc("override_option_price", {
+    p_proposal_id: id, p_system_id: str(form, "systemId"), p_price_cents: cents, p_reason: optional(form, "reason"),
+  });
+  if (error) back(`/office/proposals/${id}`, errorText(error), "error");
+  done(`/office/proposals/${id}`, clear ? "Back to the calculated price." : "Price updated.");
+}
+
+export async function savePriceList(form: FormData) {
+  const owner = await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const section = str(form, "section");
+  const current = await activeCatalog(owner.companyId);
+  let next = current.data;
+  let needsConfirmation = current.needsConfirmation;
+  if (section === "confirm") {
+    needsConfirmation = form.get("confirmed") !== "on";
+  } else {
+    try {
+      next = applySection(current.data, section, form);
+    } catch (err) {
+      back("/office/pricing", err instanceof PriceListFormError ? err.message : "Couldn't read that form.", "error");
+    }
+  }
+  const valid = catalogSchema.safeParse(next);
+  if (!valid.success) back("/office/pricing", valid.error.issues[0]?.message ?? "That price list isn't valid.", "error");
+  const { error } = await supabase.rpc("publish_catalog", { p_data: valid.data, p_needs_confirmation: needsConfirmation });
+  if (error) back("/office/pricing", errorText(error), "error");
+  done("/office/pricing", `Price list version ${current.version + 1} published. Estimates already built keep their prices.`);
 }

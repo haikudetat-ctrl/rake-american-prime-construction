@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addLeadNote, moveLead, updateLead } from "@/app/office/actions";
+import { addLeadNote, moveLead, updateLead, uploadRoofReport } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime, utcToZonedInput } from "@/lib/dates";
 import { NEED_LABEL, NEEDS, SOURCE_LABEL, STAGE_LABEL, STAGES, type Need, type Stage } from "@/lib/leads/schema";
+import { formatCents } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import { adminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -39,12 +40,14 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
   const { data: lead } = await supabase.from("leads").select("*").eq("id", id).maybeSingle();
   if (!lead) notFound();
 
-  const [{ data: leadEvents }, { data: photos }, { data: people }, { data: calls }, { data: texts }] = await Promise.all([
+  const [{ data: leadEvents }, { data: photos }, { data: people }, { data: calls }, { data: texts }, { data: measurements }, { data: proposals }] = await Promise.all([
     supabase.from("lead_events").select("*").eq("lead_id", id).order("created_at", { ascending: false }),
     supabase.from("lead_photos").select("id, path").eq("lead_id", id).order("created_at"),
     supabase.from("profiles").select("user_id, full_name"),
     supabase.from("phone_calls").select("id, status, recording_url, recording_seconds, created_at").eq("lead_id", id),
     supabase.from("messages").select("id, direction, body, sent_by, created_at").eq("lead_id", id),
+    supabase.from("measurements").select("id, source, squares, pitch, created_at").eq("lead_id", id).order("created_at", { ascending: false }).limit(5),
+    supabase.from("proposals").select("id, number, status, options, needs_confirmation, updated_at").eq("lead_id", id).order("created_at", { ascending: false }),
   ]);
   // One timeline: pipeline events, calls and texts, newest first.
   const events: (Event & { recordingCallId?: string })[] = [
@@ -116,6 +119,49 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
           </div>
         </section>
       )}
+
+      <section className="card space-y-3">
+        <h2 className="font-semibold">Measurements and estimates</h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <form action={uploadRoofReport} className="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="leadId" value={lead.id} />
+            <label className="label"><span>Roofr report (PDF)</span>
+              <input name="report" type="file" accept="application/pdf" required className="input" />
+            </label>
+            <button className="btn-secondary">Read report</button>
+          </form>
+          <Link className="btn-secondary" href={`/office/leads/${lead.id}/measure`}>Enter by hand</Link>
+          {(measurements ?? []).length > 0 && (
+            <Link className="btn" href={`/office/leads/${lead.id}/estimate?m=${measurements![0].id}`}>New estimate</Link>
+          )}
+        </div>
+        {(measurements ?? []).length > 0 && (
+          <ul className="text-sm">
+            {measurements!.map((m) => (
+              <li key={m.id}>
+                {Number(m.squares)} squares at {Number(m.pitch)}/12 · {m.source === "roofr" ? "Roofr report" : "entered"} {formatDateTime(m.created_at)}{" "}
+                <Link className="underline" href={`/office/leads/${lead.id}/measure?m=${m.id}`}>edit</Link>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(proposals ?? []).length > 0 && (
+          <table className="table text-sm">
+            <thead><tr><th>Estimate</th><th>Options</th><th>Status</th></tr></thead>
+            <tbody>
+              {proposals!.map((p) => (
+                <tr key={p.id}>
+                  <td><Link className="underline" href={`/office/proposals/${p.id}`}>#{p.number}</Link>
+                    <div className="text-xs text-muted">{formatDateTime(p.updated_at)}</div></td>
+                  <td>{(p.options as { name: string; priceCents: number; overrideCents?: number }[])
+                    .map((o) => `${o.name} ${formatCents(o.overrideCents ?? o.priceCents)}`).join(" · ")}</td>
+                  <td>{p.status}{p.needs_confirmation && <span className="text-xs text-warn"> · placeholder prices</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       <section className="card space-y-3">
         <h2 className="font-semibold">Move this lead</h2>
