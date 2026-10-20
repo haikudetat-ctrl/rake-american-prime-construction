@@ -30,14 +30,15 @@ export default async function JobsPage({ searchParams }: PageProps<"/office/jobs
         <section key={j.id} className="card space-y-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div>
-              <Link className="font-semibold underline" href={`/office/leads/${j.lead_id}`}>{j.customer_name}</Link>
+              <Link className="font-semibold underline" href={`/office/jobs/${j.id}`}>{j.customer_name}</Link>
               <span className="text-sm text-muted"> · {j.address}</span>
             </div>
             <span className="pill">{STATUS[j.status as keyof typeof STATUS]}</span>
           </div>
           <p className="text-sm">
             {j.system_name} · {formatCents(j.total_cents)} ·{" "}
-            <Link className="underline" href={`/office/proposals/${j.proposal_id}`}>agreement</Link>
+            <Link className="underline" href={`/office/proposals/${j.proposal_id}`}>agreement</Link> ·{" "}
+            <Link className="underline" href={`/office/jobs/${j.id}`}>costs and payments</Link>
             {j.install_date && <> · install {formatDate(j.install_date)}</>}
             {j.crew_ids.length > 0 && <> · crew {j.crew_ids.map((id: string) => name.get(id) ?? "?").join(", ")}</>}
           </p>

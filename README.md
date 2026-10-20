@@ -18,7 +18,7 @@ Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us
 ```
 app/request/[slug]   public dumpster request link (no login)
 app/roof/[slug]      public roofing estimate link (no login), with past-job photos
-app/office           owner/office: today, requests, leads, inbox (texts, calls), cans, customers, billing, numbers, settings
+app/office           owner/office: today, requests, leads, inbox (texts, calls), jobs (P&L), stock, cans, customers, billing, numbers, settings
 app/driver           driver run, English/Spanish
 app/crew             roofing crew jobs, English/Spanish (no prices)
 app/p/[token]        homeowner proposal: review, choose, sign; signed PDF

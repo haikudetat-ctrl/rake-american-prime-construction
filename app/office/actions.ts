@@ -832,3 +832,94 @@ export async function setRoofingJobStatus(form: FormData) {
   revalidatePath("/crew");
   done(returnTo, "Updated.");
 }
+
+// Job costing (phase 3a) -----------------------------------------------------------------
+
+async function jobRpc(path: string, rpc: string, args: Record<string, unknown>, ok: string): Promise<never> {
+  const { supabase } = await staffClient();
+  const { error } = await supabase.rpc(rpc, args);
+  if (error) back(path, errorText(error), "error");
+  done(path, ok);
+}
+
+const money = (form: FormData, key: string) => parseDollarsToCents(str(form, key));
+const amount = (form: FormData, key: string) => {
+  const n = Number(str(form, key));
+  return Number.isFinite(n) && str(form, key) !== "" ? n : null;
+};
+
+export async function addJobCost(form: FormData) {
+  const jobId = str(form, "jobId");
+  const path = `/office/jobs/${jobId}`;
+  const qty = amount(form, "qty");
+  const unit = money(form, "unit");
+  const total = money(form, "amount") ?? (qty !== null && unit !== null ? Math.round(qty * unit) : null);
+  if (total === null) back(path, "Enter an amount, or a quantity and rate.", "error");
+  return jobRpc(path, "add_job_cost", {
+    p_job_id: jobId, p_kind: str(form, "kind"), p_description: str(form, "description"), p_amount_cents: total,
+    p_qty: qty, p_unit_cents: unit, p_vendor: optional(form, "vendor"), p_reference: optional(form, "reference"),
+    p_incurred_on: optional(form, "incurredOn"),
+  }, "Cost added.");
+}
+
+export async function addOwnEquipment(form: FormData) {
+  const jobId = str(form, "jobId");
+  return jobRpc(`/office/jobs/${jobId}`, "add_own_equipment",
+    { p_job_id: jobId, p_kind: str(form, "kind"), p_qty: amount(form, "qty") }, "Added at our cost.");
+}
+
+export async function voidJobCost(form: FormData) {
+  return jobRpc(`/office/jobs/${str(form, "jobId")}`, "void_job_cost",
+    { p_cost_id: str(form, "costId"), p_reason: str(form, "reason") }, "Cost voided.");
+}
+
+export async function pullStock(form: FormData) {
+  const jobId = str(form, "jobId");
+  const qty = amount(form, "qty");
+  const returning = form.get("direction") === "return";
+  return jobRpc(`/office/jobs/${jobId}`, "stock_pull",
+    { p_item_id: str(form, "itemId"), p_job_id: jobId, p_qty: qty === null ? null : returning ? -qty : qty },
+    returning ? "Returned to the shelf." : "Charged to the job at average cost.");
+}
+
+export async function recordJobPayment(form: FormData) {
+  const jobId = str(form, "jobId");
+  return jobRpc(`/office/jobs/${jobId}`, "record_job_payment", {
+    p_job_id: jobId, p_amount_cents: money(form, "amount"), p_method: str(form, "method"),
+    p_reference: optional(form, "reference"), p_received_on: optional(form, "receivedOn"),
+  }, "Payment recorded.");
+}
+
+export async function voidJobPayment(form: FormData) {
+  return jobRpc(`/office/jobs/${str(form, "jobId")}`, "void_job_payment",
+    { p_payment_id: str(form, "paymentId"), p_reason: str(form, "reason") }, "Payment voided.");
+}
+
+export async function createStockItem(form: FormData) {
+  return jobRpc("/office/stock", "create_stock_item", { p_name: str(form, "name"), p_unit: optional(form, "unit") }, "Item added.");
+}
+
+export async function buyStock(form: FormData) {
+  return jobRpc("/office/stock", "stock_buy", {
+    p_item_id: str(form, "itemId"), p_qty: amount(form, "qty"), p_total_cents: money(form, "total"),
+    p_vendor: optional(form, "vendor"), p_reference: optional(form, "reference"), p_bought_on: optional(form, "boughtOn"),
+  }, "Buy recorded; average cost updated.");
+}
+
+export async function countStock(form: FormData) {
+  return jobRpc("/office/stock", "stock_count",
+    { p_item_id: str(form, "itemId"), p_on_hand: amount(form, "onHand"), p_note: optional(form, "note") }, "Count updated.");
+}
+
+export async function saveCostSettings(form: FormData) {
+  const owner = await requireOwner();
+  const dumpster = parseDollarsToCents(str(form, "dumpster"));
+  const gutter = parseDollarsToCents(str(form, "gutter"));
+  if (dumpster === null || gutter === null) back("/office/settings", "Enter both costs in dollars.", "error");
+  const { error } = await adminClient().from("cost_settings").upsert({
+    company_id: owner.companyId, own_dumpster_cents: dumpster, own_gutter_cents_per_ft: gutter,
+    updated_by: owner.userId, updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Equipment costs saved. Costs already charged to jobs keep their amounts.");
+}

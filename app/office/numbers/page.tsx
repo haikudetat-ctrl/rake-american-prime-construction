@@ -73,6 +73,7 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
         </p>
       )}
       <RoofingNumbers />
+      <CashView />
     </>
   );
 }
@@ -123,6 +124,52 @@ async function RoofingNumbers() {
         Open now: {open}.
         {sources.length > 0 && <> Where leads came from: {sources.map(([s, n]) => `${SOURCE_LABEL[s] ?? s} ${n}`).join(", ")}.</>}
       </p>
+    </section>
+  );
+}
+
+const CASH_WEEKS = 8;
+
+/** Money out, money in, and money owed: so a big payroll week reads next to the payments still coming. */
+async function CashView() {
+  const supabase = await createSupabaseServerClient();
+  const from = addDays(weekStart(companyToday()), -7 * (CASH_WEEKS - 1));
+  const [{ data: weeks }, { data: owed }] = await Promise.all([
+    supabase.rpc("cash_weeks", { p_from: from, p_weeks: CASH_WEEKS }),
+    supabase.rpc("money_owed").single<{ roofing_cents: number; dumpster_cents: number }>(),
+  ]);
+  const rows = (weeks ?? []) as { week_start: string; cash_out_cents: number; cash_in_cents: number }[];
+  if (!owed) return null;
+  const owedTotal = Number(owed.roofing_cents) + Number(owed.dumpster_cents);
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Cash</h2>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="card"><p className="text-sm text-muted">Owed to you</p><p className="text-2xl font-semibold">{formatCents(owedTotal)}</p>
+          <p className="text-xs text-muted">Roofing {formatCents(Number(owed.roofing_cents))} · dumpsters {formatCents(Number(owed.dumpster_cents))}</p></div>
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="table text-sm">
+          <thead><tr><th>Week of</th><th className="text-right">Money out</th><th className="text-right">Money in</th><th className="text-right">Net</th></tr></thead>
+          <tbody>
+            {rows.map((w) => {
+              const net = Number(w.cash_in_cents) - Number(w.cash_out_cents);
+              return (
+                <tr key={w.week_start}>
+                  <td>{formatDate(w.week_start)}</td>
+                  <td className="text-right">{formatCents(Number(w.cash_out_cents))}</td>
+                  <td className="text-right">{formatCents(Number(w.cash_in_cents))}</td>
+                  <td className={`text-right ${net < 0 ? "text-danger" : "text-ok"}`}>{net < 0 ? `−${formatCents(-net)}` : formatCents(net)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="mt-2 text-xs text-muted">
+          Out: crew pay, supplier bills, permits and stock buys. In: roofing and dumpster payments. A negative week is normal when
+          payroll lands before the customers pay; check &quot;Owed to you&quot; next to it.
+        </p>
+      </div>
     </section>
   );
 }
