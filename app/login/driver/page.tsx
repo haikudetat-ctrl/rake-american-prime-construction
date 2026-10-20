@@ -13,7 +13,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  */
 export default async function DriverLoginPage({ searchParams }: PageProps<"/login/driver">) {
   const member = await getMember();
-  if (member && member.role !== "crew") redirect(homeFor(member.role));
+  if (member) redirect(homeFor(member.role));
   const { phone, error, lang } = await searchParams;
   const locale = isLocale(lang) ? lang : "en";
   const t = translator(locale);

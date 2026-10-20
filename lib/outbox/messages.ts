@@ -41,6 +41,127 @@ export function leadReceivedSms(
     : `New roofing lead: ${p.name} (${need.en})${where}. Open: ${link}`;
 }
 
+export function textReceivedSms(
+  p: { from: string; name: string | null; body: string; locale?: Locale },
+  appUrl: string,
+): string {
+  const who = p.name ? `${p.name} (${formatPhone(p.from)})` : formatPhone(p.from);
+  const link = `${appUrl}/office/inbox/${encodeURIComponent(p.from)}`;
+  const body = p.body.length > 100 ? `${p.body.slice(0, 100)}…` : p.body;
+  return p.locale === "es"
+    ? `Texto de ${who}: "${body}" Responder: ${link}`
+    : `Text from ${who}: "${body}" Reply: ${link}`;
+}
+
+export function voicemailReceivedSms(
+  p: { from: string; name: string | null; seconds: number; leadId: string | null; locale?: Locale },
+  appUrl: string,
+): string {
+  const who = p.name ? `${p.name} (${formatPhone(p.from)})` : formatPhone(p.from);
+  const link = p.leadId ? `${appUrl}/office/leads/${p.leadId}` : `${appUrl}/office/inbox?tab=calls`;
+  return p.locale === "es"
+    ? `Buzón de voz de ${who}, ${p.seconds} s. Escuchar: ${link}`
+    : `Voicemail from ${who}, ${p.seconds}s. Listen: ${link}`;
+}
+
+export function proposalLinkSms(p: { name: string; link: string }, brand: Brand): string {
+  const first = p.name.split(/\s+/)[0];
+  return `${brand.name}: hi ${first}, your roofing proposal is ready. Review the options and sign here: ${p.link} Reply STOP to opt out.`;
+}
+
+export function proposalLinkEmail(p: { name: string; link: string; number: number }, brand: Brand): { subject: string; text: string } {
+  return {
+    subject: `Your roofing proposal #${p.number} from ${brand.name}`,
+    text: [
+      `Hi ${p.name.split(/\s+/)[0]},`,
+      "",
+      "Thanks for having us out. Your proposal is ready: it shows the options we talked about, with prices and warranties.",
+      "You can pick an option and sign right on your phone:",
+      "",
+      p.link,
+      "",
+      "Questions? Just reply to this email" + (brand.phone ? ` or call ${formatPhone(brand.phone)}.` : "."),
+      "",
+      brand.name,
+    ].join("\n"),
+  };
+}
+
+export function proposalSignedEmail(p: { name: string; number: number; option: string; totalCents: number }, brand: Brand): { subject: string; text: string } {
+  return {
+    subject: `Signed: roofing agreement #${p.number} with ${brand.name}`,
+    text: [
+      `Hi ${p.name.split(/\s+/)[0]},`,
+      "",
+      `Thank you! You signed for ${p.option}, total ${formatCents(p.totalCents)}. Your signed copy is attached.`,
+      "We'll be in touch to schedule the work.",
+      "",
+      brand.name,
+      brand.phone ? formatPhone(brand.phone) : "",
+    ].join("\n").trimEnd(),
+  };
+}
+
+export function proposalSignedSms(p: { name: string; option: string; totalCents: number; leadId: string; locale?: Locale }, appUrl: string): string {
+  const link = `${appUrl}/office/leads/${p.leadId}`;
+  return p.locale === "es"
+    ? `¡Firmado! ${p.name}: ${p.option}, ${formatCents(p.totalCents)}. ${link}`
+    : `Signed! ${p.name}: ${p.option}, ${formatCents(p.totalCents)}. ${link}`;
+}
+
+const firstName = (name: string) => name.split(/\s+/)[0];
+
+export function aftercareWarrantySms(p: { name: string; system: string; link: string | null }, brand: Brand): string {
+  const docs = p.link ? ` Your warranty and signed agreement: ${p.link}` : "";
+  return `${brand.name}: thank you, ${firstName(p.name)}! Your new ${p.system} roof is done.${docs} Reply STOP to opt out.`;
+}
+
+export function aftercareWarrantyEmail(p: { name: string; system: string; warranty: string }, brand: Brand): { subject: string; text: string } {
+  return {
+    subject: `Your new roof: warranty and signed agreement from ${brand.name}`,
+    text: [
+      `Hi ${firstName(p.name)},`,
+      "",
+      `Thank you for choosing ${brand.name}. Your new ${p.system} roof is done.`,
+      "",
+      p.warranty ? `Warranty:\n${p.warranty}` : "",
+      "",
+      "Your signed agreement is attached. Keep it with your house records.",
+      "Questions about the roof, now or years from now? Reply to this email" + (brand.phone ? ` or call ${formatPhone(brand.phone)}.` : "."),
+      "",
+      brand.name,
+    ].filter((line, i, all) => !(line === "" && all[i - 1] === "")).join("\n").trimEnd(),
+  };
+}
+
+export function feedbackRequestSms(p: { name: string; link: string }, brand: Brand): string {
+  return `${brand.name}: hi ${firstName(p.name)}, how did we do on your roof? One tap to tell us: ${p.link}`;
+}
+
+export function referralInviteSms(p: { name: string; link: string; rewardCents: number }, brand: Brand): string {
+  return `${brand.name}: thanks again, ${firstName(p.name)}! Know someone who needs a roof? Send them your link. When their roof is done and paid, you get ${formatCents(p.rewardCents)}: ${p.link}`;
+}
+
+export function referralEarnedSms(p: { name: string; friend: string; rewardCents: number }, brand: Brand): string {
+  return `${brand.name}: ${firstName(p.name)}, ${firstName(p.friend)}'s new roof is done, so you've earned ${formatCents(p.rewardCents)}. We'll send it shortly. Thank you!`;
+}
+
+const PAID_BY: Record<string, string> = { gift_card: "as a gift card", bank: "by bank transfer", check: "by check", other: "" };
+
+export function referralPaidSms(p: { name: string; friend: string; rewardCents: number; method: string }, brand: Brand): string {
+  const how = PAID_BY[p.method] ? ` ${PAID_BY[p.method]}` : "";
+  return `${brand.name}: your ${formatCents(p.rewardCents)} referral reward was sent${how}. Thanks for sending ${firstName(p.friend)} our way!`;
+}
+
+export function feedbackFollowupSms(p: { name: string; rating: string; comment: string; jobId: string }, appUrl: string): string {
+  const said = p.comment ? `: "${p.comment}"` : "";
+  return `${p.name} rated their roof job "${p.rating}"${said}. Call them back: ${appUrl}/office/jobs/${p.jobId}`;
+}
+
+export function rewardOwedSms(p: { referrer: string; friend: string; rewardCents: number }, appUrl: string): string {
+  return `Referral reward owed: ${formatCents(p.rewardCents)} to ${p.referrer} (${p.friend} paid in full). ${appUrl}/office/referrals`;
+}
+
 export function requestApprovedSms(p: { date: string; address: string }, brand: Brand): string {
   const contact = brand.phone ? ` Changes? Call ${formatPhone(brand.phone)}.` : "";
   return `${brand.name}: your dumpster is booked for ${formatDate(p.date)} at ${p.address}.${contact} Reply STOP to opt out.`;

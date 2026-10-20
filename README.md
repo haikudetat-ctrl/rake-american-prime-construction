@@ -18,10 +18,15 @@ Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us
 ```
 app/request/[slug]   public dumpster request link (no login)
 app/roof/[slug]      public roofing estimate link (no login), with past-job photos
-app/office           owner/office: today, requests, leads, cans, customers, billing, numbers, settings
+app/office           owner/office: today, requests, leads, inbox (texts, calls), jobs (P&L, aftercare), stock, referrals, cans, customers, billing, numbers, settings
 app/driver           driver run, English/Spanish
+app/crew             roofing crew jobs, English/Spanish (no prices)
+app/p/[token]        homeowner proposal: review, choose, sign; signed PDF
+app/f/[token]        homeowner "how did we do?" → Google review link or owner follow-up
+app/r/[code]         a past customer's referral link: the friend's estimate request
 app/login            email link (office) and text code (drivers)
 app/api/cron         outbox delivery (5 min) and daily reminders + Monday statements
+app/api/twilio       business phone webhooks (calls, voicemail, texts), signature-checked
 lib/                 pure logic (money, dates, dispatch, turnaround, messages) + integrations
 supabase/migrations  schema, RLS and workflow functions — billing math lives here
 supabase/tests       pgTAP: RLS by role, full rental lifecycle, outbox
@@ -60,8 +65,13 @@ Docker available, `supabase test db` runs the same suites.
    where u.email = 'owner@example.com' and c.slug = 'american-prime';
    ```
    Everyone else is added from **Settings → Team**.
-5. **Settings:** add past-job photos for the roofing page (`/roof/roof`); publish real prices (clears the placeholder banner), add yard
+5. **Settings:** paste real proposal terms (attorney-reviewed) and fill the roofing price list
+   (then tick "these are real prices"); enable "Maps Static API" on the Google key for proposal
+   photos; add past-job photos for the roofing page (`/roof/roof`); publish real prices (clears the placeholder banner), add yard
    and landfill addresses, cans, and the business phone/mailing address that
    print on statements.
-6. **Twilio:** register the business number for A2P 10DLC before texts go to
+6. **Business phone:** set `TWILIO_AUTH_TOKEN`; in Settings → Business phone add the ring list and
+   hours, then point the number's voice webhook and the Messaging Service's incoming webhook at the
+   URLs shown there.
+7. **Twilio:** register the business number for A2P 10DLC before texts go to
    customers; carrier approval takes weeks.

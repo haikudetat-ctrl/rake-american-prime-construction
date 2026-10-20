@@ -1,6 +1,18 @@
 export type Locale = "en" | "es";
 
 const en = {
+  "crew.title": "Roofing jobs",
+  "crew.empty": "No jobs assigned to you.",
+  "crew.install": "Install",
+  "crew.notScheduled": "Date not set yet",
+  "crew.system": "Roof",
+  "crew.scope": "Measurements",
+  "crew.addons": "Also",
+  "crew.notes": "Notes",
+  "crew.start": "Start job",
+  "crew.done": "Job done",
+  "crew.inProgress": "In progress",
+  "crew.finished": "Done",
   "driver.title": "Today's run",
   "driver.empty": "No stops today.",
   "driver.signOut": "Sign out",
@@ -38,6 +50,18 @@ const en = {
 export type MessageKey = keyof typeof en;
 
 const es: Record<MessageKey, string> = {
+  "crew.title": "Trabajos de techo",
+  "crew.empty": "No tienes trabajos asignados.",
+  "crew.install": "Instalación",
+  "crew.notScheduled": "Fecha por definir",
+  "crew.system": "Techo",
+  "crew.scope": "Medidas",
+  "crew.addons": "Además",
+  "crew.notes": "Notas",
+  "crew.start": "Empezar trabajo",
+  "crew.done": "Trabajo terminado",
+  "crew.inProgress": "En progreso",
+  "crew.finished": "Terminado",
   "driver.title": "Ruta de hoy",
   "driver.empty": "No hay paradas hoy.",
   "driver.signOut": "Cerrar sesión",

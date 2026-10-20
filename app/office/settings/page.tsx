@@ -1,6 +1,11 @@
+import Link from "next/link";
 import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { GalleryCard } from "@/app/office/settings/gallery-card";
+import { EquipmentCostCard } from "@/app/office/settings/equipment-cost-card";
+import { PhoneCard } from "@/app/office/settings/phone-card";
+import { ReviewSettingsCard } from "@/app/office/settings/review-settings-card";
+import { ProposalTermsCard } from "@/app/office/settings/proposal-terms-card";
 import { QuickBooksCard } from "@/app/office/settings/quickbooks-card";
 import { requireStaff } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
@@ -64,6 +69,19 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
         )}
       </section>
 
+      {isOwner && (
+        <section className="card flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold">Roofing price list</h2>
+            <p className="text-sm text-muted">Materials, labor, systems, add-ons and margin used to price estimates.</p>
+          </div>
+          <Link className="btn-secondary" href="/office/pricing">Open price list</Link>
+        </section>
+      )}
+      {isOwner && <ReviewSettingsCard companyId={member.companyId} />}
+      {isOwner && <EquipmentCostCard companyId={member.companyId} />}
+      {isOwner && <ProposalTermsCard companyId={member.companyId} />}
+      {isOwner && <PhoneCard companyId={member.companyId} />}
       {isOwner && <QuickBooksCard companyId={member.companyId} />}
 
       <section className="card space-y-3">

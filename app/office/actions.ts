@@ -1,11 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireOwner, requireStaff } from "@/lib/auth";
+import { getMember, requireOwner, requireStaff } from "@/lib/auth";
 import { orderStops } from "@/lib/dispatch/order";
 import { back, errorText, optional, str } from "@/lib/flash";
 import { GoogleGeocodeProvider } from "@/lib/integrations/geocode";
+import { catalogSchema } from "@/lib/estimate/catalog";
+import { applySection, PriceListFormError } from "@/lib/estimate/form";
+import { parseRoofrText } from "@/lib/estimate/roofr";
+import { activeCatalog, MEASUREMENT_COLUMNS, priceAndSaveProposal } from "@/lib/estimate/server";
 import { officeLeadSchema, STAGE_LABEL, type Stage } from "@/lib/leads/schema";
+import { contentHash, newProposalToken } from "@/lib/proposals/content";
+import { loadFullProposal, loadProposalSettings } from "@/lib/proposals/server";
 import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
@@ -577,4 +583,404 @@ export async function removeGalleryPhoto(form: FormData) {
   await db.from("gallery_photos").delete().eq("id", photo.id);
   await db.storage.from("gallery").remove([photo.path]);
   done("/office/settings", "Photo removed.");
+}
+
+// Business phone and inbox (phase 2b) -------------------------------------------------
+
+export async function sendText(form: FormData) {
+  const { supabase } = await staffClient();
+  const phone = toE164(str(form, "phone"));
+  const path = optional(form, "returnTo") ?? (phone ? `/office/inbox/${encodeURIComponent(phone)}` : "/office/inbox");
+  if (!phone) back(path, "Enter a 10-digit mobile number.", "error");
+  const { error } = await supabase.rpc("send_text", { p_phone: phone, p_body: str(form, "body") });
+  if (error) back(path, errorText(error), "error");
+  // Send now rather than on the next five-minute cron run.
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  done(path, "Sent.");
+}
+
+export async function savePhoneSettings(form: FormData) {
+  const owner = await requireOwner();
+  const ring = str(form, "ringNumbers")
+    .split(/[\n,;]+/)
+    .map((n) => n.trim())
+    .filter(Boolean);
+  const ringNumbers = ring.map((n) => toE164(n));
+  if (ringNumbers.some((n) => !n)) back("/office/settings", "Each ring number needs 10 digits.", "error");
+  const business = optional(form, "businessNumber");
+  const businessNumber = business ? toE164(business) : null;
+  if (business && !businessNumber) back("/office/settings", "The business number needs 10 digits.", "error");
+  const openDays = form.getAll("openDays").map(Number).filter((d) => d >= 1 && d <= 7);
+  const time = (key: string, fallback: string) => (/^\d{2}:\d{2}$/.test(str(form, key)) ? str(form, key) : fallback);
+  const openTime = time("openTime", "08:00");
+  const closeTime = time("closeTime", "18:00");
+  if (closeTime <= openTime) back("/office/settings", "Closing time must be after opening time.", "error");
+  const { error } = await adminClient().from("phone_settings").upsert({
+    company_id: owner.companyId,
+    business_number: businessNumber,
+    ring_numbers: [...new Set(ringNumbers as string[])],
+    ring_seconds: Math.min(60, Math.max(10, Number(str(form, "ringSeconds")) || 20)),
+    open_days: openDays,
+    open_time: openTime,
+    close_time: closeTime,
+    greeting: str(form, "greeting").slice(0, 600) || undefined,
+    after_hours_greeting: str(form, "afterHoursGreeting").slice(0, 600) || undefined,
+    notify_texts: form.get("notifyTexts") === "on",
+    updated_by: owner.userId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Phone settings saved.");
+}
+
+// Measurements, estimates and the roofing price list (phase 2c) ------------------------
+
+function measurementValues(form: FormData): Record<string, number> {
+  const values: Record<string, number> = {};
+  for (const key of MEASUREMENT_COLUMNS) {
+    const n = Number(str(form, key) || 0);
+    values[key] = Number.isFinite(n) && n >= 0 ? n : 0;
+  }
+  return values;
+}
+
+export async function uploadRoofReport(form: FormData) {
+  const { supabase, member } = await staffClient();
+  const leadId = str(form, "leadId");
+  const file = form.get("report");
+  const leadPath = `/office/leads/${leadId}`;
+  if (!(file instanceof File) || file.size === 0) back(leadPath, "Choose the Roofr report PDF.", "error");
+  if (file.size > 4_000_000) back(leadPath, "That PDF is over 4 MB. Enter the measurements by hand instead.", "error");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const { pdfText } = await import("@/lib/estimate/roofr-pdf");
+  const text = await pdfText(bytes);
+  if (!text) back(leadPath, "That file isn't a readable PDF.", "error");
+  const parsed = parseRoofrText(text);
+  if (!parsed.squares) back(leadPath, "Couldn't find the roof area in that report. Enter the measurements by hand.", "error");
+
+  const path = `${member.companyId}/${leadId}/${Date.now()}.pdf`;
+  const { error: uploadError } = await adminClient().storage.from("roof-reports").upload(path, bytes, { contentType: "application/pdf" });
+  if (uploadError) back(leadPath, errorText(uploadError), "error");
+  const values: Record<string, number> = { stories: parsed.twoStorySquares ? 2 : 1, layers: parsed.twoLayerSquares ? 2 : 1 };
+  for (const key of ["squares", "pitch", "eaves", "rakes", "ridges", "hips", "valleys", "step_flashing", "wall_flashing"] as const) {
+    if (parsed[key] !== null) values[key] = parsed[key]!;
+  }
+  const { data: id, error } = await supabase.rpc("save_measurement", {
+    p_lead_id: leadId, p_source: "roofr", p_report_path: path, p_values: values, p_parsed: parsed,
+  });
+  if (error) back(leadPath, errorText(error), "error");
+  done(`${leadPath}/measure?m=${id}`, `Read ${parsed.found.length} values from the report. Check them, add counts (pipe boots, skylights, decking), then save.`);
+}
+
+export async function saveMeasurement(form: FormData) {
+  const { supabase } = await staffClient();
+  const leadId = str(form, "leadId");
+  const from = optional(form, "fromId");
+  let source = "manual";
+  let reportPath: string | null = null;
+  if (from) {
+    const { data: prior } = await supabase.from("measurements").select("source, report_path").eq("id", from).maybeSingle();
+    if (prior) ({ source, report_path: reportPath } = prior);
+  }
+  const values = measurementValues(form);
+  if (!values.squares) back(`/office/leads/${leadId}/measure${from ? `?m=${from}` : ""}`, "Enter the roof area in squares.", "error");
+  const { data: id, error } = await supabase.rpc("save_measurement", {
+    p_lead_id: leadId, p_source: source, p_report_path: reportPath, p_values: values, p_parsed: null,
+  });
+  if (error) back(`/office/leads/${leadId}/measure`, errorText(error), "error");
+  done(`/office/leads/${leadId}/estimate?m=${id}`, "Measurements saved. Choose the options to price.");
+}
+
+export async function saveEstimate(form: FormData) {
+  const { member } = await staffClient();
+  const leadId = str(form, "leadId");
+  const measurementId = str(form, "measurementId");
+  const proposalId = optional(form, "proposalId");
+  const addons: Record<string, number> = {};
+  for (const [key, value] of form.entries()) {
+    const m = /^addon_(.+)$/.exec(key);
+    if (m && form.get(`use_${m[1]}`) === "on") addons[m[1]] = Number(value) || 0;
+  }
+  const inputs = {
+    systemIds: form.getAll("systemId").map(String).slice(0, 3),
+    addons,
+    includeDumpster: form.get("includeDumpster") === "on",
+    includePermit: form.get("includePermit") === "on",
+  };
+  const retry = `/office/leads/${leadId}/estimate?m=${measurementId}${proposalId ? `&p=${proposalId}` : ""}`;
+  if (inputs.systemIds.length === 0) back(retry, "Choose at least one roof system.", "error");
+  let id: string;
+  try {
+    id = await priceAndSaveProposal({ companyId: member.companyId, actorId: member.userId, leadId, proposalId, measurementId, inputs });
+  } catch (err) {
+    back(retry, (err as Error).message, "error");
+  }
+  done(`/office/proposals/${id}`, proposalId ? "Estimate re-priced." : "Estimate drafted.");
+}
+
+export async function overrideOptionPrice(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const id = str(form, "proposalId");
+  const clear = form.get("clear") === "1";
+  const cents = clear ? null : parseDollarsToCents(str(form, "price"));
+  if (!clear && cents === null) back(`/office/proposals/${id}`, "Enter the price in dollars.", "error");
+  const { error } = await supabase.rpc("override_option_price", {
+    p_proposal_id: id, p_system_id: str(form, "systemId"), p_price_cents: cents, p_reason: optional(form, "reason"),
+  });
+  if (error) back(`/office/proposals/${id}`, errorText(error), "error");
+  done(`/office/proposals/${id}`, clear ? "Back to the calculated price." : "Price updated.");
+}
+
+export async function savePriceList(form: FormData) {
+  const owner = await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const section = str(form, "section");
+  const current = await activeCatalog(owner.companyId);
+  let next = current.data;
+  let needsConfirmation = current.needsConfirmation;
+  if (section === "confirm") {
+    needsConfirmation = form.get("confirmed") !== "on";
+  } else {
+    try {
+      next = applySection(current.data, section, form);
+    } catch (err) {
+      back("/office/pricing", err instanceof PriceListFormError ? err.message : "Couldn't read that form.", "error");
+    }
+  }
+  const valid = catalogSchema.safeParse(next);
+  if (!valid.success) back("/office/pricing", valid.error.issues[0]?.message ?? "That price list isn't valid.", "error");
+  const { error } = await supabase.rpc("publish_catalog", { p_data: valid.data, p_needs_confirmation: needsConfirmation });
+  if (error) back("/office/pricing", errorText(error), "error");
+  done("/office/pricing", `Price list version ${current.version + 1} published. Estimates already built keep their prices.`);
+}
+
+// Sending and signing (phase 2d) --------------------------------------------------------
+
+export async function sendProposal(form: FormData) {
+  const { supabase, member } = await staffClient();
+  const id = str(form, "proposalId");
+  const path = `/office/proposals/${id}`;
+  // RLS first: the member must be able to see this proposal.
+  const { data: visible } = await supabase.from("proposals").select("id").eq("id", id).maybeSingle();
+  if (!visible) back("/office/leads", "Proposal not found.", "error");
+  const p = await loadFullProposal({ id });
+  if (!p) back(path, "Proposal not found.", "error");
+  const settings = await loadProposalSettings(member.companyId);
+  const content = { ...p.content, terms: settings.terms };
+  const { error } = await adminClient().rpc("send_proposal", {
+    p_company_id: member.companyId,
+    p_actor: member.userId,
+    p_proposal_id: id,
+    p_token: newProposalToken(),
+    p_content_hash: contentHash(content),
+    p_terms: settings.terms,
+    p_valid_days: settings.validDays,
+    p_by_text: form.get("byText") === "on",
+    p_by_email: form.get("byEmail") === "on",
+  });
+  if (error) back(path, errorText(error), "error");
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  done(path, "Sent. The homeowner can open it, pick an option and sign on their phone.");
+}
+
+export async function reviseProposal(form: FormData) {
+  const { supabase } = await staffClient();
+  const { data: id, error } = await supabase.rpc("revise_proposal", { p_proposal_id: str(form, "proposalId") });
+  if (error) back(`/office/proposals/${str(form, "proposalId")}`, errorText(error), "error");
+  done(`/office/proposals/${id}`, "New version drafted. Change it, then send it; sending replaces the old one.");
+}
+
+export async function saveProposalSettings(form: FormData) {
+  const owner = await requireOwner();
+  const terms = str(form, "terms");
+  if (terms.length < 20) back("/office/settings", "Enter the contract terms.", "error");
+  const { error } = await adminClient().from("proposal_settings").upsert({
+    company_id: owner.companyId,
+    terms: terms.slice(0, 20000),
+    valid_days: Math.min(365, Math.max(1, Number(str(form, "validDays")) || 30)),
+    hic_number: optional(form, "hicNumber"),
+    updated_by: owner.userId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Proposal terms saved. Proposals already sent keep the terms they were sent with.");
+}
+
+export async function scheduleRoofingJob(form: FormData) {
+  const { supabase } = await staffClient();
+  const { error } = await supabase.rpc("schedule_roofing_job", {
+    p_job_id: str(form, "jobId"),
+    p_install_date: optional(form, "installDate"),
+    p_crew_ids: form.getAll("crewId").map(String),
+    p_notes: optional(form, "notes"),
+  });
+  if (error) back("/office/jobs", errorText(error), "error");
+  done("/office/jobs", "Job updated.");
+}
+
+/** Crew and staff: start or finish a roofing job. */
+export async function setRoofingJobStatus(form: FormData) {
+  const member = await getMember();
+  if (!member) back("/login", "Sign in first.", "error");
+  const supabase = await createSupabaseServerClient();
+  const returnTo = optional(form, "returnTo") ?? (member.role === "crew" ? "/crew" : "/office/jobs");
+  const { error } = await supabase.rpc("set_roofing_job_status", { p_job_id: str(form, "jobId"), p_status: str(form, "status") });
+  if (error) back(returnTo, errorText(error), "error");
+  revalidatePath("/crew");
+  done(returnTo, "Updated.");
+}
+
+// Job costing (phase 3a) -----------------------------------------------------------------
+
+async function jobRpc(path: string, rpc: string, args: Record<string, unknown>, ok: string): Promise<never> {
+  const { supabase } = await staffClient();
+  const { error } = await supabase.rpc(rpc, args);
+  if (error) back(path, errorText(error), "error");
+  done(path, ok);
+}
+
+const money = (form: FormData, key: string) => parseDollarsToCents(str(form, key));
+const amount = (form: FormData, key: string) => {
+  const n = Number(str(form, key));
+  return Number.isFinite(n) && str(form, key) !== "" ? n : null;
+};
+
+export async function addJobCost(form: FormData) {
+  const jobId = str(form, "jobId");
+  const path = `/office/jobs/${jobId}`;
+  const qty = amount(form, "qty");
+  const unit = money(form, "unit");
+  const total = money(form, "amount") ?? (qty !== null && unit !== null ? Math.round(qty * unit) : null);
+  if (total === null) back(path, "Enter an amount, or a quantity and rate.", "error");
+  return jobRpc(path, "add_job_cost", {
+    p_job_id: jobId, p_kind: str(form, "kind"), p_description: str(form, "description"), p_amount_cents: total,
+    p_qty: qty, p_unit_cents: unit, p_vendor: optional(form, "vendor"), p_reference: optional(form, "reference"),
+    p_incurred_on: optional(form, "incurredOn"),
+  }, "Cost added.");
+}
+
+export async function addOwnEquipment(form: FormData) {
+  const jobId = str(form, "jobId");
+  return jobRpc(`/office/jobs/${jobId}`, "add_own_equipment",
+    { p_job_id: jobId, p_kind: str(form, "kind"), p_qty: amount(form, "qty") }, "Added at our cost.");
+}
+
+export async function voidJobCost(form: FormData) {
+  return jobRpc(`/office/jobs/${str(form, "jobId")}`, "void_job_cost",
+    { p_cost_id: str(form, "costId"), p_reason: str(form, "reason") }, "Cost voided.");
+}
+
+export async function pullStock(form: FormData) {
+  const jobId = str(form, "jobId");
+  const qty = amount(form, "qty");
+  const returning = form.get("direction") === "return";
+  return jobRpc(`/office/jobs/${jobId}`, "stock_pull",
+    { p_item_id: str(form, "itemId"), p_job_id: jobId, p_qty: qty === null ? null : returning ? -qty : qty },
+    returning ? "Returned to the shelf." : "Charged to the job at average cost.");
+}
+
+export async function recordJobPayment(form: FormData) {
+  const jobId = str(form, "jobId");
+  return jobRpc(`/office/jobs/${jobId}`, "record_job_payment", {
+    p_job_id: jobId, p_amount_cents: money(form, "amount"), p_method: str(form, "method"),
+    p_reference: optional(form, "reference"), p_received_on: optional(form, "receivedOn"),
+  }, "Payment recorded.");
+}
+
+export async function voidJobPayment(form: FormData) {
+  return jobRpc(`/office/jobs/${str(form, "jobId")}`, "void_job_payment",
+    { p_payment_id: str(form, "paymentId"), p_reason: str(form, "reason") }, "Payment voided.");
+}
+
+export async function createStockItem(form: FormData) {
+  return jobRpc("/office/stock", "create_stock_item", { p_name: str(form, "name"), p_unit: optional(form, "unit") }, "Item added.");
+}
+
+export async function buyStock(form: FormData) {
+  return jobRpc("/office/stock", "stock_buy", {
+    p_item_id: str(form, "itemId"), p_qty: amount(form, "qty"), p_total_cents: money(form, "total"),
+    p_vendor: optional(form, "vendor"), p_reference: optional(form, "reference"), p_bought_on: optional(form, "boughtOn"),
+  }, "Buy recorded; average cost updated.");
+}
+
+export async function countStock(form: FormData) {
+  return jobRpc("/office/stock", "stock_count",
+    { p_item_id: str(form, "itemId"), p_on_hand: amount(form, "onHand"), p_note: optional(form, "note") }, "Count updated.");
+}
+
+export async function saveCostSettings(form: FormData) {
+  const owner = await requireOwner();
+  const dumpster = parseDollarsToCents(str(form, "dumpster"));
+  const gutter = parseDollarsToCents(str(form, "gutter"));
+  if (dumpster === null || gutter === null) back("/office/settings", "Enter both costs in dollars.", "error");
+  const { error } = await adminClient().from("cost_settings").upsert({
+    company_id: owner.companyId, own_dumpster_cents: dumpster, own_gutter_cents_per_ft: gutter,
+    updated_by: owner.userId, updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Equipment costs saved. Costs already charged to jobs keep their amounts.");
+}
+
+// Reviews and referrals (phase 3b) --------------------------------------------------------
+
+export async function markJobFinal(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const jobId = str(form, "jobId");
+  const { error } = await supabase.rpc("mark_job_final", { p_job_id: jobId });
+  if (error) back(`/office/jobs/${jobId}`, errorText(error), "error");
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  done(`/office/jobs/${jobId}`, "Marked final. Warranty sent; the \"how did we do?\" text goes out tomorrow.");
+}
+
+export async function resolveFollowUp(form: FormData) {
+  return jobRpc(`/office/jobs/${str(form, "jobId")}`, "resolve_follow_up",
+    { p_job_id: str(form, "jobId"), p_note: str(form, "note") }, "Follow-up resolved.");
+}
+
+export async function setLeadReferrer(form: FormData) {
+  const leadId = str(form, "leadId");
+  return jobRpc(`/office/leads/${leadId}`, "set_lead_referrer",
+    { p_lead_id: leadId, p_referrer_job_id: str(form, "referrerJobId") }, "Referral recorded.");
+}
+
+export async function markRewardPaid(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("mark_reward_paid", {
+    p_referral_id: str(form, "referralId"), p_method: str(form, "method"), p_reference: optional(form, "reference"),
+  });
+  if (error) back("/office/referrals", errorText(error), "error");
+  done("/office/referrals", "Reward marked paid. They'll get a thank-you text.");
+}
+
+export async function voidReferral(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("void_referral", { p_referral_id: str(form, "referralId"), p_reason: str(form, "reason") });
+  if (error) back("/office/referrals", errorText(error), "error");
+  done("/office/referrals", "Referral voided.");
+}
+
+export async function saveReviewSettings(form: FormData) {
+  const owner = await requireOwner();
+  const url = optional(form, "googleReviewUrl");
+  if (url && !/^https:\/\/\S+$/.test(url)) back("/office/settings", "The review link must start with https://", "error");
+  const reward = parseDollarsToCents(str(form, "reward"));
+  if (reward === null) back("/office/settings", "Enter the reward in dollars.", "error");
+  const { error } = await adminClient().from("review_settings").upsert({
+    company_id: owner.companyId,
+    google_review_url: url,
+    reward_cents: reward,
+    feedback_delay_hours: Math.min(336, Math.max(0, Number(str(form, "feedbackDelayHours")) || 24)),
+    referral_delay_days: Math.min(60, Math.max(0, Number(str(form, "referralDelayDays")) || 3)),
+    updated_by: owner.userId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Review and referral settings saved.");
 }
