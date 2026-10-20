@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addJobCost, addOwnEquipment, pullStock, recordJobPayment, voidJobCost, voidJobPayment } from "@/app/office/actions";
+import {
+  addJobCost, addOwnEquipment, markJobFinal, pullStock, recordJobPayment, resolveFollowUp, voidJobCost, voidJobPayment,
+} from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { companyToday, formatDate } from "@/lib/dates";
@@ -21,13 +23,14 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
   const { data: job } = await supabase.from("roofing_jobs").select("*").eq("id", id).maybeSingle();
   if (!job) notFound();
 
-  const [{ data: costs }, { data: payments }, { data: items }, { data: signature }, { data: plannedRow }] = await Promise.all([
+  const [{ data: costs }, { data: payments }, { data: items }, { data: signature }, { data: plannedRow }, { data: care }] = await Promise.all([
     supabase.from("job_costs").select("*").eq("job_id", id).order("created_at"),
     supabase.from("job_payments").select("*").eq("job_id", id).order("received_on"),
     supabase.from("stock_items").select("id, name, unit, on_hand, avg_cost_cents").eq("is_active", true).order("name"),
     supabase.from("proposal_signatures").select("system_id, addons").eq("proposal_id", job.proposal_id).maybeSingle(),
     // Owners only (RLS): the estimate's cost build-up.
     supabase.from("proposal_costs").select("breakdown").eq("proposal_id", job.proposal_id).maybeSingle(),
+    supabase.from("aftercare").select("*").eq("job_id", id).maybeSingle(),
   ]);
   const breakdown = plannedRow?.breakdown as
     | { options: { systemId: string; lines: CostLine[] }[]; addons: { addonId: string; costCents: number }[] }
@@ -60,6 +63,38 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
         {job.address} · {job.system_name} · <Link className="underline" href={`/office/proposals/${job.proposal_id}`}>agreement</Link>
         {job.install_date && <> · install {formatDate(job.install_date)}</>}
       </p>
+
+      <section className="card space-y-2 text-sm">
+        <h2 className="font-semibold">Aftercare</h2>
+        {!care ? (
+          job.status === "done" ? (
+            member.role === "owner" ? (
+              <form action={markJobFinal} className="flex flex-wrap items-center gap-3">
+                <input type="hidden" name="jobId" value={job.id} />
+                <button className="btn">Mark final</button>
+                <span className="text-muted">Sends the warranty and signed agreement now, &quot;how did we do?&quot; tomorrow, then reviews and referrals.</span>
+              </form>
+            ) : <p className="text-muted">The crew marked it done. An owner checks the job and taps Mark final.</p>
+          ) : <p className="text-muted">Once the crew marks the job done, an owner can mark it final to start reviews and referrals.</p>
+        ) : (
+          <>
+            <p>
+              Final {formatDate(care.final_at.slice(0, 10))} ·{" "}
+              {care.rating ? <>rated <strong>{care.rating}</strong>{care.comment && <> — &quot;{care.comment}&quot;</>}</> : "waiting for their answer"}
+              {care.review_clicked_at && " · opened the Google review"}
+            </p>
+            <p className="text-xs text-muted">Referral link: {process.env.APP_URL ?? ""}/r/{care.referral_code}</p>
+            {care.follow_up === "open" && (
+              <form action={resolveFollowUp} className="flex flex-wrap gap-2">
+                <input type="hidden" name="jobId" value={job.id} />
+                <input name="note" required placeholder="How it was made right" className="input flex-1" />
+                <button className="btn-secondary">Resolve follow-up</button>
+              </form>
+            )}
+            {care.follow_up === "resolved" && <p className="text-xs text-muted">Follow-up resolved: {care.follow_up_note}</p>}
+          </>
+        )}
+      </section>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[

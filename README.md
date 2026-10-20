@@ -18,10 +18,12 @@ Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us
 ```
 app/request/[slug]   public dumpster request link (no login)
 app/roof/[slug]      public roofing estimate link (no login), with past-job photos
-app/office           owner/office: today, requests, leads, inbox (texts, calls), jobs (P&L), stock, cans, customers, billing, numbers, settings
+app/office           owner/office: today, requests, leads, inbox (texts, calls), jobs (P&L, aftercare), stock, referrals, cans, customers, billing, numbers, settings
 app/driver           driver run, English/Spanish
 app/crew             roofing crew jobs, English/Spanish (no prices)
 app/p/[token]        homeowner proposal: review, choose, sign; signed PDF
+app/f/[token]        homeowner "how did we do?" → Google review link or owner follow-up
+app/r/[code]         a past customer's referral link: the friend's estimate request
 app/login            email link (office) and text code (drivers)
 app/api/cron         outbox delivery (5 min) and daily reminders + Monday statements
 app/api/twilio       business phone webhooks (calls, voicemail, texts), signature-checked

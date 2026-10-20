@@ -4,13 +4,21 @@ import { isLocale } from "@/lib/i18n";
 import { sendEmail } from "@/lib/integrations/resend";
 import { SmsProviderError, TwilioMessagingClient } from "@/lib/integrations/twilio";
 import {
+  aftercareWarrantyEmail,
+  aftercareWarrantySms,
+  feedbackFollowupSms,
+  feedbackRequestSms,
   leadReceivedSms,
   proposalLinkEmail,
   proposalLinkSms,
   proposalSignedEmail,
   proposalSignedSms,
+  referralEarnedSms,
+  referralInviteSms,
+  referralPaidSms,
   reminderEmail,
   requestApprovedSms,
+  rewardOwedSms,
   requestReceivedSms,
   statementEmail,
   textReceivedSms,
@@ -75,6 +83,17 @@ async function deliverProposalEmail(message: OutboxMessage, email: { apiKey: str
   }
   if (!proposal.signature) throw new Skip("not signed");
   const { proposalPdf } = await import("@/lib/proposals/pdf");
+  if (message.kind === "aftercare_warranty") {
+    const content = aftercareWarrantyEmail(
+      { name: proposal.lead.name, system: proposal.signature.option.name, warranty: proposal.signature.option.warranty },
+      brand,
+    );
+    await sendEmail({
+      apiKey: email.apiKey, from: `${brand.name} <${email.from}>`, to: String(p.to), replyTo: brand.email, ...content,
+      attachments: [{ filename: `agreement-${proposal.content.number}.pdf`, content: await proposalPdf(proposal) }],
+    });
+    return;
+  }
   const content = proposalSignedEmail(
     { name: proposal.lead.name, number: proposal.content.number, option: proposal.signature.option.name, totalCents: proposal.signature.totalCents },
     brand,
@@ -97,6 +116,17 @@ async function dumpsterBrand(companyId: string): Promise<Brand & { email: string
     .eq("kind", "dumpster")
     .single();
   return { name: data?.display_name ?? "American Prime Construction", phone: data?.phone ?? null, email: data?.email ?? null };
+}
+
+/** Texts to customers (not staff alerts): never sent to a number that replied STOP. */
+const CUSTOMER_SMS = new Set([
+  "request_approved", "proposal_link", "aftercare_warranty", "feedback_request", "referral_invite", "referral_earned", "referral_paid",
+]);
+
+async function optedOut(companyId: string, phone: string): Promise<boolean> {
+  const { data } = await adminClient()
+    .from("sms_opt_outs").select("phone").eq("company_id", companyId).eq("phone", phone).is("opted_in_at", null).maybeSingle();
+  return Boolean(data);
 }
 
 /** Twilio errors that will never succeed on retry: opted out, not a mobile number, invalid number. */
@@ -141,6 +171,9 @@ async function deliver(message: OutboxMessage): Promise<void> {
   if (message.channel === "sms") {
     const sms = smsClient();
     if (!sms) throw new Error("SMS not configured");
+    if (CUSTOMER_SMS.has(message.kind) && (await optedOut(message.company_id, String(p.to)))) {
+      throw new Skip("recipient replied STOP");
+    }
     let body: string;
     if (message.kind === "request_received") {
       body = requestReceivedSms(
@@ -184,6 +217,29 @@ async function deliver(message: OutboxMessage): Promise<void> {
         },
         appUrl,
       );
+    } else if (message.kind === "aftercare_warranty") {
+      body = aftercareWarrantySms(
+        { name: String(p.name), system: String(p.system), link: p.proposal_token ? `${appUrl}/p/${p.proposal_token}` : null },
+        await roofingBrand(message.company_id),
+      );
+    } else if (message.kind === "feedback_request") {
+      body = feedbackRequestSms({ name: String(p.name), link: `${appUrl}/f/${p.token}` }, await roofingBrand(message.company_id));
+    } else if (message.kind === "referral_invite") {
+      body = referralInviteSms(
+        { name: String(p.name), link: `${appUrl}/r/${p.code}`, rewardCents: Number(p.reward_cents) },
+        await roofingBrand(message.company_id),
+      );
+    } else if (message.kind === "referral_earned") {
+      body = referralEarnedSms({ name: String(p.name), friend: String(p.friend), rewardCents: Number(p.reward_cents) }, await roofingBrand(message.company_id));
+    } else if (message.kind === "referral_paid") {
+      body = referralPaidSms(
+        { name: String(p.name), friend: String(p.friend), rewardCents: Number(p.reward_cents), method: String(p.method) },
+        await roofingBrand(message.company_id),
+      );
+    } else if (message.kind === "feedback_followup") {
+      body = feedbackFollowupSms({ name: String(p.name), rating: String(p.rating), comment: String(p.comment ?? ""), jobId: String(p.job_id) }, appUrl);
+    } else if (message.kind === "reward_owed") {
+      body = rewardOwedSms({ referrer: String(p.referrer), friend: String(p.friend), rewardCents: Number(p.reward_cents) }, appUrl);
     } else if (message.kind === "reply") {
       await sendReply(sms, message);
       return;
@@ -198,7 +254,7 @@ async function deliver(message: OutboxMessage): Promise<void> {
 
   const email = emailConfig();
   if (!email) throw new Error("Email not configured");
-  if (message.kind === "proposal_link" || message.kind === "proposal_signed") {
+  if (message.kind === "proposal_link" || message.kind === "proposal_signed" || message.kind === "aftercare_warranty") {
     await deliverProposalEmail(message, email, appUrl);
     return;
   }
