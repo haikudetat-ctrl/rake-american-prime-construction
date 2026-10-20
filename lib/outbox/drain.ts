@@ -2,10 +2,12 @@ import "server-only";
 import { loadStatement } from "@/lib/billing/statement";
 import { isLocale } from "@/lib/i18n";
 import { sendEmail } from "@/lib/integrations/resend";
-import { TwilioMessagingClient } from "@/lib/integrations/twilio";
+import { SmsProviderError, TwilioMessagingClient } from "@/lib/integrations/twilio";
 import {
   leadReceivedSms,
   reminderEmail,
+  textReceivedSms,
+  voicemailReceivedSms,
   requestApprovedSms,
   requestReceivedSms,
   statementEmail,
@@ -20,6 +22,8 @@ type OutboxMessage = {
   channel: "sms" | "email";
   kind: string;
   payload: Record<string, unknown>;
+  attempts: number;
+  max_attempts: number;
 };
 
 class Skip extends Error {}
@@ -52,6 +56,41 @@ async function dumpsterBrand(companyId: string): Promise<Brand & { email: string
   return { name: data?.display_name ?? "American Prime Construction", phone: data?.phone ?? null, email: data?.email ?? null };
 }
 
+/** Twilio errors that will never succeed on retry: opted out, not a mobile number, invalid number. */
+const PERMANENT_SMS_ERRORS = new Set(["21610", "21614", "21211", "21612", "21408"]);
+
+/** An office reply from the inbox: send it and record the outcome on the message. */
+async function sendReply(sms: NonNullable<ReturnType<typeof smsClient>>, message: OutboxMessage): Promise<void> {
+  const p = message.payload;
+  const db = adminClient();
+  const { data: optedOut } = await db
+    .from("sms_opt_outs")
+    .select("phone")
+    .eq("company_id", message.company_id)
+    .eq("phone", String(p.to))
+    .is("opted_in_at", null)
+    .maybeSingle();
+  if (optedOut) {
+    await db.rpc("mark_text_sent", { p_message_id: p.message_id, p_twilio_sid: null, p_error: "They replied STOP." });
+    throw new Skip("recipient opted out");
+  }
+  try {
+    const sent = await sms.client.send({
+      messagingServiceSid: sms.messagingServiceSid,
+      to: String(p.to),
+      body: String(p.body),
+      statusCallback: null,
+    });
+    await db.rpc("mark_text_sent", { p_message_id: p.message_id, p_twilio_sid: sent.sid, p_error: null });
+  } catch (err) {
+    if (err instanceof SmsProviderError && err.code && PERMANENT_SMS_ERRORS.has(err.code)) {
+      await db.rpc("mark_text_sent", { p_message_id: p.message_id, p_twilio_sid: null, p_error: err.message });
+      throw new Skip(`twilio ${err.code}`);
+    }
+    throw err;
+  }
+}
+
 async function deliver(message: OutboxMessage): Promise<void> {
   const p = message.payload;
   const appUrl = process.env.APP_URL ?? "";
@@ -76,6 +115,25 @@ async function deliver(message: OutboxMessage): Promise<void> {
         },
         appUrl,
       );
+    } else if (message.kind === "text_received") {
+      body = textReceivedSms(
+        { from: String(p.from), name: p.name ? String(p.name) : null, body: String(p.body ?? ""), locale: isLocale(p.locale) ? p.locale : "en" },
+        appUrl,
+      );
+    } else if (message.kind === "voicemail_received") {
+      body = voicemailReceivedSms(
+        {
+          from: String(p.from),
+          name: p.name ? String(p.name) : null,
+          seconds: Number(p.seconds ?? 0),
+          leadId: p.lead_id ? String(p.lead_id) : null,
+          locale: isLocale(p.locale) ? p.locale : "en",
+        },
+        appUrl,
+      );
+    } else if (message.kind === "reply") {
+      await sendReply(sms, message);
+      return;
     } else if (message.kind === "request_approved") {
       body = requestApprovedSms({ date: String(p.date), address: String(p.address) }, await dumpsterBrand(message.company_id));
     } else {
@@ -141,7 +199,12 @@ export async function drainOutbox(batchSize = 20) {
         await db.from("outbox_messages").update({ status: "sent", last_error: `skipped: ${err.message}`, locked_at: null }).eq("id", message.id);
         skipped++;
       } else {
-        await db.rpc("finish_outbox", { p_id: message.id, p_error: (err as Error).message.slice(0, 500) });
+        const reason = (err as Error).message.slice(0, 500);
+        await db.rpc("finish_outbox", { p_id: message.id, p_error: reason });
+        // Last try for an inbox reply: show it as failed in the thread instead of "sending".
+        if (message.kind === "reply" && message.attempts >= message.max_attempts) {
+          await db.rpc("mark_text_sent", { p_message_id: message.payload.message_id, p_twilio_sid: null, p_error: reason });
+        }
         failed++;
       }
     }

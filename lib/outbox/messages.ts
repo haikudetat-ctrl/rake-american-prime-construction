@@ -41,6 +41,29 @@ export function leadReceivedSms(
     : `New roofing lead: ${p.name} (${need.en})${where}. Open: ${link}`;
 }
 
+export function textReceivedSms(
+  p: { from: string; name: string | null; body: string; locale?: Locale },
+  appUrl: string,
+): string {
+  const who = p.name ? `${p.name} (${formatPhone(p.from)})` : formatPhone(p.from);
+  const link = `${appUrl}/office/inbox/${encodeURIComponent(p.from)}`;
+  const body = p.body.length > 100 ? `${p.body.slice(0, 100)}…` : p.body;
+  return p.locale === "es"
+    ? `Texto de ${who}: "${body}" Responder: ${link}`
+    : `Text from ${who}: "${body}" Reply: ${link}`;
+}
+
+export function voicemailReceivedSms(
+  p: { from: string; name: string | null; seconds: number; leadId: string | null; locale?: Locale },
+  appUrl: string,
+): string {
+  const who = p.name ? `${p.name} (${formatPhone(p.from)})` : formatPhone(p.from);
+  const link = p.leadId ? `${appUrl}/office/leads/${p.leadId}` : `${appUrl}/office/inbox?tab=calls`;
+  return p.locale === "es"
+    ? `Buzón de voz de ${who}, ${p.seconds} s. Escuchar: ${link}`
+    : `Voicemail from ${who}, ${p.seconds}s. Listen: ${link}`;
+}
+
 export function requestApprovedSms(p: { date: string; address: string }, brand: Brand): string {
   const contact = brand.phone ? ` Changes? Call ${formatPhone(brand.phone)}.` : "";
   return `${brand.name}: your dumpster is booked for ${formatDate(p.date)} at ${p.address}.${contact} Reply STOP to opt out.`;

@@ -578,3 +578,52 @@ export async function removeGalleryPhoto(form: FormData) {
   await db.storage.from("gallery").remove([photo.path]);
   done("/office/settings", "Photo removed.");
 }
+
+// Business phone and inbox (phase 2b) -------------------------------------------------
+
+export async function sendText(form: FormData) {
+  const { supabase } = await staffClient();
+  const phone = toE164(str(form, "phone"));
+  const path = optional(form, "returnTo") ?? (phone ? `/office/inbox/${encodeURIComponent(phone)}` : "/office/inbox");
+  if (!phone) back(path, "Enter a 10-digit mobile number.", "error");
+  const { error } = await supabase.rpc("send_text", { p_phone: phone, p_body: str(form, "body") });
+  if (error) back(path, errorText(error), "error");
+  // Send now rather than on the next five-minute cron run.
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  done(path, "Sent.");
+}
+
+export async function savePhoneSettings(form: FormData) {
+  const owner = await requireOwner();
+  const ring = str(form, "ringNumbers")
+    .split(/[\n,;]+/)
+    .map((n) => n.trim())
+    .filter(Boolean);
+  const ringNumbers = ring.map((n) => toE164(n));
+  if (ringNumbers.some((n) => !n)) back("/office/settings", "Each ring number needs 10 digits.", "error");
+  const business = optional(form, "businessNumber");
+  const businessNumber = business ? toE164(business) : null;
+  if (business && !businessNumber) back("/office/settings", "The business number needs 10 digits.", "error");
+  const openDays = form.getAll("openDays").map(Number).filter((d) => d >= 1 && d <= 7);
+  const time = (key: string, fallback: string) => (/^\d{2}:\d{2}$/.test(str(form, key)) ? str(form, key) : fallback);
+  const openTime = time("openTime", "08:00");
+  const closeTime = time("closeTime", "18:00");
+  if (closeTime <= openTime) back("/office/settings", "Closing time must be after opening time.", "error");
+  const { error } = await adminClient().from("phone_settings").upsert({
+    company_id: owner.companyId,
+    business_number: businessNumber,
+    ring_numbers: [...new Set(ringNumbers as string[])],
+    ring_seconds: Math.min(60, Math.max(10, Number(str(form, "ringSeconds")) || 20)),
+    open_days: openDays,
+    open_time: openTime,
+    close_time: closeTime,
+    greeting: str(form, "greeting").slice(0, 600) || undefined,
+    after_hours_greeting: str(form, "afterHoursGreeting").slice(0, 600) || undefined,
+    notify_texts: form.get("notifyTexts") === "on",
+    updated_by: owner.userId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Phone settings saved.");
+}

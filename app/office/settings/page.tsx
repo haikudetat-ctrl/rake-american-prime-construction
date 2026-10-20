@@ -1,6 +1,7 @@
 import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { GalleryCard } from "@/app/office/settings/gallery-card";
+import { PhoneCard } from "@/app/office/settings/phone-card";
 import { QuickBooksCard } from "@/app/office/settings/quickbooks-card";
 import { requireStaff } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
@@ -64,6 +65,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
         )}
       </section>
 
+      {isOwner && <PhoneCard companyId={member.companyId} />}
       {isOwner && <QuickBooksCard companyId={member.companyId} />}
 
       <section className="card space-y-3">

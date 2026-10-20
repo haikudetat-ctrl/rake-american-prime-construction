@@ -6,6 +6,7 @@ const NAV = [
   { href: "/office", label: "Today" },
   { href: "/office/requests", label: "Requests" },
   { href: "/office/leads", label: "Leads" },
+  { href: "/office/inbox", label: "Inbox" },
   { href: "/office/cans", label: "Cans" },
   { href: "/office/customers", label: "Customers" },
   { href: "/office/billing", label: "Billing" },
@@ -16,9 +17,10 @@ const NAV = [
 export default async function OfficeLayout({ children }: LayoutProps<"/office">) {
   const member = await requireStaff();
   const supabase = await createSupabaseServerClient();
-  const [{ count: pending }, { count: newLeads }, { data: priceBook }] = await Promise.all([
+  const [{ count: pending }, { count: newLeads }, { count: unread }, { data: priceBook }] = await Promise.all([
     supabase.from("rental_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("leads").select("id", { count: "exact", head: true }).eq("stage", "new"),
+    supabase.from("messages").select("id", { count: "exact", head: true }).eq("direction", "in").is("read_at", null),
     supabase.from("price_books").select("needs_confirmation").eq("is_active", true).maybeSingle(),
   ]);
 
@@ -33,6 +35,9 @@ export default async function OfficeLayout({ children }: LayoutProps<"/office">)
                 {item.label}
                 {item.href === "/office/requests" && pending ? (
                   <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-accent-foreground">{pending}</span>
+                ) : null}
+                {item.href === "/office/inbox" && unread ? (
+                  <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-accent-foreground">{unread}</span>
                 ) : null}
                 {item.href === "/office/leads" && newLeads ? (
                   <span className="ml-1 rounded-full bg-accent px-1.5 text-xs text-accent-foreground">{newLeads}</span>

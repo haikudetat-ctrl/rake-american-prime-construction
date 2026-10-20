@@ -33,7 +33,7 @@ Same Supabase project, same app, same roles. Crews never see prices (as with dri
   win rate, and leads by source.
 - Owner and office are notified of a new lead by text.
 
-### 2b. Business phone number
+### 2b. Business phone number — built (Oct 20)
 
 - One Twilio number (the same number registered for A2P texting).
 - **Calls**: Twilio voice webhook answers with a simultaneous dial to Andrey's and his wife's
@@ -43,7 +43,11 @@ Same Supabase project, same app, same roles. Crews never see prices (as with dri
 - **Texts**: inbound texts land in an **Inbox** tied to the lead or customer (matched by phone);
   an unknown number starts a new lead. Replies go out from the business number through the
   existing outbox. STOP/HELP handled by Twilio Messaging Service; opt-outs are respected.
-- Every Twilio webhook verifies Twilio's request signature.
+- Every Twilio webhook verifies Twilio's request signature (`TWILIO_AUTH_TOKEN`).
+- Whoever picks up hears "press 1 to answer" first, so a personal voicemail can't take the call.
+- Setup: Settings → Business phone (ring list, hours, greetings) has the two Twilio webhook URLs.
+- To verify on a live number: simultaneous ring with screening (does a second phone keep ringing
+  while the first is screening?), caller ID pass-through, voicemail playback and texted photos.
 - Calls work as soon as the number exists. Texts to customers wait on A2P 10DLC approval.
 
 ### 2c. Measurements and the estimate builder
