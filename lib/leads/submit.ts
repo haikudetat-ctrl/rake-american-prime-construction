@@ -15,6 +15,19 @@ export type LeadSubmitResult =
  * matter (link active and roofing, rate limit).
  */
 export async function submitLeadRequest(slug: string, form: FormData, clientIp: string): Promise<LeadSubmitResult> {
+  return submit({ via: "link", slug }, form, clientIp);
+}
+
+/** A friend's request through a past customer's referral link (/r/<code>). */
+export async function submitReferralLead(code: string, form: FormData, clientIp: string): Promise<LeadSubmitResult> {
+  return submit({ via: "referral", code }, form, clientIp);
+}
+
+async function submit(
+  target: { via: "link"; slug: string } | { via: "referral"; code: string },
+  form: FormData,
+  clientIp: string,
+): Promise<LeadSubmitResult> {
   const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === "string"));
   const parsed = leadRequestSchema.safeParse(fields);
   if (!parsed.success) {
@@ -33,8 +46,7 @@ export async function submitLeadRequest(slug: string, form: FormData, clientIp: 
 
   const place = await geocode(input.address);
   const db = adminClient();
-  const { data: leadId, error } = await db.rpc("submit_lead_request", {
-    p_slug: slug,
+  const common = {
     p_name: input.name,
     p_phone: input.phone,
     p_email: input.email ?? null,
@@ -47,7 +59,10 @@ export async function submitLeadRequest(slug: string, form: FormData, clientIp: 
     p_notes: input.notes ?? null,
     p_consent_text: input.consent ? CONTACT_CONSENT : null,
     p_submitter_hash: hashSubmitter(clientIp),
-  });
+  };
+  const { data: leadId, error } = target.via === "link"
+    ? await db.rpc("submit_lead_request", { p_slug: target.slug, ...common })
+    : await db.rpc("submit_referral_lead", { p_code: target.code, ...common });
   if (error) {
     if (error.hint === "rate_limited") return { ok: false, error: "rate_limited" };
     if (error.code === "P0002") return { ok: false, error: "unknown_link" };
@@ -64,6 +79,16 @@ export async function submitLeadRequest(slug: string, form: FormData, clientIp: 
     if (!uploadError) await db.from("lead_photos").insert({ company_id: lead?.company_id, lead_id: leadId, path });
   }
   return { ok: true };
+}
+
+/** Who sent this referral link, for the friend's page. Null if the code is unknown. */
+export async function loadReferrer(code: string): Promise<{ firstName: string; companyId: string; brandId: string | null } | null> {
+  if (!/^[2-9A-Za-z]{8}$/.test(code)) return null;
+  const db = adminClient();
+  const { data } = await db.from("aftercare").select("customer_name, company_id").eq("referral_code", code.toUpperCase()).maybeSingle();
+  if (!data) return null;
+  const { data: brand } = await db.from("brands").select("id").eq("company_id", data.company_id).eq("kind", "roofing").maybeSingle();
+  return { firstName: data.customer_name.split(/\s+/)[0], companyId: data.company_id, brandId: brand?.id ?? null };
 }
 
 /** Past-job photos for the public page, newest arrangement first. */

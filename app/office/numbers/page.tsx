@@ -73,6 +73,7 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
         </p>
       )}
       <RoofingNumbers />
+      <ReviewNumbers />
       <CashView />
     </>
   );
@@ -169,6 +170,39 @@ async function CashView() {
           Out: crew pay, supplier bills, permits and stock buys. In: roofing and dumpster payments. A negative week is normal when
           payroll lands before the customers pay; check &quot;Owed to you&quot; next to it.
         </p>
+      </div>
+    </section>
+  );
+}
+
+/** Aftercare: did finished jobs turn into reviews and referrals? */
+async function ReviewNumbers() {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.rpc("review_numbers", { p_since: addDays(companyToday(), -ROOFING_DAYS) }).single<{
+    finals: number; responses: number; great: number; review_clicks: number; open_follow_ups: number;
+    referrals: number; referrals_won: number; rewards_owed_cents: number;
+  }>();
+  if (!data) return null;
+  const tiles = [
+    { label: "Jobs marked final", value: String(data.finals), note: `${data.responses} answered "how did we do?"` },
+    { label: "Rated great", value: String(data.great), note: `${data.review_clicks} opened the Google review` },
+    { label: "Referrals", value: String(data.referrals), note: `${data.referrals_won} signed` },
+    { label: "Rewards owed", value: formatCents(Number(data.rewards_owed_cents)), note: data.open_follow_ups ? `${data.open_follow_ups} unhappy customer(s) to call` : undefined },
+  ];
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Reviews and referrals, last {ROOFING_DAYS} days</h2>
+        <Link className="text-sm underline" href="/office/referrals">Referrals</Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="card">
+            <p className="text-sm text-muted">{tile.label}</p>
+            <p className="text-2xl font-semibold">{tile.value}</p>
+            {tile.note && <p className="text-xs text-muted">{tile.note}</p>}
+          </div>
+        ))}
       </div>
     </section>
   );

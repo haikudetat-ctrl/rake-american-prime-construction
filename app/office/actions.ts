@@ -923,3 +923,64 @@ export async function saveCostSettings(form: FormData) {
   if (error) back("/office/settings", errorText(error), "error");
   done("/office/settings", "Equipment costs saved. Costs already charged to jobs keep their amounts.");
 }
+
+// Reviews and referrals (phase 3b) --------------------------------------------------------
+
+export async function markJobFinal(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const jobId = str(form, "jobId");
+  const { error } = await supabase.rpc("mark_job_final", { p_job_id: jobId });
+  if (error) back(`/office/jobs/${jobId}`, errorText(error), "error");
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  done(`/office/jobs/${jobId}`, "Marked final. Warranty sent; the \"how did we do?\" text goes out tomorrow.");
+}
+
+export async function resolveFollowUp(form: FormData) {
+  return jobRpc(`/office/jobs/${str(form, "jobId")}`, "resolve_follow_up",
+    { p_job_id: str(form, "jobId"), p_note: str(form, "note") }, "Follow-up resolved.");
+}
+
+export async function setLeadReferrer(form: FormData) {
+  const leadId = str(form, "leadId");
+  return jobRpc(`/office/leads/${leadId}`, "set_lead_referrer",
+    { p_lead_id: leadId, p_referrer_job_id: str(form, "referrerJobId") }, "Referral recorded.");
+}
+
+export async function markRewardPaid(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("mark_reward_paid", {
+    p_referral_id: str(form, "referralId"), p_method: str(form, "method"), p_reference: optional(form, "reference"),
+  });
+  if (error) back("/office/referrals", errorText(error), "error");
+  done("/office/referrals", "Reward marked paid. They'll get a thank-you text.");
+}
+
+export async function voidReferral(form: FormData) {
+  await requireOwner();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("void_referral", { p_referral_id: str(form, "referralId"), p_reason: str(form, "reason") });
+  if (error) back("/office/referrals", errorText(error), "error");
+  done("/office/referrals", "Referral voided.");
+}
+
+export async function saveReviewSettings(form: FormData) {
+  const owner = await requireOwner();
+  const url = optional(form, "googleReviewUrl");
+  if (url && !/^https:\/\/\S+$/.test(url)) back("/office/settings", "The review link must start with https://", "error");
+  const reward = parseDollarsToCents(str(form, "reward"));
+  if (reward === null) back("/office/settings", "Enter the reward in dollars.", "error");
+  const { error } = await adminClient().from("review_settings").upsert({
+    company_id: owner.companyId,
+    google_review_url: url,
+    reward_cents: reward,
+    feedback_delay_hours: Math.min(336, Math.max(0, Number(str(form, "feedbackDelayHours")) || 24)),
+    referral_delay_days: Math.min(60, Math.max(0, Number(str(form, "referralDelayDays")) || 3)),
+    updated_by: owner.userId,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) back("/office/settings", errorText(error), "error");
+  done("/office/settings", "Review and referral settings saved.");
+}

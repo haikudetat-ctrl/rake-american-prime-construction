@@ -29,7 +29,7 @@ Decisions (Oct 20):
   payments), and money owed to you (signed jobs not fully paid, open dumpster statements). So a big
   payroll week shows next to the payments still coming for those jobs.
 
-## 3b. Reviews and referrals
+## 3b. Reviews and referrals — built (Oct 20)
 
 - **Mark final** (owner, on a done job) sends, in order: warranty and product info for the chosen
   system (text + email with the signed agreement); a day later a short "how did we do?" link.

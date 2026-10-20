@@ -109,6 +109,59 @@ export function proposalSignedSms(p: { name: string; option: string; totalCents:
     : `Signed! ${p.name}: ${p.option}, ${formatCents(p.totalCents)}. ${link}`;
 }
 
+const firstName = (name: string) => name.split(/\s+/)[0];
+
+export function aftercareWarrantySms(p: { name: string; system: string; link: string | null }, brand: Brand): string {
+  const docs = p.link ? ` Your warranty and signed agreement: ${p.link}` : "";
+  return `${brand.name}: thank you, ${firstName(p.name)}! Your new ${p.system} roof is done.${docs} Reply STOP to opt out.`;
+}
+
+export function aftercareWarrantyEmail(p: { name: string; system: string; warranty: string }, brand: Brand): { subject: string; text: string } {
+  return {
+    subject: `Your new roof: warranty and signed agreement from ${brand.name}`,
+    text: [
+      `Hi ${firstName(p.name)},`,
+      "",
+      `Thank you for choosing ${brand.name}. Your new ${p.system} roof is done.`,
+      "",
+      p.warranty ? `Warranty:\n${p.warranty}` : "",
+      "",
+      "Your signed agreement is attached. Keep it with your house records.",
+      "Questions about the roof, now or years from now? Reply to this email" + (brand.phone ? ` or call ${formatPhone(brand.phone)}.` : "."),
+      "",
+      brand.name,
+    ].filter((line, i, all) => !(line === "" && all[i - 1] === "")).join("\n").trimEnd(),
+  };
+}
+
+export function feedbackRequestSms(p: { name: string; link: string }, brand: Brand): string {
+  return `${brand.name}: hi ${firstName(p.name)}, how did we do on your roof? One tap to tell us: ${p.link}`;
+}
+
+export function referralInviteSms(p: { name: string; link: string; rewardCents: number }, brand: Brand): string {
+  return `${brand.name}: thanks again, ${firstName(p.name)}! Know someone who needs a roof? Send them your link. When their roof is done and paid, you get ${formatCents(p.rewardCents)}: ${p.link}`;
+}
+
+export function referralEarnedSms(p: { name: string; friend: string; rewardCents: number }, brand: Brand): string {
+  return `${brand.name}: ${firstName(p.name)}, ${firstName(p.friend)}'s new roof is done, so you've earned ${formatCents(p.rewardCents)}. We'll send it shortly. Thank you!`;
+}
+
+const PAID_BY: Record<string, string> = { gift_card: "as a gift card", bank: "by bank transfer", check: "by check", other: "" };
+
+export function referralPaidSms(p: { name: string; friend: string; rewardCents: number; method: string }, brand: Brand): string {
+  const how = PAID_BY[p.method] ? ` ${PAID_BY[p.method]}` : "";
+  return `${brand.name}: your ${formatCents(p.rewardCents)} referral reward was sent${how}. Thanks for sending ${firstName(p.friend)} our way!`;
+}
+
+export function feedbackFollowupSms(p: { name: string; rating: string; comment: string; jobId: string }, appUrl: string): string {
+  const said = p.comment ? `: "${p.comment}"` : "";
+  return `${p.name} rated their roof job "${p.rating}"${said}. Call them back: ${appUrl}/office/jobs/${p.jobId}`;
+}
+
+export function rewardOwedSms(p: { referrer: string; friend: string; rewardCents: number }, appUrl: string): string {
+  return `Referral reward owed: ${formatCents(p.rewardCents)} to ${p.referrer} (${p.friend} paid in full). ${appUrl}/office/referrals`;
+}
+
 export function requestApprovedSms(p: { date: string; address: string }, brand: Brand): string {
   const contact = brand.phone ? ` Changes? Call ${formatPhone(brand.phone)}.` : "";
   return `${brand.name}: your dumpster is booked for ${formatDate(p.date)} at ${p.address}.${contact} Reply STOP to opt out.`;

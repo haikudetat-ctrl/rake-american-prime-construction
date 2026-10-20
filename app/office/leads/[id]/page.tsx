@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addLeadNote, moveLead, updateLead, uploadRoofReport } from "@/app/office/actions";
+import { addLeadNote, moveLead, setLeadReferrer, updateLead, uploadRoofReport } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime, utcToZonedInput } from "@/lib/dates";
@@ -40,7 +40,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
   const { data: lead } = await supabase.from("leads").select("*").eq("id", id).maybeSingle();
   if (!lead) notFound();
 
-  const [{ data: leadEvents }, { data: photos }, { data: people }, { data: calls }, { data: texts }, { data: measurements }, { data: proposals }] = await Promise.all([
+  const [{ data: leadEvents }, { data: photos }, { data: people }, { data: calls }, { data: texts }, { data: measurements }, { data: proposals }, { data: referral }, { data: pastCustomers }] = await Promise.all([
     supabase.from("lead_events").select("*").eq("lead_id", id).order("created_at", { ascending: false }),
     supabase.from("lead_photos").select("id, path").eq("lead_id", id).order("created_at"),
     supabase.from("profiles").select("user_id, full_name"),
@@ -48,7 +48,10 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
     supabase.from("messages").select("id, direction, body, sent_by, created_at").eq("lead_id", id),
     supabase.from("measurements").select("id, source, squares, pitch, created_at").eq("lead_id", id).order("created_at", { ascending: false }).limit(5),
     supabase.from("proposals").select("id, number, status, options, needs_confirmation, updated_at").eq("lead_id", id).order("created_at", { ascending: false }),
+    supabase.from("referrals").select("status, reward_cents, aftercare(customer_name, lead_id)").eq("lead_id", id).maybeSingle(),
+    supabase.from("aftercare").select("job_id, customer_name, lead_id").neq("lead_id", id).order("customer_name").limit(500),
   ]);
+  const referrer = referral ? (Array.isArray(referral.aftercare) ? referral.aftercare[0] : referral.aftercare) : null;
   // One timeline: pipeline events, calls and texts, newest first.
   const events: (Event & { recordingCallId?: string })[] = [
     ...((leadEvents ?? []) as Event[]),
@@ -104,6 +107,23 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
         {lead.contact_consent_at
           ? <p className="sm:col-span-3 text-xs text-muted">Agreed to calls and texts on {formatDateTime(lead.contact_consent_at)}.</p>
           : lead.source === "link" && <p className="sm:col-span-3 text-xs text-warn">Did not tick the text consent box: call rather than text.</p>}
+      </section>
+
+      <section className="card flex flex-wrap items-center gap-3 text-sm">
+        {referrer ? (
+          <p>Referred by <Link className="underline" href={`/office/leads/${referrer.lead_id}`}>{referrer.customer_name}</Link>
+            {" "}· reward {formatCents(referral!.reward_cents)} ({referral!.status === "earned" ? "owed" : referral!.status})</p>
+        ) : (pastCustomers ?? []).length > 0 ? (
+          <form action={setLeadReferrer} className="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="leadId" value={lead.id} />
+            <span>Referred by a past customer?</span>
+            <select name="referrerJobId" required className="input w-56" defaultValue="">
+              <option value="" disabled>Choose…</option>
+              {pastCustomers!.map((c) => <option key={c.job_id} value={c.job_id}>{c.customer_name}</option>)}
+            </select>
+            <button className="btn-secondary">Save</button>
+          </form>
+        ) : <p className="text-muted">Referrals show here once past customers have their referral links.</p>}
       </section>
 
       {photoUrls.some(Boolean) && (
