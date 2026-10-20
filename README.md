@@ -4,7 +4,7 @@ Operations system for American Prime Construction. Phase 1 runs the dumpster
 business: customer request link → office approval → driver run → scale ticket →
 weekly statement → payment.
 
-Design: [docs/design.md](docs/design.md).
+Design: [docs/design.md](docs/design.md). Phase 2 (roofing): [docs/phase-2-design.md](docs/phase-2-design.md).
 
 ## Stack
 
@@ -16,8 +16,9 @@ Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us
 ## Layout
 
 ```
-app/request/[slug]   public request link (no login)
-app/office           owner/office: today, requests, cans, customers, billing, numbers, settings
+app/request/[slug]   public dumpster request link (no login)
+app/roof/[slug]      public roofing estimate link (no login), with past-job photos
+app/office           owner/office: today, requests, leads, cans, customers, billing, numbers, settings
 app/driver           driver run, English/Spanish
 app/login            email link (office) and text code (drivers)
 app/api/cron         outbox delivery (5 min) and daily reminders + Monday statements
@@ -59,7 +60,7 @@ Docker available, `supabase test db` runs the same suites.
    where u.email = 'owner@example.com' and c.slug = 'american-prime';
    ```
    Everyone else is added from **Settings → Team**.
-5. **Settings:** publish real prices (clears the placeholder banner), add yard
+5. **Settings:** add past-job photos for the roofing page (`/roof/roof`); publish real prices (clears the placeholder banner), add yard
    and landfill addresses, cans, and the business phone/mailing address that
    print on statements.
 6. **Twilio:** register the business number for A2P 10DLC before texts go to

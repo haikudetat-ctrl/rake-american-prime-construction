@@ -5,10 +5,14 @@ import { requireOwner, requireStaff } from "@/lib/auth";
 import { orderStops } from "@/lib/dispatch/order";
 import { back, errorText, optional, str } from "@/lib/flash";
 import { GoogleGeocodeProvider } from "@/lib/integrations/geocode";
+import { officeLeadSchema, STAGE_LABEL, type Stage } from "@/lib/leads/schema";
+import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
 import { adminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const GALLERY_TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 // Every action re-checks the caller's role: server actions are reachable by a
 // direct POST, not just from the page that renders them. The database checks
@@ -456,4 +460,121 @@ export async function voidStatement(form: FormData) {
     { p_statement_id: id, p_reason: str(form, "reason") },
     "Statement voided. Its invoices are back in “Ready to bill”.",
   );
+}
+
+// Roofing leads (phase 2) ----------------------------------------------------------
+
+function leadFields(form: FormData) {
+  return {
+    name: str(form, "name"),
+    phone: str(form, "phone"),
+    email: str(form, "email"),
+    address: str(form, "address"),
+    need: str(form, "need"),
+    notes: str(form, "notes"),
+    source: str(form, "source"),
+  };
+}
+
+export async function createLead(form: FormData) {
+  const { supabase } = await staffClient();
+  const parsed = officeLeadSchema.safeParse(leadFields(form));
+  if (!parsed.success) back("/office/leads", parsed.error.issues[0]?.message ?? "Check the lead details.", "error");
+  const v = parsed.data;
+  const { data: id, error } = await supabase.rpc("create_lead", {
+    p_name: v.name,
+    p_phone: v.phone ?? null,
+    p_email: v.email ?? null,
+    p_address: v.address ?? null,
+    p_need: v.need,
+    p_notes: v.notes ?? null,
+    p_source: v.source,
+  });
+  if (error) back("/office/leads", errorText(error), "error");
+  done(`/office/leads/${id}`, "Lead added.");
+}
+
+export async function updateLead(form: FormData) {
+  const { supabase } = await staffClient();
+  const id = str(form, "leadId");
+  const parsed = officeLeadSchema.safeParse(leadFields(form));
+  if (!parsed.success) back(`/office/leads/${id}`, parsed.error.issues[0]?.message ?? "Check the lead details.", "error");
+  const v = parsed.data;
+  const { error } = await supabase.rpc("update_lead", {
+    p_lead_id: id,
+    p_name: v.name,
+    p_phone: v.phone ?? null,
+    p_email: v.email ?? null,
+    p_address: v.address ?? null,
+    p_need: v.need,
+    p_notes: v.notes ?? null,
+  });
+  if (error) back(`/office/leads/${id}`, errorText(error), "error");
+  done(`/office/leads/${id}`, "Saved.");
+}
+
+export async function moveLead(form: FormData) {
+  const { supabase } = await staffClient();
+  const id = str(form, "leadId");
+  const stage = str(form, "stage");
+  const appointment = optional(form, "appointmentAt");
+  const { error } = await supabase.rpc("move_lead", {
+    p_lead_id: id,
+    p_stage: stage,
+    // datetime-local has no zone; the office works in company time.
+    p_appointment_at: appointment ? zonedToUtc(appointment) : null,
+    p_lost_reason: optional(form, "lostReason"),
+    p_note: optional(form, "note"),
+  });
+  const path = optional(form, "returnTo") ?? `/office/leads/${id}`;
+  if (error) back(path, errorText(error), "error");
+  done(path, `Moved to ${STAGE_LABEL[stage as Stage] ?? stage}.`);
+}
+
+export async function addLeadNote(form: FormData) {
+  const { supabase } = await staffClient();
+  const id = str(form, "leadId");
+  const { error } = await supabase.rpc("add_lead_note", { p_lead_id: id, p_body: str(form, "body") });
+  if (error) back(`/office/leads/${id}`, errorText(error), "error");
+  done(`/office/leads/${id}`, "Note added.");
+}
+
+// Past-job photos on the public roofing link (owner only; public bucket).
+export async function addGalleryPhoto(form: FormData) {
+  const owner = await requireOwner();
+  const photo = form.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) back("/office/settings", "Choose a photo.", "error");
+  const ext = GALLERY_TYPES[photo.type];
+  if (!ext) back("/office/settings", "Use a JPEG, PNG or WebP photo.", "error");
+  const db = adminClient();
+  const { data: brand } = await db.from("brands").select("id").eq("company_id", owner.companyId).eq("kind", "roofing").single();
+  const path = `${owner.companyId}/${crypto.randomUUID()}.${ext}`;
+  const { error: uploadError } = await db.storage.from("gallery").upload(path, photo, { contentType: photo.type });
+  if (uploadError) back("/office/settings", errorText(uploadError), "error");
+  const { error } = await db.from("gallery_photos").insert({
+    company_id: owner.companyId,
+    brand_id: brand?.id,
+    path,
+    caption: optional(form, "caption"),
+  });
+  if (error) {
+    await db.storage.from("gallery").remove([path]);
+    back("/office/settings", errorText(error), "error");
+  }
+  done("/office/settings", "Photo added to the roofing page.");
+}
+
+export async function removeGalleryPhoto(form: FormData) {
+  const owner = await requireOwner();
+  const db = adminClient();
+  const { data: photo } = await db
+    .from("gallery_photos")
+    .select("id, path")
+    .eq("id", str(form, "photoId"))
+    .eq("company_id", owner.companyId)
+    .maybeSingle();
+  if (!photo) back("/office/settings", "That photo is already gone.", "error");
+  await db.from("gallery_photos").delete().eq("id", photo.id);
+  await db.storage.from("gallery").remove([photo.path]);
+  done("/office/settings", "Photo removed.");
 }

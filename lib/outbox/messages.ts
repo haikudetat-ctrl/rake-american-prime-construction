@@ -20,6 +20,27 @@ export function requestReceivedSms(
     : `New dumpster request: ${p.name}, ${formatDate(p.date)}, ${p.address}. Approve: ${link}`;
 }
 
+const NEED_TEXT: Record<string, { en: string; es: string }> = {
+  replacement: { en: "replacement", es: "reemplazo" },
+  repair: { en: "repair", es: "reparación" },
+  inspection: { en: "inspection", es: "inspección" },
+  gutters: { en: "gutters", es: "canaletas" },
+  storm: { en: "storm damage", es: "daño por tormenta" },
+  other: { en: "roofing", es: "techo" },
+};
+
+export function leadReceivedSms(
+  p: { leadId: string; name: string; need: string; address: string | null; locale?: Locale },
+  appUrl: string,
+): string {
+  const link = `${appUrl}/office/leads/${p.leadId}`;
+  const need = NEED_TEXT[p.need] ?? NEED_TEXT.other;
+  const where = p.address ? `, ${p.address}` : "";
+  return p.locale === "es"
+    ? `Nuevo cliente de techo: ${p.name} (${need.es})${where}. Ver: ${link}`
+    : `New roofing lead: ${p.name} (${need.en})${where}. Open: ${link}`;
+}
+
 export function requestApprovedSms(p: { date: string; address: string }, brand: Brand): string {
   const contact = brand.phone ? ` Changes? Call ${formatPhone(brand.phone)}.` : "";
   return `${brand.name}: your dumpster is booked for ${formatDate(p.date)} at ${p.address}.${contact} Reply STOP to opt out.`;

@@ -4,6 +4,7 @@ import { isLocale } from "@/lib/i18n";
 import { sendEmail } from "@/lib/integrations/resend";
 import { TwilioMessagingClient } from "@/lib/integrations/twilio";
 import {
+  leadReceivedSms,
   reminderEmail,
   requestApprovedSms,
   requestReceivedSms,
@@ -62,6 +63,17 @@ async function deliver(message: OutboxMessage): Promise<void> {
     if (message.kind === "request_received") {
       body = requestReceivedSms(
         { name: String(p.name), date: String(p.date), address: String(p.address), locale: isLocale(p.locale) ? p.locale : "en" },
+        appUrl,
+      );
+    } else if (message.kind === "lead_received") {
+      body = leadReceivedSms(
+        {
+          leadId: String(p.lead_id),
+          name: String(p.name),
+          need: String(p.need),
+          address: p.address ? String(p.address) : null,
+          locale: isLocale(p.locale) ? p.locale : "en",
+        },
         appUrl,
       );
     } else if (message.kind === "request_approved") {

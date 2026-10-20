@@ -1,9 +1,10 @@
 import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { GalleryCard } from "@/app/office/settings/gallery-card";
 import { QuickBooksCard } from "@/app/office/settings/quickbooks-card";
 import { requireStaff } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
-import { loadTeam } from "@/lib/office/team";
+import { loadTeam, one } from "@/lib/office/team";
 import { formatPhone } from "@/lib/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -14,14 +15,15 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
   const isOwner = member.role === "owner";
   const params = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const [{ data: priceBook }, { data: brands }, team, { data: yards }, { data: landfills }, { data: links }] =
+  const [{ data: priceBook }, { data: brands }, team, { data: yards }, { data: landfills }, { data: links }, { data: gallery }] =
     await Promise.all([
       supabase.from("price_books").select("*").eq("is_active", true).maybeSingle(),
       supabase.from("brands").select("*").order("kind"),
       loadTeam(supabase),
       supabase.from("yards").select("id, name, address, lat").order("created_at"),
       supabase.from("landfills").select("id, name, address, lat").order("created_at"),
-      supabase.from("request_links").select("slug, is_active"),
+      supabase.from("request_links").select("slug, is_active, brands(kind)"),
+      supabase.from("gallery_photos").select("id, path, caption").order("sort").order("created_at"),
     ]);
 
   return (
@@ -65,14 +67,22 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
       {isOwner && <QuickBooksCard companyId={member.companyId} />}
 
       <section className="card space-y-3">
-        <h2 className="font-semibold">Customer link</h2>
-        {(links ?? []).map((l) => (
-          <p key={l.slug} className="text-sm">
-            <code>{process.env.APP_URL ?? ""}/request/{l.slug}</code> {l.is_active ? "" : "(off)"}
-          </p>
-        ))}
-        <p className="text-xs text-muted">Text this to customers. Requests land on the Requests page for approval.</p>
+        <h2 className="font-semibold">Customer links</h2>
+        {(links ?? []).map((l) => {
+          const roofing = one(l.brands)?.kind === "roofing";
+          return (
+            <div key={l.slug} className="text-sm">
+              <p className="font-medium">{roofing ? "Roofing estimate" : "Dumpster request"} {l.is_active ? "" : "(off)"}</p>
+              <code>{process.env.APP_URL ?? ""}/{roofing ? "roof" : "request"}/{l.slug}</code>
+            </div>
+          );
+        })}
+        <p className="text-xs text-muted">
+          Text these to customers. Dumpster requests land on Requests for approval; roofing requests land on Leads.
+        </p>
       </section>
+
+      {isOwner && <GalleryCard photos={gallery} />}
 
       <section className="card space-y-3">
         <h2 className="font-semibold">Team</h2>
