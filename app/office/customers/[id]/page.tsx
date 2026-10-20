@@ -32,7 +32,7 @@ export default async function CustomerPage({ params, searchParams }: PageProps<"
   return (
     <>
       <Notice searchParams={query} />
-      <h1 className="text-xl font-semibold">{customer.name}</h1>
+      <h1 className="page-title">{customer.name}</h1>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card space-y-3">

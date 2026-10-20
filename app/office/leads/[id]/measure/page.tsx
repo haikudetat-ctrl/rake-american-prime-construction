@@ -41,7 +41,7 @@ export default async function MeasurePage({ params, searchParams }: PageProps<"/
     <>
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href={`/office/leads/${id}`}>← {lead.name}</Link></p>
-      <h1 className="text-xl font-semibold">Measurements</h1>
+      <h1 className="page-title">Measurements</h1>
       <p className="text-sm text-muted">{lead.address}</p>
       {from?.source === "roofr" && (
         <p className="card text-sm">

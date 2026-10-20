@@ -57,7 +57,7 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href={`/office/leads/${lead?.id}`}>← {lead?.name}</Link></p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Estimate #{proposal.number}</h1>
+        <h1 className="page-title">Estimate #{proposal.number}</h1>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <span className="pill">{proposal.status}</span>
           <a className="btn-secondary" href={`/office/proposals/${proposal.id}/pdf`} target="_blank" rel="noreferrer">PDF</a>
@@ -128,7 +128,7 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
             <section key={o.systemId} className="card space-y-2">
               <p className="text-xs uppercase tracking-wide text-muted">{o.tierLabel} · {o.brand}</p>
               <h2 className="font-semibold">{o.name}</h2>
-              <p className="text-2xl font-semibold">{formatCents(price)}</p>
+              <p className="stat-value">{formatCents(price)}</p>
               {o.overrideCents !== undefined && (
                 <p className="text-xs text-muted">Calculated {formatCents(o.priceCents)}; set by owner: {o.overrideReason}</p>
               )}

@@ -24,7 +24,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/office/inb
     <>
       <Notice searchParams={params} />
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Inbox</h1>
+        <h1 className="page-title">Inbox</h1>
         <div className="flex gap-3 text-sm">
           <Link className={calls ? "underline" : "font-semibold"} href="/office/inbox">Texts</Link>
           <Link className={calls ? "font-semibold" : "underline"} href="/office/inbox?tab=calls">Calls</Link>

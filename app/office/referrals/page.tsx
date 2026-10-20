@@ -27,7 +27,7 @@ export default async function ReferralsPage({ searchParams }: PageProps<"/office
     <>
       <Notice searchParams={query} />
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Referrals</h1>
+        <h1 className="page-title">Referrals</h1>
         <p className="text-sm">Rewards owed: <strong>{formatCents(owed)}</strong></p>
       </div>
       <section className="card overflow-x-auto">

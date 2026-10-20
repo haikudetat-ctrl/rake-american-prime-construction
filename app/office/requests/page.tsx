@@ -31,7 +31,7 @@ export default async function RequestsPage({ searchParams }: PageProps<"/office/
     <>
       <Notice searchParams={params} />
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Requests</h1>
+        <h1 className="page-title">Requests</h1>
         {links?.[0] && (
           <p className="text-sm text-muted">
             Customer link: <code>{process.env.APP_URL ?? ""}/request/{links[0].slug}</code>

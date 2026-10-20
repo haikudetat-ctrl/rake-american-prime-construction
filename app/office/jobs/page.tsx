@@ -24,7 +24,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/office/jobs
   return (
     <>
       <Notice searchParams={query} />
-      <h1 className="text-xl font-semibold">Roofing jobs</h1>
+      <h1 className="page-title">Roofing jobs</h1>
       {(jobs ?? []).length === 0 && <p className="card text-sm text-muted">Signed proposals become jobs here.</p>}
       {(jobs ?? []).map((j) => (
         <section key={j.id} className="card space-y-2">

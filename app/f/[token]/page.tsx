@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { adminClient } from "@/lib/supabase/admin";
+import { BrandBar } from "@/app/_components/brand";
 
 export const metadata: Metadata = { title: "How did we do?", robots: { index: false, follow: false } };
 
@@ -33,48 +34,50 @@ export default async function FeedbackPage({ params, searchParams }: PageProps<"
   }
 
   return (
-    <main className="mx-auto w-full max-w-md flex-1 space-y-4 p-4">
-      <p className="text-sm text-muted">{brandName}</p>
-      {!care.rating ? (
-        <form action={answer} className="card space-y-4">
-          <h1 className="text-2xl font-semibold">How did we do, {first}?</h1>
-          <div className="grid grid-cols-3 gap-2">
-            {ANSWERS.map((a) => (
-              <label key={a.value} className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-border p-3 has-[:checked]:border-accent">
-                <input type="radio" name="rating" value={a.value} required className="sr-only" />
-                <span className="text-3xl" aria-hidden="true">{a.emoji}</span>
-                <span className="text-sm">{a.label}</span>
-              </label>
-            ))}
-          </div>
-          <label className="label">
-            <span>Anything you want us to know? (optional)</span>
-            <textarea name="comment" rows={3} maxLength={1000} className="input" />
-          </label>
-          <button className="btn w-full py-3">Send</button>
-        </form>
-      ) : care.rating === "great" ? (
-        <section className="card space-y-4">
-          <h1 className="text-2xl font-semibold">Thank you, {first}!</h1>
-          {settings?.google_review_url && (
-            <>
-              <p>Would you share that in a Google review? It takes a minute and helps neighbors find a roofer they can trust.</p>
-              <a className="btn w-full py-3" href={`/f/${token}/review`}>Leave a Google review</a>
-            </>
-          )}
-          <div className="border-t border-border pt-4">
-            <p className="font-medium">Know someone who needs a roof?</p>
-            <p className="text-sm text-muted">Send them your link. We&apos;ll thank you when their roof is done.</p>
-            <p className="mt-2 break-all rounded-md bg-background p-2 text-sm">{process.env.APP_URL ?? ""}/r/{care.referral_code}</p>
-          </div>
-        </section>
-      ) : (
-        <section className="card space-y-2">
-          <h1 className="text-2xl font-semibold">Thank you for telling us.</h1>
-          <p>{query.thanks ? "We'll call you to make it right." : "We've got your answer and we'll be in touch."}
-            {brand?.phone && <> You can also reach us at <a className="underline" href={`tel:${brand.phone}`}>{brand.phone}</a>.</>}</p>
-        </section>
-      )}
-    </main>
+    <>
+      <BrandBar name={brandName} />
+      <main className="mx-auto w-full max-w-md flex-1 space-y-4 p-4">
+        {!care.rating ? (
+          <form action={answer} className="card space-y-4">
+            <h1 className="page-title">How did we do, {first}?</h1>
+            <div className="grid grid-cols-3 gap-2">
+              {ANSWERS.map((a) => (
+                <label key={a.value} className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-border p-3 has-[:checked]:border-accent">
+                  <input type="radio" name="rating" value={a.value} required className="sr-only" />
+                  <span className="text-3xl" aria-hidden="true">{a.emoji}</span>
+                  <span className="text-sm">{a.label}</span>
+                </label>
+              ))}
+            </div>
+            <label className="label">
+              <span>Anything you want us to know? (optional)</span>
+              <textarea name="comment" rows={3} maxLength={1000} className="input" />
+            </label>
+            <button className="btn w-full py-3">Send</button>
+          </form>
+        ) : care.rating === "great" ? (
+          <section className="card space-y-4">
+            <h1 className="page-title">Thank you, {first}!</h1>
+            {settings?.google_review_url && (
+              <>
+                <p>Would you share that in a Google review? It takes a minute and helps neighbors find a roofer they can trust.</p>
+                <a className="btn w-full py-3" href={`/f/${token}/review`}>Leave a Google review</a>
+              </>
+            )}
+            <div className="border-t border-border pt-4">
+              <p className="font-medium">Know someone who needs a roof?</p>
+              <p className="text-sm text-muted">Send them your link. We&apos;ll thank you when their roof is done.</p>
+              <p className="mt-2 break-all rounded-md bg-background p-2 text-sm">{process.env.APP_URL ?? ""}/r/{care.referral_code}</p>
+            </div>
+          </section>
+        ) : (
+          <section className="card space-y-2">
+            <h1 className="page-title">Thank you for telling us.</h1>
+            <p>{query.thanks ? "We'll call you to make it right." : "We've got your answer and we'll be in touch."}
+              {brand?.phone && <> You can also reach us at <a className="underline" href={`tel:${brand.phone}`}>{brand.phone}</a>.</>}</p>
+          </section>
+        )}
+      </main>
+    </>
   );
 }

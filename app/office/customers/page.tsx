@@ -18,7 +18,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/office
   return (
     <>
       <Notice searchParams={params} />
-      <h1 className="text-xl font-semibold">Customers</h1>
+      <h1 className="page-title">Customers</h1>
       <section className="card overflow-x-auto">
         <table className="table">
           <thead><tr><th>Name</th><th>Phone</th><th>Billing email</th><th>Terms</th></tr></thead>

@@ -34,7 +34,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
   return (
     <>
       <Notice searchParams={params} />
-      <h1 className="text-xl font-semibold">Settings</h1>
+      <h1 className="page-title">Settings</h1>
 
       <section className="card space-y-3">
         <h2 className="font-semibold">Dumpster prices</h2>

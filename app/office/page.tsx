@@ -51,7 +51,10 @@ export default async function TodayPage({ searchParams }: PageProps<"/office">) 
     <>
       <Notice searchParams={params} />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{formatDate(date)}</h1>
+        <div>
+          <p className="eyebrow">Dispatch</p>
+          <h1 className="page-title">{formatDate(date)}</h1>
+        </div>
         <div className="flex gap-2">
           <Link className="btn-secondary" href={`/office?date=${addDays(date, -1)}`}>← Prev</Link>
           <Link className="btn-secondary" href="/office">Today</Link>

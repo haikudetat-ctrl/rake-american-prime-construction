@@ -56,7 +56,7 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href="/office/jobs">← Jobs</Link></p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">{job.customer_name}</h1>
+        <h1 className="page-title">{job.customer_name}</h1>
         <span className="pill">{job.status.replace("_", " ")}</span>
       </div>
       <p className="text-sm text-muted">
@@ -103,9 +103,9 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
           { label: "Profit", value: signed(pnl.profitCents), note: pnl.marginPct === null ? undefined : `${pnl.marginPct}% margin` },
           { label: "Still owed", value: formatCents(pnl.owedCents), note: `${formatCents(pnl.paidCents)} received` },
         ].map((t) => (
-          <div key={t.label} className="card">
-            <p className="text-sm text-muted">{t.label}</p>
-            <p className={`text-2xl font-semibold ${t.label === "Profit" && pnl.profitCents < 0 ? "text-danger" : ""}`}>{t.value}</p>
+          <div key={t.label} className="card-stripe">
+            <p className="eyebrow">{t.label}</p>
+            <p className={`stat-value ${t.label === "Profit" && pnl.profitCents < 0 ? "text-danger" : ""}`}>{t.value}</p>
             {t.note && <p className="text-xs text-muted">{t.note}</p>}
           </div>
         ))}

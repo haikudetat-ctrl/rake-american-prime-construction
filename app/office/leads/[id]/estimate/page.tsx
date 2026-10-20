@@ -36,7 +36,7 @@ export default async function EstimatePage({ params, searchParams }: PageProps<"
     <>
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href={`/office/leads/${id}`}>← {lead.name}</Link></p>
-      <h1 className="text-xl font-semibold">{proposal ? `Re-price estimate #${proposal.number}` : "New estimate"}</h1>
+      <h1 className="page-title">{proposal ? `Re-price estimate #${proposal.number}` : "New estimate"}</h1>
       {catalog.needsConfirmation && (
         <p className="card border-warn/40 bg-warn/10 text-sm">
           The roofing price list still has placeholder numbers. Estimates are marked as drafts until an owner confirms prices.

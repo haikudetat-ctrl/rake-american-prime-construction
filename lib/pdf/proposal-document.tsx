@@ -3,13 +3,16 @@ import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/render
 import { formatCents } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import { optionPrice, type ProposalAddon, type ProposalContent, type ProposalOption } from "@/lib/proposals/content";
+import { LOGO_PNG_DATA_URL } from "./logo";
 
-const COLORS = { ink: "#1c1c1a", muted: "#6b6b66", rule: "#e2e1dc", accent: "#c2410c" };
+const COLORS = { ink: "#1c1917", muted: "#6b6560", rule: "#e7e5e4", accent: "#c2410c", brand: "#ea580c" };
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 10, color: COLORS.ink, fontFamily: "Helvetica" },
-  header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
-  brand: { fontSize: 16, fontFamily: "Helvetica-Bold" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 10 },
+  brand: { fontSize: 14, fontFamily: "Helvetica-Bold" },
+  logo: { width: 150, marginBottom: 6 },
+  stripe: { height: 4, backgroundColor: COLORS.brand, marginBottom: 16 },
   muted: { color: COLORS.muted },
   title: { fontSize: 12, fontFamily: "Helvetica-Bold", color: COLORS.accent, textAlign: "right" },
   h2: { fontSize: 12, fontFamily: "Helvetica-Bold", marginBottom: 6, marginTop: 12 },
@@ -52,6 +55,8 @@ export function ProposalDocument({ content, brand, sentAt, satellite, signed }: 
       <Page size="LETTER" style={styles.page}>
         <View style={styles.header}>
           <View>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt */}
+            <Image src={LOGO_PNG_DATA_URL} style={styles.logo} />
             <Text style={styles.brand}>{brand.name}</Text>
             {brand.address && <Text style={styles.muted}>{brand.address}</Text>}
             {brand.phone && <Text style={styles.muted}>{formatPhone(brand.phone)}</Text>}
@@ -62,6 +67,7 @@ export function ProposalDocument({ content, brand, sentAt, satellite, signed }: 
             {sentAt && <Text style={[styles.muted, { textAlign: "right" }]}>{when(sentAt)}</Text>}
           </View>
         </View>
+        <View style={styles.stripe} />
 
         {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt */}
         {satellite && <Image src={satellite} style={styles.photo} />}

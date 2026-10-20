@@ -36,11 +36,18 @@ export default async function LeadsPage({ searchParams }: PageProps<"/office/lea
   return (
     <>
       <Notice searchParams={params} />
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Roofing leads</h1>
-        <div className="flex gap-3 text-sm">
-          <Link className={closed ? "underline" : "font-semibold"} href="/office/leads">Open</Link>
-          <Link className={closed ? "font-semibold" : "underline"} href="/office/leads?show=closed">Won / lost</Link>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow">Sales pipeline</p>
+          <h1 className="page-title">Roofing leads</h1>
+        </div>
+        <div className="flex gap-2">
+          {closed ? (
+            <Link className="btn-secondary" href="/office/leads">Open leads</Link>
+          ) : (
+            <Link className="btn-secondary" href="/office/leads?show=closed">Won / lost</Link>
+          )}
+          <a className="btn" href="#add-lead">+ Add lead</a>
         </div>
       </div>
 
@@ -67,16 +74,16 @@ export default async function LeadsPage({ searchParams }: PageProps<"/office/lea
           {OPEN.map((stage) => {
             const column = leads.filter((l) => l.stage === stage);
             return (
-              <section key={stage} className="space-y-2">
-                <h2 className="text-sm font-semibold text-muted">
-                  {STAGE_LABEL[stage]} <span className="font-normal">({column.length})</span>
+              <section key={stage} className="space-y-2.5 rounded-lg bg-sunken p-3">
+                <h2 className="flex justify-between text-base font-bold">
+                  <span>{STAGE_LABEL[stage]}</span> <span className="text-muted">{column.length}</span>
                 </h2>
                 {column.map((l) => (
-                  <article key={l.id} className="card space-y-1 p-3">
+                  <article key={l.id} className="space-y-1 rounded-md bg-surface p-3 shadow-[0_1px_0_var(--border)]">
                     <div className="flex items-start justify-between gap-2">
-                      <Link className="font-medium underline" href={`/office/leads/${l.id}`}>{l.name}</Link>
+                      <Link className="font-semibold hover:underline" href={`/office/leads/${l.id}`}>{l.name}</Link>
                       {needsAttention(l.stage, l.stage_changed_at) && (
-                        <span className="pill border-warn text-warn">follow up</span>
+                        <span className="rounded bg-warn px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-white uppercase">Follow up</span>
                       )}
                     </div>
                     <p className="text-sm">{NEED_LABEL[l.need]}{l.area ? ` · ${l.area}` : ""}</p>
@@ -101,7 +108,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/office/lea
         </div>
       )}
 
-      <section className="card">
+      <section id="add-lead" className="card scroll-mt-4">
         <h2 className="mb-2 font-semibold">Add a lead</h2>
         <form action={createLead} className="grid gap-2 sm:grid-cols-3 sm:items-end">
           <label className="label"><span>Name</span><input name="name" required className="input" /></label>

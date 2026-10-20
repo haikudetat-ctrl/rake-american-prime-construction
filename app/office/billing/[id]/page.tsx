@@ -19,7 +19,7 @@ export default async function StatementPage({ params, searchParams }: PageProps<
     <>
       <Notice searchParams={query} />
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-semibold">Statement #{statement.number} · {statement.customer.name}</h1>
+        <h1 className="page-title">Statement #{statement.number} · {statement.customer.name}</h1>
         <a className="btn-secondary" href={`/office/billing/${id}/pdf`}>Download PDF</a>
       </div>
       <p className="text-sm text-muted">
