@@ -2,7 +2,7 @@
 -- statement → payment → reminders, checking the billing side effects of each.
 begin;
 \ir support/fixtures.sql
-select plan(37);
+select plan(43);
 
 -- Request link (service role, as the public route calls it) ---------------------
 select tests.act_as_service();
@@ -57,16 +57,26 @@ select id as can_1 from public.cans where label = 'C1' \gset
 
 select tests.act_as('00000000-0000-0000-0000-000000000003');
 select throws_ok(
-  format($$ select public.complete_stop(%L, null) $$, :'drop_stop'),
+  format($$ select public.complete_stop(%L, %L) $$, :'drop_stop', :'can_1'),
+  '22023', 'take a photo of where the can is placed first', 'a drop needs a photo'
+);
+select throws_ok(
+  format($$ select public.complete_stop(%L, %L, array['some-other-company/x.jpg']) $$, :'drop_stop', :'can_1'),
+  'P0001', 'photo not found', 'a photo outside the company''s folder is refused'
+);
+select throws_ok(
+  format($$ select public.complete_stop(%L, null, tests.photo()) $$, :'drop_stop'),
   'P0001', 'choose the can that was dropped', 'a drop needs a can'
 );
 select lives_ok(
-  format($$ select public.complete_stop(%L, %L) $$, :'drop_stop', :'can_1'),
+  format($$ select public.complete_stop(%L, %L, tests.photo()) $$, :'drop_stop', :'can_1'),
   'driver completes the drop'
 );
 reset role;
 
 select is((select status from public.rentals where id = :'rental_id'), 'on_site', 'rental on site');
+select is((select count(*)::int from public.stop_photos where rental_id = :'rental_id' and kind = 'drop'), 1,
+  'the drop photo is kept with the rental');
 select is((select status from public.cans where id = :'can_1'), 'on_site', 'can on site');
 select is((select total_cents from public.invoices where rental_id = :'rental_id'), 35000,
   'draft invoice opens with the delivery fee');
@@ -91,7 +101,14 @@ select public.request_pickup(:'rental_id', (now() at time zone 'America/New_York
 reset role;
 
 select tests.act_as('00000000-0000-0000-0000-000000000003');
-select lives_ok(format($$ select public.complete_stop(%L) $$, :'pickup_stop'), 'driver completes pickup');
+select throws_ok(format($$ select public.complete_stop(%L) $$, :'pickup_stop'),
+  '22023', 'take a photo of the load first', 'a pickup needs a photo of the load');
+select lives_ok(format($$ select public.complete_stop(%L, null, tests.photo()) $$, :'pickup_stop'), 'driver completes pickup');
+select is((select count(*)::int from public.stop_photos), 0, 'drivers cannot read stop photos');
+reset role;
+select tests.act_as('00000000-0000-0000-0000-000000000002');
+select is((select count(*)::int from public.stop_photos where rental_id = :'rental_id'), 2,
+  'office sees the drop and pickup photos');
 reset role;
 select is((select count(*)::int from public.invoice_lines l join public.invoices i on i.id = l.invoice_id
   where i.rental_id = :'rental_id' and l.kind = 'extended_days'), 0,
@@ -111,13 +128,13 @@ select public.create_rental(:'customer_id', :'site_id', (now() at time zone 'Ame
 reset role;
 select id as drop_2 from public.stops where rental_id = :'rental_2' and kind = 'drop' \gset
 select tests.act_as('00000000-0000-0000-0000-000000000003');
-select public.complete_stop(:'drop_2', :'can_2');
+select public.complete_stop(:'drop_2', :'can_2', tests.photo());
 reset role;
 update public.rentals set dropped_at = now() - interval '10 days' where id = :'rental_2';
 select tests.act_as('00000000-0000-0000-0000-000000000001');
 select public.request_pickup(:'rental_2', (now() at time zone 'America/New_York')::date,
   '00000000-0000-0000-0000-000000000003') as pickup_2 \gset
-select public.complete_stop(:'pickup_2');
+select public.complete_stop(:'pickup_2', null, tests.photo());
 reset role;
 
 select is(

@@ -38,7 +38,7 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
   const query = await searchParams;
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: rental }, { data: stops }, { data: invoice }, { data: ticket }, { data: cans }, team, { data: events }] =
+  const [{ data: rental }, { data: stops }, { data: invoice }, { data: ticket }, { data: cans }, team, { data: events }, { data: stopPhotos }] =
     await Promise.all([
       supabase
         .from("rentals")
@@ -51,6 +51,7 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
       supabase.from("cans").select("id, label, size_yards").eq("status", "available").order("label"),
       loadTeam(supabase),
       supabase.from("domain_events").select("event_type, payload, actor_id, occurred_at").eq("aggregate_id", id).order("occurred_at", { ascending: false }).limit(30),
+      supabase.from("stop_photos").select("id, kind, path, taken_by, taken_at").eq("rental_id", id).order("taken_at"),
     ]);
   // RLS already scoped every read above to staff of this company.
   if (!rental) notFound();
@@ -61,6 +62,13 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
   if (ticket?.photo_path) {
     const { data } = await adminClient().storage.from("scale-tickets").createSignedUrl(ticket.photo_path, 600);
     photoUrl = data?.signedUrl ?? null;
+  }
+
+  // Drop and pickup photos, same rule: rows were readable under RLS first.
+  const photoLinks = new Map<string, string>();
+  if (stopPhotos?.length) {
+    const { data } = await adminClient().storage.from("stop-photos").createSignedUrls(stopPhotos.map((p) => p.path), 600);
+    for (const link of data ?? []) if (link.path && link.signedUrl) photoLinks.set(link.path, link.signedUrl);
   }
 
   const names = new Map(team.map((m) => [m.userId, m.name]));
@@ -219,6 +227,39 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
                 </form>
               )}
             </>
+          )}
+        </section>
+
+        <section className="card space-y-3">
+          <h2 className="font-semibold">Drop and pickup photos</h2>
+          {!stopPhotos?.length ? (
+            <p className="text-sm text-muted">The driver adds these at the drop and the pickup.</p>
+          ) : (
+            (["drop", "pickup"] as const).map((kind) => {
+              const shots = stopPhotos.filter((p) => p.kind === kind);
+              if (!shots.length) return null;
+              return (
+                <div key={kind} className="space-y-1">
+                  <p className="text-sm">
+                    <strong>{kind === "drop" ? "Where it was placed" : "The load at pickup"}</strong>
+                    <span className="text-muted"> · {when(shots[0].taken_at)} by {names.get(shots[0].taken_by) ?? "unknown"}</span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {shots.map((p) =>
+                      photoLinks.get(p.path) ? (
+                        <a key={p.id} href={photoLinks.get(p.path)} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, not optimizable */}
+                          <img src={photoLinks.get(p.path)} alt={kind === "drop" ? "Can as placed at drop-off" : "Load at pickup"}
+                            className="aspect-[4/3] w-full rounded-md border border-border object-cover" />
+                        </a>
+                      ) : (
+                        <p key={p.id} className="text-sm text-muted">Photo unavailable.</p>
+                      ),
+                    )}
+                  </div>
+                </div>
+              );
+            })
           )}
         </section>
 

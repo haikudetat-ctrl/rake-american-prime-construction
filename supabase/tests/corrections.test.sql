@@ -38,7 +38,7 @@ select is((select requested_drop_date from public.rentals where id = :'r1'), :'t
 
 -- Drop, then swap the can -----------------------------------------------------------
 select tests.act_as('00000000-0000-0000-0000-000000000003');
-select public.complete_stop(:'r1_drop', :'can_1');
+select public.complete_stop(:'r1_drop', :'can_1', tests.photo());
 select throws_ok(format($$ select public.cancel_rental(%L, 'x') $$, :'r1'), '42501', null,
   'drivers cannot cancel');
 reset role;
@@ -66,13 +66,13 @@ select is((select status from public.stops where id = :'r1_drop'), 'scheduled', 
 
 -- Redo the drop, pick up, dump; then undo the dump ---------------------------------
 select tests.act_as('00000000-0000-0000-0000-000000000003');
-select public.complete_stop(:'r1_drop', :'can_1');
+select public.complete_stop(:'r1_drop', :'can_1', tests.photo());
 reset role;
 select tests.act_as('00000000-0000-0000-0000-000000000002');
 select public.request_pickup(:'r1', :'today', '00000000-0000-0000-0000-000000000003') as r1_pickup \gset
 reset role;
 select tests.act_as('00000000-0000-0000-0000-000000000003');
-select public.complete_stop(:'r1_pickup');
+select public.complete_stop(:'r1_pickup', null, tests.photo());
 reset role;
 select id as r1_dump from public.stops where rental_id = :'r1' and kind = 'dump' \gset
 select tests.act_as('00000000-0000-0000-0000-000000000003');
@@ -129,11 +129,11 @@ select public.create_rental('00000000-0000-0000-0000-0000000000c1', '00000000-00
 reset role;
 select id as r2_drop from public.stops where rental_id = :'r2' and kind = 'drop' \gset
 select tests.act_as('00000000-0000-0000-0000-000000000003');
-select public.complete_stop(:'r2_drop', :'can_2');
+select public.complete_stop(:'r2_drop', :'can_2', tests.photo());
 reset role;
 select tests.act_as('00000000-0000-0000-0000-000000000001');
 select public.request_pickup(:'r2', :'today', '00000000-0000-0000-0000-000000000003') as r2_pickup \gset
-select public.complete_stop(:'r2_pickup');
+select public.complete_stop(:'r2_pickup', null, tests.photo());
 reset role;
 select id as r2_dump from public.stops where rental_id = :'r2' and kind = 'dump' \gset
 select tests.act_as('00000000-0000-0000-0000-000000000001');
@@ -157,14 +157,14 @@ select id as r3_drop from public.stops where rental_id = :'r3' and kind = 'drop'
 select id as r4_drop from public.stops where rental_id = :'r4' and kind = 'drop' \gset
 select id as can_3 from public.cans where label = 'C3' \gset
 select tests.act_as('00000000-0000-0000-0000-000000000001');
-select public.complete_stop(:'r3_drop', :'can_3');
+select public.complete_stop(:'r3_drop', :'can_3', tests.photo());
 select public.request_pickup(:'r3', :'today', '00000000-0000-0000-0000-000000000003') as r3_pickup \gset
-select public.complete_stop(:'r3_pickup');
+select public.complete_stop(:'r3_pickup', null, tests.photo());
 reset role;
 select id as r3_dump from public.stops where rental_id = :'r3' and kind = 'dump' \gset
 select tests.act_as('00000000-0000-0000-0000-000000000001');
 select public.record_scale_ticket(:'r3_dump', :'landfill', null, 1, 10000);
-select public.complete_stop(:'r4_drop', :'can_3');
+select public.complete_stop(:'r4_drop', :'can_3', tests.photo());
 select throws_ok(format($$ select public.undo_stop(%L) $$, :'r3_dump'), 'P0001',
   'that can has already gone out on another job', 'undo refuses when the can is out again');
 reset role;

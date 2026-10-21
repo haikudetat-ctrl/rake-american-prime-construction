@@ -15,17 +15,6 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 // that the stop is assigned to the caller, so a driver cannot complete
 // someone else's stop by editing the form.
 
-export async function completeStop(form: FormData): Promise<ActionResult> {
-  await requireDriver();
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("complete_stop", {
-    p_stop_id: str(form, "stopId"),
-    p_can_id: optional(form, "canId"),
-  });
-  revalidatePath("/driver");
-  return error ? { ok: false, error: errorText(error) } : { ok: true };
-}
-
 const PHOTO_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -33,6 +22,63 @@ const PHOTO_TYPES: Record<string, string> = {
   "image/heic": "heic",
   "image/heif": "heif",
 };
+
+/** Drop and pickup photos per stop (the database allows up to 4). */
+const MAX_STOP_PHOTOS = 2;
+
+/** True when the stop is on this driver's run for that day. Staff covering a run may work any stop. */
+async function onMyRun(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  role: string,
+  stopId: string,
+  date: string,
+): Promise<boolean> {
+  if (role !== "driver") return true;
+  const { data: run } = await supabase.rpc("driver_run", { p_date: date });
+  return (run ?? []).some((s: { stop_id: string }) => s.stop_id === stopId);
+}
+
+/**
+ * Drop or pickup. Neither is done without a photo (where the can sits, or
+ * the load before lifting it); the database refuses one too, so the rule
+ * holds whatever screen calls it.
+ */
+export async function completeStop(form: FormData): Promise<ActionResult> {
+  const member = await requireDriver();
+  const supabase = await createSupabaseServerClient();
+  const stopId = str(form, "stopId");
+
+  const photos = form.getAll("photo").filter((p): p is File => p instanceof File && p.size > 0).slice(0, MAX_STOP_PHOTOS);
+  if (photos.length === 0) return { ok: false, error: "Take the photo first." };
+  if (photos.some((p) => !PHOTO_TYPES[p.type])) return { ok: false, error: "Photo must be a picture." };
+  if (!(await onMyRun(supabase, member.role, stopId, str(form, "date") || companyToday()))) {
+    return { ok: false, error: "That stop isn't on your run." };
+  }
+
+  const bucket = adminClient().storage.from("stop-photos");
+  const paths: string[] = [];
+  for (const [i, photo] of photos.entries()) {
+    const path = `${member.companyId}/${stopId}-${Date.now()}-${i + 1}.${PHOTO_TYPES[photo.type]}`;
+    const { error } = await bucket.upload(path, photo, { contentType: photo.type, upsert: false });
+    if (error) {
+      if (paths.length) await bucket.remove(paths);
+      return { ok: false, error: errorText(error) };
+    }
+    paths.push(path);
+  }
+
+  const { error } = await supabase.rpc("complete_stop", {
+    p_stop_id: stopId,
+    p_can_id: optional(form, "canId"),
+    p_photo_paths: paths,
+  });
+  if (error) {
+    await bucket.remove(paths);
+    return { ok: false, error: errorText(error) };
+  }
+  revalidatePath("/driver");
+  return { ok: true };
+}
 
 export async function recordTicket(form: FormData): Promise<ActionResult> {
   const member = await requireDriver();
@@ -44,12 +90,8 @@ export async function recordTicket(form: FormData): Promise<ActionResult> {
 
   // Confirm the stop is this driver's before storing anything for it.
   // (Staff covering a run can record any stop; the RPC enforces the same rule.)
-  const date = str(form, "date") || companyToday();
-  if (member.role === "driver") {
-    const { data: run } = await supabase.rpc("driver_run", { p_date: date });
-    if (!(run ?? []).some((s: { stop_id: string }) => s.stop_id === stopId)) {
-      return { ok: false, error: "That stop isn't on your run." };
-    }
+  if (!(await onMyRun(supabase, member.role, stopId, str(form, "date") || companyToday()))) {
+    return { ok: false, error: "That stop isn't on your run." };
   }
 
   let photoPath: string | null = null;

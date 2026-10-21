@@ -74,4 +74,10 @@ begin
 end;
 $$;
 
+-- A drop or pickup needs at least one photo, uploaded under the company's
+-- folder. Each call returns a fresh path (paths are unique).
+create function tests.photo() returns text[] language sql security definer set search_path = '' as $$
+  select array[(select id::text from public.companies where slug = 'american-prime') || '/test-' || gen_random_uuid() || '.jpg']
+$$;
+
 grant execute on all functions in schema tests to authenticated, service_role, anon;
