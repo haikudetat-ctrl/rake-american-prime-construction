@@ -33,7 +33,15 @@ export type GeocodeResult = {
   raw: unknown;
 };
 
-export type GeocodeInput = { address: string };
+export type GeocodeInput = {
+  address: string;
+  /**
+   * Only accept results inside this ZIP. Without it, "12 Main St, Haddonfield"
+   * can land on a Main Street in another ZIP; with it, Google falls back to
+   * the ZIP itself (a partial match) rather than guessing elsewhere.
+   */
+  postalCode?: string;
+};
 
 export interface GeocodeProvider {
   readonly name: string;
@@ -116,10 +124,10 @@ export class GoogleGeocodeProvider implements GeocodeProvider {
     if (!apiKey) throw new GeocodeConfigError("GOOGLE_MAPS_API_KEY missing");
   }
 
-  async geocode({ address }: GeocodeInput): Promise<GeocodeResult> {
+  async geocode({ address, postalCode }: GeocodeInput): Promise<GeocodeResult> {
     const url = new URL(ENDPOINT);
     url.searchParams.set("address", address);
-    url.searchParams.set("components", this.components);
+    url.searchParams.set("components", postalCode ? `${this.components}|postal_code:${postalCode}` : this.components);
     url.searchParams.set("key", this.apiKey);
 
     let res: Response;

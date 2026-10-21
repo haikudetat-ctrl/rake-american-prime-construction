@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { AddressField } from "@/app/_components/address-field";
 import { Flash } from "@/app/_components/flash";
 import { addDays, companyToday } from "@/lib/dates";
 import { loadRequestLink, newFormToken, submitRentalRequest } from "@/lib/intake/submit";
@@ -62,11 +63,7 @@ export default async function RequestPage({ params, searchParams }: PageProps<"/
             </label>
           </div>
 
-          <label className="label">
-            <span>Job address</span>
-            <input name="address" required autoComplete="street-address" className={fieldClass("address")}
-              placeholder="Street, town" />
-          </label>
+          <AddressField label="Job address" formToken={formToken} bad={[...bad]} />
 
           <div className="grid grid-cols-2 gap-3">
             <label className="label">

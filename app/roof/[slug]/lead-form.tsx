@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AddressField } from "@/app/_components/address-field";
 import { shrinkPhoto } from "@/lib/images/shrink";
 import { CONTACT_CONSENT, MAX_PHOTOS, NEED_LABEL, NEEDS } from "@/lib/leads/schema";
 
@@ -56,11 +57,7 @@ export function LeadForm({
           {NEEDS.map((n) => <option key={n} value={n}>{NEED_LABEL[n]}</option>)}
         </select>
       </label>
-      <label className="label">
-        <span>Property address</span>
-        <input name="address" required autoComplete="street-address" className={fieldClass("address")}
-          placeholder="Street, town" />
-      </label>
+      <AddressField label="Property address" formToken={formToken} bad={bad} />
       <label className="label">
         <span>Your name</span>
         <input name="name" required autoComplete="name" className={fieldClass("name")} />

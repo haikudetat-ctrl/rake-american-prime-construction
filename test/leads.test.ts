@@ -3,7 +3,13 @@ import { utcToZonedInput, zonedToUtc } from "@/lib/dates";
 import { daysInStage, leadRequestSchema, needsAttention, officeLeadSchema, winRate } from "@/lib/leads/schema";
 import { leadReceivedSms } from "@/lib/outbox/messages";
 
-const base = { name: "Pat Homeowner", phone: "(609) 555-0100", address: "12 Ocean Ave, Ventnor", formToken: "t" };
+const base = {
+  name: "Pat Homeowner",
+  phone: "(609) 555-0100",
+  placeId: "ChIJ12OceanAveVentnor",
+  address: "12 Ocean Ave, Ventnor City, NJ, USA",
+  formToken: "t",
+};
 
 describe("roofing request form", () => {
   it("normalizes the phone and defaults an unknown need", () => {
