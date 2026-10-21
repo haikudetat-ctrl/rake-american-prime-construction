@@ -21,11 +21,13 @@ import {
   rewardOwedSms,
   requestReceivedSms,
   statementEmail,
+  subInvoiceEmail,
   textReceivedSms,
   voicemailReceivedSms,
   type Brand,
 } from "@/lib/outbox/messages";
-import { renderStatementPdf } from "@/lib/pdf/render";
+import { renderStatementPdf, renderSubInvoicePdf } from "@/lib/pdf/render";
+import { loadSubInvoice } from "@/lib/subcontract/invoice";
 import { adminClient } from "@/lib/supabase/admin";
 
 type OutboxMessage = {
@@ -256,6 +258,25 @@ async function deliver(message: OutboxMessage): Promise<void> {
   if (!email) throw new Error("Email not configured");
   if (message.kind === "proposal_link" || message.kind === "proposal_signed" || message.kind === "aftercare_warranty") {
     await deliverProposalEmail(message, email, appUrl);
+    return;
+  }
+  if (message.kind === "sub_invoice_issued") {
+    const invoice = await loadSubInvoice(adminClient(), String(p.invoice_id));
+    if (!invoice) throw new Skip("invoice not found");
+    // Reopened (and so voided) during the 15-minute hold: the corrected one goes out instead.
+    if (invoice.status === "void") throw new Skip("invoice was voided before it went out");
+    const brand = await roofingBrand(message.company_id);
+    const content = subInvoiceEmail(invoice);
+    await sendEmail({
+      apiKey: email.apiKey,
+      from: `${invoice.brand.name} <${email.from}>`,
+      to: String(p.to),
+      replyTo: brand.email,
+      subject: content.subject,
+      text: content.text,
+      attachments: [{ filename: `invoice-${invoice.number}.pdf`, content: await renderSubInvoicePdf(invoice) }],
+    });
+    await adminClient().from("sub_invoices").update({ sent_at: new Date().toISOString() }).eq("id", invoice.id);
     return;
   }
   const statement = await loadStatement(adminClient(), String(p.statement_id));

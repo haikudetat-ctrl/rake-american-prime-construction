@@ -4,7 +4,7 @@ Operations system for American Prime Construction. Phase 1 runs the dumpster
 business: customer request link → office approval → driver run → scale ticket →
 weekly statement → payment.
 
-Design: [docs/design.md](docs/design.md). Phase 2 (roofing): [docs/phase-2-design.md](docs/phase-2-design.md).
+Design: [docs/design.md](docs/design.md). Phase 2 (roofing): [docs/phase-2-design.md](docs/phase-2-design.md). Subcontracting: [docs/subcontracting.md](docs/subcontracting.md).
 
 ## Stack
 
@@ -19,7 +19,8 @@ Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us
 app/                 public dumpster landing page (all request CTAs → /request/dumpster)
 app/request/[slug]   public dumpster request link (no login)
 app/roof/[slug]      public roofing estimate link (no login), with past-job photos
-app/office           owner/office: today, requests, leads, inbox (texts, calls), jobs (P&L, aftercare), stock, referrals, cans, customers, billing, numbers, settings
+app/office           owner/office: today, dumpster requests, roofing leads, subcontracting, inbox (texts, calls), jobs (P&L, aftercare), stock, referrals, cans, customers, billing, numbers, settings
+app/office/subs      subcontract jobs: week board, close a job (crew split + contractor invoice), payroll, setup
 app/driver           driver run, English/Spanish
 app/crew             roofing crew jobs, English/Spanish (no prices)
 app/p/[token]        homeowner proposal: review, choose, sign; signed PDF
