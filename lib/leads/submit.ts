@@ -1,7 +1,7 @@
 import "server-only";
 import { resolveAddress } from "@/lib/intake/address";
 import { hashSubmitter, intakeSecret } from "@/lib/intake/submit";
-import { isTooFast } from "@/lib/intake/schema";
+import { failedFields, formFields, isTooFast } from "@/lib/intake/schema";
 import { readFormToken } from "@/lib/intake/token";
 import { CONTACT_CONSENT, leadRequestSchema, MAX_PHOTOS, PHOTO_TYPES } from "@/lib/leads/schema";
 import { adminClient } from "@/lib/supabase/admin";
@@ -29,12 +29,11 @@ async function submit(
   form: FormData,
   clientIp: string,
 ): Promise<LeadSubmitResult> {
-  const fields = Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === "string"));
-  const parsed = leadRequestSchema.safeParse(fields);
+  const parsed = leadRequestSchema.safeParse(formFields(form));
   if (!parsed.success) {
     // A filled honeypot gets the same answer as success would, so bots learn nothing.
     if (form.get("website")) return { ok: true };
-    return { ok: false, error: "invalid", fields: parsed.error.issues.map((i) => String(i.path[0])) };
+    return { ok: false, error: "invalid", fields: failedFields(parsed.error.issues) };
   }
   const input = parsed.data;
   const renderedAt = readFormToken(input.formToken, intakeSecret());

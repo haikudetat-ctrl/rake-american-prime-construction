@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { Flash } from "@/app/_components/flash";
 import { LeadForm } from "@/app/roof/[slug]/lead-form";
+import type { IntakeFailure } from "@/lib/intake/messages";
 import { loadRequestLink, newFormToken } from "@/lib/intake/submit";
 import { loadGallery, submitLeadRequest } from "@/lib/leads/submit";
 import { formatPhone } from "@/lib/phone";
@@ -10,29 +10,21 @@ import { BrandBar } from "@/app/_components/brand";
 
 export const metadata: Metadata = { title: "Roofing estimate" };
 
-const ERRORS: Record<string, string> = {
-  invalid: "Check the highlighted fields and try again.",
-  rate_limited: "We've received several requests from you already. Call or text us instead.",
-  failed: "Something went wrong on our end. Please call or text us.",
-};
-
-export default async function RoofRequestPage({ params, searchParams }: PageProps<"/roof/[slug]">) {
+export default async function RoofRequestPage({ params }: PageProps<"/roof/[slug]">) {
   const { slug } = await params;
-  const { error, fields } = await searchParams;
   const link = await loadRequestLink(slug, "roofing");
   if (!link) notFound();
   const gallery = await loadGallery(link.brandId);
 
-  async function submit(formData: FormData) {
+  // Returns what was wrong instead of redirecting, so the form keeps what was typed (and the consent box).
+  async function submit(formData: FormData): Promise<IntakeFailure | undefined> {
     "use server";
     const h = await headers();
     const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? h.get("x-real-ip") ?? "unknown";
     const result = await submitLeadRequest(slug, formData, ip);
     if (result.ok) redirect(`/roof/${slug}/thanks`);
     if (result.error === "unknown_link") notFound();
-    const query = new URLSearchParams({ error: result.error });
-    if (result.fields?.length) query.set("fields", result.fields.join(","));
-    redirect(`/roof/${slug}?${query}`);
+    return { error: result.error, fields: result.fields };
   }
 
   return (
@@ -47,9 +39,7 @@ export default async function RoofRequestPage({ params, searchParams }: PageProp
           </p>
         </header>
 
-        {typeof error === "string" && ERRORS[error] && <Flash tone="error">{ERRORS[error]}</Flash>}
-
-        <LeadForm action={submit} formToken={newFormToken()} bad={typeof fields === "string" ? fields.split(",") : []} />
+        <LeadForm action={submit} formToken={newFormToken()} />
 
         {gallery.length > 0 && (
           <section className="space-y-2">

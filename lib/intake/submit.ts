@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { resolveAddress } from "@/lib/intake/address";
-import { isTooFast, rentalRequestSchema } from "@/lib/intake/schema";
+import { failedFields, formFields, isTooFast, rentalRequestSchema } from "@/lib/intake/schema";
 import { issueFormToken, readFormToken } from "@/lib/intake/token";
 import { adminClient } from "@/lib/supabase/admin";
 
@@ -55,11 +55,11 @@ export function newFormToken(): string {
  * this code changes.
  */
 export async function submitRentalRequest(slug: string, form: FormData, clientIp: string): Promise<SubmitResult> {
-  const parsed = rentalRequestSchema.safeParse(Object.fromEntries(form));
+  const parsed = rentalRequestSchema.safeParse(formFields(form));
   if (!parsed.success) {
     // A filled honeypot gets the same answer as success would, so bots learn nothing.
     if (form.get("website")) return { ok: true };
-    return { ok: false, error: "invalid", fields: parsed.error.issues.map((i) => String(i.path[0])) };
+    return { ok: false, error: "invalid", fields: failedFields(parsed.error.issues) };
   }
   const input = parsed.data;
   const renderedAt = readFormToken(input.formToken, intakeSecret());
