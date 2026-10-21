@@ -52,13 +52,14 @@ export default async function OfficeLayout({ children }: LayoutProps<"/office">)
         </div>
         <div className="hidden border-t border-ink-active px-4 py-4 text-sm text-ink-muted lg:block">
           <p className="font-medium text-ink-foreground">{member.name}</p>
-          <p className="mt-1 flex gap-2">
+          {/* A div, not a p: a form inside a <p> is invalid HTML and broke hydration on every office page. */}
+          <div className="mt-1 flex gap-2">
             <Link href="/driver" className="hover:text-white hover:underline">Driver view</Link>
             <span aria-hidden="true">·</span>
             <form action="/auth/signout" method="post">
               <button className="hover:text-white hover:underline">Sign out</button>
             </form>
-          </p>
+          </div>
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
