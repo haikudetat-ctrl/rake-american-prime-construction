@@ -60,6 +60,21 @@ export function AddressField({
 
   const invalid = (name: string) => (bad.includes(name) ? "border-danger" : "");
 
+  // The server answers a rejected submit in place now (the form isn't
+  // re-rendered from scratch), so a "town and ZIP needed" has to switch the
+  // field to typing here rather than at first render.
+  const badKey = bad.join(",");
+  const [seenBadKey, setSeenBadKey] = useState(badKey);
+  if (badKey !== seenBadKey) {
+    setSeenBadKey(badKey);
+    if (mode === "search" && (bad.includes("town") || bad.includes("zip"))) {
+      setOpen(false);
+      setCarry((picked?.text ?? text).split(",")[0].trim());
+      setNotice("We couldn't confirm that address. Type it in with the town and ZIP.");
+      setMode("manual");
+    }
+  }
+
   // The browser's own "fill this in" check stops a typed-but-not-picked submit.
   useEffect(() => {
     inputRef.current?.setCustomValidity(mode === "search" && text.trim() && !picked ? MUST_PICK : "");

@@ -1,4 +1,5 @@
 import type { StatementView } from "@/lib/billing/statement";
+import type { SubInvoiceView } from "@/lib/subcontract/invoice";
 import { formatDate } from "@/lib/dates";
 import type { Locale } from "@/lib/i18n";
 import { formatCents } from "@/lib/money";
@@ -165,6 +166,29 @@ export function rewardOwedSms(p: { referrer: string; friend: string; rewardCents
 export function requestApprovedSms(p: { date: string; address: string }, brand: Brand): string {
   const contact = brand.phone ? ` Changes? Call ${formatPhone(brand.phone)}.` : "";
   return `${brand.name}: your dumpster is booked for ${formatDate(p.date)} at ${p.address}.${contact} Reply STOP to opt out.`;
+}
+
+/** The contractor's labor invoice for one subcontract job, sent when the job is closed. */
+export function subInvoiceEmail(i: SubInvoiceView): { subject: string; text: string } {
+  return {
+    subject: `Invoice #${i.number} from ${i.brand.name}: ${i.job.address}, ${formatCents(i.balanceCents)} due ${formatDate(i.dueOn)}`,
+    text: [
+      `Hi ${i.contractor.name},`,
+      "",
+      `Here is our invoice for the labor at ${i.job.address} on ${formatDate(i.job.workDate)}. The PDF is attached.`,
+      "",
+      ...i.lines.map((line) => `  ${line.description}  ${formatCents(line.amountCents)}`),
+      "",
+      `Total due: ${formatCents(i.balanceCents)} by ${formatDate(i.dueOn)}.`,
+      `Pay by check to ${i.brand.name}${i.brand.address ? ` (${i.brand.address})` : ""} or ACH; reply for bank details.`,
+      "",
+      `Thank you,`,
+      i.brand.name,
+      i.brand.phone ? formatPhone(i.brand.phone) : "",
+    ]
+      .join("\n")
+      .trimEnd(),
+  };
 }
 
 export function statementEmail(s: StatementView): { subject: string; text: string } {

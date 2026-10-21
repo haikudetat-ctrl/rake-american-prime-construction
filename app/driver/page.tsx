@@ -101,8 +101,8 @@ export default async function DriverPage({ searchParams }: PageProps<"/driver">)
                   ) : <span />}
                 </div>
               )}
-              {!done && stop.kind === "drop" && <DropAction stopId={stop.stop_id} cans={canList} t={allKeys} />}
-              {!done && stop.kind === "pickup" && <PickupAction stopId={stop.stop_id} t={allKeys} />}
+              {!done && stop.kind === "drop" && <DropAction stopId={stop.stop_id} date={date} cans={canList} t={allKeys} />}
+              {!done && stop.kind === "pickup" && <PickupAction stopId={stop.stop_id} date={date} t={allKeys} />}
               {!done && stop.kind === "dump" && (
                 <TicketAction stopId={stop.stop_id} date={date} landfills={landfills ?? []} t={allKeys} />
               )}

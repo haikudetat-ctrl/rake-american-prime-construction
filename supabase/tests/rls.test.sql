@@ -21,7 +21,7 @@ select id as stop_a from public.stops where rental_id = :'rental_a' \gset
 select id as stop_b from public.stops where rental_id = :'rental_b' \gset
 select id as can_1 from public.cans where label = 'C1' \gset
 select tests.act_as('00000000-0000-0000-0000-000000000003');
-select public.complete_stop(:'stop_a', :'can_1');
+select public.complete_stop(:'stop_a', :'can_1', tests.photo());
 reset role;
 
 -- Driver A ------------------------------------------------------------------------------

@@ -16,7 +16,7 @@ const requestHref = "/request/dumpster";
 export const metadata: Metadata = {
   title: "Dumpster Rentals | American Prime Construction",
   description:
-    "Roll-off dumpsters for cleanouts, renovations, and construction projects. Explore 10, 15, 20, and 30-yard sizes and request a dumpster from American Prime Construction.",
+    "Roll-off dumpsters for cleanouts, renovations, and construction projects. Explore 10, 15, and 20-yard sizes and request a dumpster from American Prime Construction.",
   robots: { index: true, follow: true },
   openGraph: {
     title: "Dumpster rentals. Made easy. | American Prime Construction",
@@ -45,11 +45,6 @@ const sizes = [
     yards: 20,
     loads: "Approx. 6 pickup-truck loads",
     uses: ["Whole-home cleanouts", "Construction debris", "Larger renovations"],
-  },
-  {
-    yards: 30,
-    loads: "Approx. 9 pickup-truck loads",
-    uses: ["New construction", "Major renovations", "Commercial projects"],
   },
 ];
 
@@ -177,7 +172,7 @@ export default function Home() {
         <div className={styles.trustStrip}>
           <div className={`${styles.container} ${styles.trustGrid}`}>
             <div>
-              <strong>10–30 YARD</strong>
+              <strong>10–20 YARD</strong>
               <span>A size for your project</span>
             </div>
             <div>

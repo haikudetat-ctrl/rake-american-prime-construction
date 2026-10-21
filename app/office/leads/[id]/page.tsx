@@ -77,7 +77,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
   return (
     <>
       <Notice searchParams={query} />
-      <p className="text-sm"><Link className="underline" href="/office/leads">← Leads</Link></p>
+      <p className="text-sm"><Link className="underline" href="/office/leads">← Roofing leads</Link></p>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="page-title">{lead.name}</h1>
         <span className="pill">{STAGE_LABEL[stage]}</span>

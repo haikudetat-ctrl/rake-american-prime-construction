@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isPlaceId } from "@/lib/integrations/places";
+import { DUMPSTER_SIZES } from "@/lib/intake/sizes";
 import { toE164 } from "@/lib/phone";
 
 /** Seconds a human needs, at minimum, to fill the form. Faster is a bot. */
@@ -10,6 +11,30 @@ export const FORM_TOKEN_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 const optionalText = (max: number) =>
   z.string().trim().max(max).optional().transform((v) => (v ? v : undefined));
+
+/**
+ * The text fields of a submitted public form, ready for a strict schema.
+ *
+ * A form whose action is a server function is rendered with hidden
+ * `$ACTION_…` inputs so it can post without JavaScript, and React leaves them
+ * in the page after hydration. They used to ride along on the first submit
+ * and trip `.strict()`, which is why the dumpster request only went through
+ * on the second try. The forms no longer post that way, but this stays as the
+ * guard: framework keys are never form fields.
+ */
+export function formFields(form: FormData): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const [key, value] of form.entries()) {
+    if (typeof value !== "string" || key.startsWith("$ACTION")) continue;
+    fields[key] = value;
+  }
+  return fields;
+}
+
+/** The fields a failed parse should highlight. Form-level issues name no field. */
+export function failedFields(issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey> }>): string[] {
+  return [...new Set(issues.map((i) => i.path[0]).filter((p): p is string => typeof p === "string"))];
+}
 
 /**
  * The address part of both public forms (see app/_components/address-field.tsx).
@@ -73,7 +98,13 @@ export const rentalRequestSchema = z
       .pipe(z.email().optional()),
     ...addressFields,
     requestedDate: z.iso.date(),
-    sizeYards: z.coerce.number().int().positive().max(60).optional().catch(undefined),
+    // A size we don't run (or junk) books as "not sure"; the office confirms the size anyway.
+    sizeYards: z.coerce
+      .number()
+      .int()
+      .refine((v) => (DUMPSTER_SIZES as readonly number[]).includes(v))
+      .optional()
+      .catch(undefined),
     notes: optionalText(1000),
     // Bot checks: a hidden field people never fill, and a signed render time.
     website: z.string().max(0).optional(),

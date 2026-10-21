@@ -288,7 +288,8 @@
 }
 .sizeGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* 10, 15 and 20 yards: 20 is the largest can (Oct 21). */
+  grid-template-columns: repeat(3, 1fr);
   gap: 17px;
 }
 .sizeCard {
@@ -853,6 +854,10 @@
   .sizeGrid {
     grid-template-columns: repeat(2, 1fr);
     gap: 14px;
+  }
+  /* An odd card out takes the full row instead of sitting alone in half of it. */
+  .sizeCard:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
   .loads {
     min-height: 0;
