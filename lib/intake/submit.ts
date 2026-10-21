@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { GoogleGeocodeProvider, type GeocodeResult } from "@/lib/integrations/geocode";
+import { resolveAddress } from "@/lib/intake/address";
 import { isTooFast, rentalRequestSchema } from "@/lib/intake/schema";
 import { issueFormToken, readFormToken } from "@/lib/intake/token";
 import { adminClient } from "@/lib/supabase/admin";
@@ -48,17 +48,6 @@ export function newFormToken(): string {
   return issueFormToken(intakeSecret());
 }
 
-export async function geocode(address: string): Promise<GeocodeResult | null> {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return null;
-  try {
-    return await new GoogleGeocodeProvider(key).geocode({ address });
-  } catch {
-    // An address Google can't place still books; the office sees it as typed.
-    return null;
-  }
-}
-
 /**
  * Validates and records a request from the public link. Everything the
  * submitter controls is parsed here; the database function repeats the checks
@@ -77,7 +66,7 @@ export async function submitRentalRequest(slug: string, form: FormData, clientIp
   // A forged token or an instant submit is a bot: answer as if it worked.
   if (renderedAt === null || isTooFast(renderedAt)) return { ok: true };
 
-  const place = await geocode(input.address);
+  const place = await resolveAddress(input);
   const submitterHash = hashSubmitter(clientIp);
 
   const { error } = await adminClient().rpc("submit_rental_request", {
@@ -86,11 +75,11 @@ export async function submitRentalRequest(slug: string, form: FormData, clientIp
     p_company_name: input.companyName ?? null,
     p_phone: input.phone,
     p_email: input.email ?? null,
-    p_address: place?.formattedAddress ?? input.address,
-    p_area: place?.locality ?? input.area ?? null,
-    p_lat: place?.lat ?? null,
-    p_lng: place?.lng ?? null,
-    p_place_id: place?.placeId ?? null,
+    p_address: place.address,
+    p_area: place.area,
+    p_lat: place.lat,
+    p_lng: place.lng,
+    p_place_id: place.placeId,
     p_requested_date: input.requestedDate,
     p_size_yards: input.sizeYards ?? null,
     p_notes: input.notes ?? null,

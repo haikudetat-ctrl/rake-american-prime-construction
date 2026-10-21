@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addressFields, requireTownAndZip } from "@/lib/intake/schema";
 import { toE164 } from "@/lib/phone";
 
 export const STAGES = ["new", "contacted", "appointment", "proposal_sent", "won", "lost"] as const;
@@ -72,7 +73,7 @@ export const leadRequestSchema = z
     name: z.string().trim().min(2).max(120),
     phone,
     email,
-    address: z.string().trim().min(5).max(300),
+    ...addressFields,
     need: z.enum(NEEDS).catch("other"),
     notes: optionalText(2000),
     consent: z.literal("on").optional(),
@@ -80,7 +81,8 @@ export const leadRequestSchema = z
     website: z.string().max(0).optional(),
     formToken: z.string().max(200),
   })
-  .strict();
+  .strict()
+  .superRefine(requireTownAndZip);
 
 export type LeadRequestInput = z.infer<typeof leadRequestSchema>;
 

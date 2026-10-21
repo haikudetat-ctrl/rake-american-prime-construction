@@ -1,5 +1,6 @@
 import "server-only";
-import { geocode, hashSubmitter, intakeSecret } from "@/lib/intake/submit";
+import { resolveAddress } from "@/lib/intake/address";
+import { hashSubmitter, intakeSecret } from "@/lib/intake/submit";
 import { isTooFast } from "@/lib/intake/schema";
 import { readFormToken } from "@/lib/intake/token";
 import { CONTACT_CONSENT, leadRequestSchema, MAX_PHOTOS, PHOTO_TYPES } from "@/lib/leads/schema";
@@ -44,17 +45,17 @@ async function submit(
     .filter((p): p is File => p instanceof File && p.size > 0 && p.type in PHOTO_TYPES)
     .slice(0, MAX_PHOTOS);
 
-  const place = await geocode(input.address);
+  const place = await resolveAddress(input);
   const db = adminClient();
   const common = {
     p_name: input.name,
     p_phone: input.phone,
     p_email: input.email ?? null,
-    p_address: place?.formattedAddress ?? input.address,
-    p_area: place?.locality ?? null,
-    p_lat: place?.lat ?? null,
-    p_lng: place?.lng ?? null,
-    p_place_id: place?.placeId ?? null,
+    p_address: place.address,
+    p_area: place.area,
+    p_lat: place.lat,
+    p_lng: place.lng,
+    p_place_id: place.placeId,
     p_need: input.need,
     p_notes: input.notes ?? null,
     p_consent_text: input.consent ? CONTACT_CONSENT : null,
