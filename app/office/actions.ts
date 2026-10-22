@@ -69,8 +69,8 @@ export async function assignStop(form: FormData) {
     p_driver_id: optional(form, "driverId"),
     p_date: optional(form, "newDate") ?? date,
   });
-  if (error) back(`/office?date=${date}`, errorText(error), "error");
-  done(`/office?date=${date}`, "Stop updated.");
+  if (error) back(`/office/dumpsters?date=${date}`, errorText(error), "error");
+  done(`/office/dumpsters?date=${date}`, "Stop updated.");
 }
 
 export async function orderRun(form: FormData) {
@@ -94,8 +94,8 @@ export async function orderRun(form: FormData) {
   const start = yard?.lat != null && yard?.lng != null ? { lat: yard.lat, lng: yard.lng } : null;
   const ordered = orderStops(routable, start);
   const { error } = await supabase.rpc("sequence_stops", { p_stop_ids: ordered.map((s) => s.id) });
-  if (error) back(`/office?date=${date}`, errorText(error), "error");
-  done(`/office?date=${date}`, "Run ordered.");
+  if (error) back(`/office/dumpsters?date=${date}`, errorText(error), "error");
+  done(`/office/dumpsters?date=${date}`, "Run ordered.");
 }
 
 export async function requestPickup(form: FormData) {

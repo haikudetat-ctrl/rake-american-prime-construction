@@ -28,4 +28,4 @@ export function rateText(centsPerSq: number, pitchFrom: number, stepCents: numbe
   return stepCents > 0 ? `${base}, +${formatCents(stepCents)} a square for each pitch step from ${pitchFrom}/12` : base;
 }
 
-export const STATUS_LABEL: Record<string, string> = { scheduled: "Open", done: "Closed", void: "Cancelled" };
+export const STATUS_LABEL: Record<string, string> = { scheduled: "Work scheduled", done: "Work complete", void: "Cancelled" };

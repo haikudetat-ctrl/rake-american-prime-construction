@@ -54,6 +54,7 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
           <Link className="btn-secondary" href={`/office/numbers?week=${addDays(week, 7)}`}>Next →</Link>
         </div>
       </div>
+      <p className="text-sm text-muted">Dumpster operations and balances for this week. Roofing metrics follow below.</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {tiles.map((tile) => (
           <div key={tile.label} className="card-stripe">
@@ -135,16 +136,17 @@ const CASH_WEEKS = 8;
 async function CashView() {
   const supabase = await createSupabaseServerClient();
   const from = addDays(weekStart(companyToday()), -7 * (CASH_WEEKS - 1));
-  const [{ data: weeks }, { data: owed }] = await Promise.all([
+  const [{ data: weeks, error: weeksError }, { data: owed, error: owedError }] = await Promise.all([
     supabase.rpc("cash_weeks", { p_from: from, p_weeks: CASH_WEEKS }),
     supabase.rpc("money_owed").single<{ roofing_cents: number; dumpster_cents: number }>(),
   ]);
   const rows = (weeks ?? []) as { week_start: string; cash_out_cents: number; cash_in_cents: number }[];
-  if (!owed) return null;
+  if (weeksError || owedError || !owed) return <p className="card" role="status">Roofing + dumpster cash is unavailable. Reload to try again. Subcontracting cash is not included in this report.</p>;
   const owedTotal = Number(owed.roofing_cents) + Number(owed.dumpster_cents);
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Cash</h2>
+      <h2 className="text-lg font-semibold">Roofing + dumpster cash</h2>
+      <p className="text-sm text-muted">Excludes subcontracting cash and balances. These are not all-business totals. <Link className="underline" href="/office/subs/invoices">View subcontracting invoices</Link>.</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="card-stripe"><p className="eyebrow">Owed to you</p><p className="stat-value">{formatCents(owedTotal)}</p>
           <p className="text-xs text-muted">Roofing {formatCents(Number(owed.roofing_cents))} · dumpsters {formatCents(Number(owed.dumpster_cents))}</p></div>

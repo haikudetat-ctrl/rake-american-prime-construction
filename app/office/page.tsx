@@ -1,130 +1,59 @@
-import Link from "next/link";
-import { assignStop, orderRun } from "@/app/office/actions";
-import { Notice } from "@/app/office/_notice";
-import { requireStaff } from "@/lib/auth";
-import { addDays, companyToday, formatDate } from "@/lib/dates";
-import { assignable, loadTeam, one } from "@/lib/office/team";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { requireStaff } from '@/lib/auth';
+import { companyToday, formatDate } from '@/lib/dates';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { Notice } from './_notice';
 
-const KIND_LABEL = { drop: "Drop", pickup: "Pickup", dump: "Dump" } as const;
-
-type StopRow = {
-  id: string;
-  kind: keyof typeof KIND_LABEL;
-  status: string;
-  sequence: number;
-  driver_id: string | null;
-  rentals: {
-    id: string;
-    size_yards: number | null;
-    customers: { name: string } | null;
-    sites: { address: string; area: string | null } | null;
-    cans: { label: string } | null;
-  } | null;
-};
-
-export default async function TodayPage({ searchParams }: PageProps<"/office">) {
+export default async function HomePage({ searchParams }: PageProps<'/office'>) {
   await requireStaff();
-  const params = await searchParams;
-  const date = typeof params.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : companyToday();
-  const supabase = await createSupabaseServerClient();
-
-  const [{ data }, team, { data: yards }] = await Promise.all([
-    supabase
-      .from("stops")
-      .select("id, kind, status, sequence, driver_id, rentals(id, size_yards, customers(name), sites(address, area), cans(label))")
-      .eq("scheduled_date", date)
-      .neq("status", "cancelled")
-      .order("sequence")
-      .order("created_at"),
-    loadTeam(supabase),
-    supabase.from("yards").select("id, name").eq("is_active", true).order("created_at"),
+  const query = await searchParams;
+  // Preserve bookmarked dispatch dates, including their action feedback.
+  if (typeof query.date === 'string') {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) if (typeof value === 'string') params.set(key, value);
+    redirect(`/office/dumpsters?${params}`);
+  }
+  const today = companyToday();
+  const db = await createSupabaseServerClient();
+  const [roofing, subs, stops, leads, requests, closeout, billing, overdue] = await Promise.all([
+    db.from('roofing_jobs').select('id, address, status').eq('install_date', today).order('created_at').limit(20),
+    db.from('sub_jobs').select('id, address, status').eq('work_date', today).neq('status', 'void').order('created_at').limit(20),
+    db.from('stops').select('id', { count: 'exact', head: true }).eq('scheduled_date', today).eq('status', 'scheduled'),
+    db.from('leads').select('id', { count: 'exact', head: true }).eq('stage', 'new'),
+    db.from('rental_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    db.from('sub_jobs').select('id, address, work_date').eq('status', 'scheduled').lte('work_date', today).order('work_date').limit(20),
+    db.from('invoices').select('id', { count: 'exact', head: true }).eq('status', 'final'),
+    db.from('sub_invoices').select('id', { count: 'exact', head: true }).eq('status', 'open').lt('due_on', today),
   ]);
-  const stops = (data ?? []) as unknown as StopRow[];
-  const people = assignable(team);
-  const groups = [
-    ...people.map((p) => ({ driverId: p.userId as string | null, name: p.name, stops: stops.filter((s) => s.driver_id === p.userId) })),
-    { driverId: null, name: "Not assigned", stops: stops.filter((s) => !s.driver_id) },
-  ].filter((g) => g.stops.length > 0);
-
-  return (
-    <>
-      <Notice searchParams={params} />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="eyebrow">Dispatch</p>
-          <h1 className="page-title">{formatDate(date)}</h1>
-        </div>
-        <div className="flex gap-2">
-          <Link className="btn-secondary" href={`/office?date=${addDays(date, -1)}`}>← Prev</Link>
-          <Link className="btn-secondary" href="/office">Today</Link>
-          <Link className="btn-secondary" href={`/office?date=${addDays(date, 1)}`}>Next →</Link>
-        </div>
-      </div>
-
-      {groups.length === 0 && <p className="card text-muted">Nothing scheduled.</p>}
-
-      {groups.map((group) => (
-        <section key={group.driverId ?? "none"} className="card space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold">
-              {group.name} <span className="text-sm font-normal text-muted">· {group.stops.length} stops</span>
-            </h2>
-            {group.driverId && (yards ?? []).length > 0 && (
-              <form action={orderRun} className="flex items-center gap-2">
-                <input type="hidden" name="date" value={date} />
-                <input type="hidden" name="driverId" value={group.driverId} />
-                <select name="yardId" className="input w-auto">
-                  {(yards ?? []).map((y) => <option key={y.id} value={y.id}>From {y.name}</option>)}
-                </select>
-                <button className="btn-secondary">Order run</button>
-              </form>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="table">
-              <thead>
-                <tr><th>#</th><th>Stop</th><th>Customer</th><th>Where</th><th>Can</th><th>Move</th></tr>
-              </thead>
-              <tbody>
-                {group.stops.map((stop, i) => {
-                  const rental = one(stop.rentals);
-                  const site = one(rental?.sites);
-                  return (
-                    <tr key={stop.id} className={stop.status === "done" ? "opacity-50" : ""}>
-                      <td>{i + 1}</td>
-                      <td>
-                        <span className="pill">{KIND_LABEL[stop.kind]}</span>
-                        {stop.status === "done" && <span className="ml-1 text-xs text-ok">done</span>}
-                      </td>
-                      <td>{rental && <Link className="underline" href={`/office/rentals/${rental.id}`}>{one(rental.customers)?.name}</Link>}</td>
-                      <td>
-                        <div>{site?.address}</div>
-                        {site?.area && <div className="text-xs text-muted">{site.area}</div>}
-                      </td>
-                      <td>{one(rental?.cans)?.label ?? (rental?.size_yards ? `${rental.size_yards} yd` : "—")}</td>
-                      <td>
-                        {stop.status === "scheduled" && (
-                          <form action={assignStop} className="flex flex-wrap gap-1">
-                            <input type="hidden" name="stopId" value={stop.id} />
-                            <input type="hidden" name="date" value={date} />
-                            <select name="driverId" defaultValue={stop.driver_id ?? ""} className="input w-auto py-1">
-                              <option value="">Unassigned</option>
-                              {people.map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
-                            </select>
-                            <input type="date" name="newDate" defaultValue={date} className="input w-auto py-1" />
-                            <button className="btn-secondary py-1">Save</button>
-                          </form>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
-    </>
-  );
+  const queues = [
+    { label: 'New roofing leads', href: '/office/leads', result: leads, action: 'Contact leads' },
+    { label: 'Dumpster requests', href: '/office/requests', result: requests, action: 'Review requests' },
+    { label: 'Dumpster invoices ready', href: '/office/billing', result: billing, action: 'Review billing' },
+    { label: 'Overdue subcontract invoices', href: '/office/subs/invoices?status=overdue', result: overdue, action: 'Review invoices' },
+  ];
+  return <>
+    <Notice searchParams={query} />
+    <header><p className="eyebrow">American Prime · {formatDate(today)}</p><h1 className="page-title">Home</h1><p className="text-muted">What needs your attention across roofing, subcontracting and dumpsters.</p></header>
+    <section aria-labelledby="attention"><h2 id="attention" className="mb-3 text-lg font-semibold">Needs attention</h2>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{queues.map(({ label, href, result, action }) => <Link key={href} href={href} className="card-stripe block hover:border-brand">
+        <h3 className="text-sm font-medium">{label}</h3><p className="stat-value">{result.error || result.count === null ? 'Unavailable' : result.count}</p>
+        <p className="text-sm underline">{action} →</p>{result.error && <p className="mt-2 text-xs text-muted">Could not load this queue. Check connection and schema setup.</p>}
+      </Link>)}</div>
+    </section>
+    <section aria-labelledby="today"><h2 id="today" className="mb-3 text-lg font-semibold">Today’s work</h2>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {[{ label: 'Roofing', base: '/office/jobs', result: roofing }, { label: 'Subcontracting', base: '/office/subs', result: subs }].map(({ label, base, result }) => <div className="card space-y-2" key={base}>
+          <h3 className="font-semibold">{label}</h3>
+          {result.error ? <p role="status">Work unavailable. Check connection and schema setup.</p> : result.data?.length ? <ul>{result.data.map(j => <li key={j.id}><Link className="block min-h-11 py-2 underline" href={`${base}/${j.id}`}>{j.address} · {j.status === 'done' ? 'Work complete' : j.status === 'in_progress' ? 'In progress' : 'Scheduled'}</Link></li>)}</ul> : <p className="text-sm text-muted">Nothing scheduled today.</p>}
+          <Link className="btn-secondary" href={base}>View all {label.toLowerCase()} jobs</Link>
+        </div>)}
+        <div className="card space-y-3"><h3 className="font-semibold">Dumpsters</h3><p>{stops.error || stops.count === null ? 'Dispatch count unavailable.' : `${stops.count} stops still scheduled today.`}</p><Link className="btn" href="/office/dumpsters">Open dispatch</Link></div>
+      </div><p className="mt-2 text-xs text-muted">Up to 20 jobs per workspace. Open each workspace for the full schedule.</p>
+    </section>
+    <section className="card space-y-3"><h2 className="text-lg font-semibold">Finish subcontracting jobs</h2><p className="text-sm text-muted">Scheduled today or earlier, oldest first. Review work before issuing an invoice.</p>
+      {closeout.error ? <p role="status">Subcontracting work is unavailable. The subcontracting schema must be installed before this workspace can load.</p> : closeout.data?.length ? <ul>{closeout.data.map(j => <li key={j.id}><Link className="flex min-h-11 flex-wrap justify-between gap-2 border-b border-border py-3 underline" href={`/office/subs/${j.id}`}><span>{j.address} · {formatDate(j.work_date)}</span><span>Review and finish →</span></Link></li>)}</ul> : <p className="text-muted">No scheduled jobs awaiting closeout through today.</p>}
+      <Link className="btn-secondary" href="/office/subs">Assign jobs / view all</Link>
+    </section>
+  </>;
 }
