@@ -1,3 +1,4 @@
+import { Unavailable } from "../../_unavailable";
 import Link from "next/link";
 import { addSubWorker, saveSubContractor, saveSubSettings, setSubWorkerActive } from "@/app/office/subs/actions";
 import { rateText } from "@/app/office/subs/_parts";
@@ -53,11 +54,12 @@ export default async function SubsSetupPage({ searchParams }: PageProps<"/office
   await requireStaff();
   const query = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const [{ data: contractors }, { data: workers }, { data: settings }] = await Promise.all([
+  const [{ data: contractors, error: contractorError }, { data: workers, error: workerError }, { data: settings, error: settingsError }] = await Promise.all([
     supabase.from("sub_contractors").select("*").order("is_active", { ascending: false }).order("name"),
     supabase.from("sub_workers").select("id, name, phone, is_active").order("is_active", { ascending: false }).order("name"),
     supabase.from("sub_settings").select("*").maybeSingle(),
   ]);
+  if (contractorError || workerError || settingsError) return <Unavailable area="Subcontracting setup" />;
   const crew = {
     base: settings?.crew_cents_per_sq ?? 5000,
     from: settings?.crew_pitch_from ?? 9,

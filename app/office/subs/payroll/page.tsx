@@ -1,3 +1,5 @@
+import { subQuery } from "@/lib/subcontract/navigation";
+import { Unavailable } from "../../_unavailable";
 import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate, weekStart } from "@/lib/dates";
@@ -20,7 +22,7 @@ export default async function PayrollPage({ searchParams }: PageProps<"/office/s
   const end = addDays(week, 7);
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: shares }, { count: stillOpen }] = await Promise.all([
+  const [{ data: shares, error: sharesError }, { count: stillOpen, error: jobsError }] = await Promise.all([
     supabase
       .from("sub_job_crew")
       .select("worker_id, pay_cents, sub_workers(name), sub_jobs!inner(id, work_date, address, squares, pitch, status, sub_contractors(name), sub_job_crew(worker_id))")
@@ -30,6 +32,7 @@ export default async function PayrollPage({ searchParams }: PageProps<"/office/s
     supabase.from("sub_jobs").select("id", { count: "exact", head: true }).eq("status", "scheduled").gte("work_date", week).lt("work_date", end),
   ]);
 
+  if (sharesError || jobsError) return <Unavailable area="Crew Pay" />;
   const rows: PayrollRow[] = (shares ?? []).map((s) => {
     const job = one(s.sub_jobs)!;
     return {
@@ -51,7 +54,7 @@ export default async function PayrollPage({ searchParams }: PageProps<"/office/s
     <>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="eyebrow">Subcontracting payroll</p>
+          <p className="eyebrow">Subcontracting · Crew Pay</p>
           <h1 className="page-title">{formatDate(week)} – {formatDate(addDays(week, 6))}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -59,14 +62,15 @@ export default async function PayrollPage({ searchParams }: PageProps<"/office/s
           <Link className="btn-secondary" href={`/office/subs/payroll?week=${addDays(week, 7)}`}>Next →</Link>
         </div>
       </div>
+      <p className="text-sm text-muted">Earned shares from completed jobs. Worker payments are not tracked here.</p>
       <p className="text-sm">
-        <Link className="underline" href={`/office/subs?week=${week}`}>← Jobs for this week</Link>
+        <Link className="underline" href={`/office/subs${subQuery({ week, filter: query.filter })}`}>← Jobs for this week</Link>
       </p>
 
       {(stillOpen ?? 0) > 0 && (
         <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm">
           {stillOpen} {stillOpen === 1 ? "job" : "jobs"} this week {stillOpen === 1 ? "isn't" : "aren't"} closed yet, so{" "}
-          {stillOpen === 1 ? "it's" : "they're"} not in these totals. <Link className="underline" href={`/office/subs?week=${week}`}>Close them</Link> first.
+          {stillOpen === 1 ? "it's" : "they're"} not in these totals. <Link className="underline" href={`/office/subs${subQuery({ week, filter: query.filter })}`}>Close them</Link> first.
         </p>
       )}
 

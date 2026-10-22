@@ -1,5 +1,6 @@
 "use server";
 
+import { subQuery } from "@/lib/subcontract/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOwner, requireStaff } from "@/lib/auth";
 import { weekStart } from "@/lib/dates";
@@ -17,10 +18,14 @@ async function staffClient() {
 
 function done(path: string, message: string): never {
   revalidatePath("/office/subs", "layout");
+  revalidatePath("/office");
   back(path, message);
 }
 
-const jobPath = (form: FormData) => `/office/subs/${str(form, "jobId")}`;
+const jobPath = (form: FormData) => {
+  const params = new URLSearchParams(str(form, "returnQuery").replace(/^\?/, ""));
+  return `/office/subs/${str(form, "jobId")}${subQuery({ week: params.get("week"), filter: params.get("filter") })}`;
+};
 
 /** Whole or decimal squares, like 24 or 24.5. */
 function parseSquares(input: string): number | null {

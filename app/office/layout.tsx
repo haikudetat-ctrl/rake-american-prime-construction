@@ -4,22 +4,6 @@ import { OfficeNav, type NavItem } from "./_nav";
 import { requireStaff } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const NAV = [
-  { href: "/office", label: "Today" },
-  { href: "/office/requests", label: "Dumpster Requests" },
-  { href: "/office/leads", label: "Roofing Leads" },
-  { href: "/office/subs", label: "Subcontracting" },
-  { href: "/office/inbox", label: "Inbox" },
-  { href: "/office/jobs", label: "Jobs" },
-  { href: "/office/stock", label: "Stock" },
-  { href: "/office/referrals", label: "Referrals" },
-  { href: "/office/cans", label: "Cans" },
-  { href: "/office/customers", label: "Customers" },
-  { href: "/office/billing", label: "Billing" },
-  { href: "/office/numbers", label: "Numbers" },
-  { href: "/office/settings", label: "Settings" },
-] as const;
-
 export default async function OfficeLayout({ children }: LayoutProps<"/office">) {
   const member = await requireStaff();
   const supabase = await createSupabaseServerClient();
@@ -30,11 +14,11 @@ export default async function OfficeLayout({ children }: LayoutProps<"/office">)
     supabase.from("price_books").select("needs_confirmation").eq("is_active", true).maybeSingle(),
   ]);
 
-  const items: NavItem[] = NAV.map((item) => ({
-    ...item,
-    badge:
-      item.href === "/office/requests" ? pending : item.href === "/office/inbox" ? unread : item.href === "/office/leads" ? newLeads : null,
-  }));
+  const items: NavItem[] = [
+    { href: "/office/requests", label: "Requests", badge: pending },
+    { href: "/office/leads", label: "Leads", badge: newLeads },
+    { href: "/office/inbox", label: "Inbox", badge: unread },
+  ];
 
   return (
     <div className="flex flex-1 flex-col lg:flex-row">
@@ -43,7 +27,7 @@ export default async function OfficeLayout({ children }: LayoutProps<"/office">)
           <Link href="/office" className="block w-36 lg:w-full">
             <BrandLogo />
           </Link>
-          <p className="hidden text-xs tracking-widest text-ink-muted uppercase lg:mt-3 lg:mb-5 lg:block">Roofing · Dumpsters</p>
+          <p className="hidden text-xs tracking-widest text-ink-muted uppercase lg:mt-3 lg:mb-5 lg:block">American Prime · Office</p>
           <form action="/auth/signout" method="post" className="lg:hidden">
             <button className="text-sm text-ink-muted hover:text-white hover:underline">Sign out</button>
           </form>
@@ -74,7 +58,7 @@ export default async function OfficeLayout({ children }: LayoutProps<"/office">)
             )}
           </div>
         )}
-        <main className="mx-auto w-full max-w-6xl flex-1 space-y-5 px-4 py-5 lg:px-8 lg:py-7">{children}</main>
+        <main className="mx-auto w-full max-w-6xl flex-1 space-y-5 px-4 py-5 pb-28 lg:px-8 lg:py-7">{children}</main>
       </div>
     </div>
   );

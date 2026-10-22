@@ -1,3 +1,6 @@
+import { Submit } from "./_submit";
+import { Unavailable } from "../_unavailable";
+import { subQuery } from "@/lib/subcontract/navigation";
 import Link from "next/link";
 import { createSubJob } from "@/app/office/subs/actions";
 import { CrewPicker, STATUS_LABEL } from "@/app/office/subs/_parts";
@@ -23,7 +26,7 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
   const end = addDays(week, 7);
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: contractors }, { data: workers }, { data: jobs }, { data: open }] = await Promise.all([
+  const [{ data: contractors, error: contractorsError }, { data: workers, error: workersError }, { data: jobs, error: jobsError }, { data: open, error: invoicesError }] = await Promise.all([
     supabase.from("sub_contractors").select("id, name").eq("is_active", true).order("name"),
     supabase.from("sub_workers").select("id, name").eq("is_active", true).order("name"),
     supabase
@@ -36,7 +39,11 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
     supabase.from("sub_invoices").select("total_cents, sub_payments(amount_cents, voided_at)").eq("status", "open"),
   ]);
 
+  if (contractorsError || workersError || jobsError || invoicesError) return <Unavailable />;
+  const filter = query.filter === "scheduled" || query.filter === "done" ? query.filter : "all";
+  const returnQuery = subQuery({ week, filter });
   const rows = jobs ?? [];
+  const visible = rows.filter(j => filter === "all" || j.status === filter);
   const closed = rows.filter((j) => j.status === "done");
   const billed = closed.reduce((s, j) => s + (j.bill_total_cents ?? 0), 0);
   const crew = closed.reduce((s, j) => s + (j.pay_total_cents ?? 0), 0);
@@ -46,7 +53,7 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
     (s, inv) => s + inv.total_cents - (inv.sub_payments ?? []).filter((p) => !p.voided_at).reduce((t, p) => t + p.amount_cents, 0),
     0,
   );
-  const days = [...new Set(rows.map((j) => j.work_date))];
+  const days = [...new Set(visible.map((j) => j.work_date))];
   const ready = (contractors ?? []).length > 0 && (workers ?? []).length > 0;
 
   return (
@@ -58,9 +65,9 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
           <h1 className="page-title">Week of {formatDate(week)}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link className="btn-secondary" href={`/office/subs?week=${addDays(week, -7)}`}>← Prev</Link>
+          <Link className="btn-secondary" href={`/office/subs${subQuery({ week: addDays(week, -7), filter })}`}>← Prev</Link>
           <Link className="btn-secondary" href="/office/subs">This week</Link>
-          <Link className="btn-secondary" href={`/office/subs?week=${addDays(week, 7)}`}>Next →</Link>
+          <Link className="btn-secondary" href={`/office/subs${subQuery({ week: addDays(week, 7), filter })}`}>Next →</Link>
         </div>
       </div>
 
@@ -71,12 +78,12 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
           <p className="text-xs text-muted">{closed.length} closed · {Math.round(squares * 100) / 100} sq</p>
         </div>
         <div className="card-stripe">
-          <p className="eyebrow">Crew pay</p>
+          <p className="eyebrow">Crew pay earned</p>
           <p className="stat-value">{formatCents(crew)}</p>
-          <p className="text-xs text-muted"><Link className="underline" href={`/office/subs/payroll?week=${week}`}>Payroll by person</Link></p>
+          <p className="text-xs text-muted"><Link className="underline" href={`/office/subs/payroll${returnQuery}`}>Earned by person</Link></p>
         </div>
         <div className="card-stripe">
-          <p className="eyebrow">You keep</p>
+          <p className="eyebrow">Billed less crew</p>
           <p className="stat-value">{formatCents(billed - crew)}</p>
           <p className="text-xs text-muted">{billed ? `${Math.round(((billed - crew) / billed) * 100)}% of billed` : "after crew pay"}</p>
         </div>
@@ -90,12 +97,12 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
       {stillOpen > 0 && (
         <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm">
           {stillOpen} {stillOpen === 1 ? "job is" : "jobs are"} still open from today or earlier. Close {stillOpen === 1 ? "it" : "them"} so the contractor
-          gets billed and the crew shows up on payroll.
+          gets billed and the crew has earnings recorded.
         </p>
       )}
 
       <section className="card space-y-3">
-        <h2 className="font-semibold">Add a job</h2>
+        <h2 className="font-semibold">Assign jobs</h2>
         {!ready ? (
           <p className="text-sm text-muted">
             Add the contractors you work for and your crew in <Link className="underline" href="/office/subs/setup">Setup</Link> first.
@@ -124,23 +131,24 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
               <span>Notes (optional)</span>
               <input name="notes" placeholder="Gate code, tear-off layers, who's leading…" className="input" />
             </label>
-            <button className="btn w-full sm:w-auto">Add job</button>
+            <Submit className="btn w-full sm:w-auto">Assign job</Submit>
           </form>
         )}
       </section>
 
-      {rows.length === 0 && <p className="card text-muted">No jobs this week yet.</p>}
+      <nav aria-label="Job status filter" className="flex flex-wrap gap-2">{[{ value: 'all', label: 'All work' }, { value: 'scheduled', label: 'Needs finishing' }, { value: 'done', label: 'Work complete' }].map(f => <Link key={f.value} className={filter === f.value ? 'btn' : 'btn-secondary'} aria-current={filter === f.value ? 'page' : undefined} href={`/office/subs${subQuery({ week, filter: f.value })}`}>{f.label}</Link>)}</nav>
+      {visible.length === 0 && <p className="card text-muted">No jobs match this week and filter.</p>}
 
       {days.map((day) => (
         <section key={day} className="space-y-2">
           <h2 className="font-semibold">{formatDate(day)}{day === today && <span className="ml-2 pill">Today</span>}</h2>
           <ul className="space-y-2">
-            {rows.filter((j) => j.work_date === day).map((job) => {
+            {visible.filter((j) => j.work_date === day).map((job) => {
               const invoice = (job.sub_invoices ?? []).find((i) => i.status !== "void");
               const names = (job.sub_job_crew ?? []).map((c) => one(c.sub_workers)?.name ?? "").filter(Boolean).sort((a, b) => a.localeCompare(b));
               return (
                 <li key={job.id}>
-                  <Link href={`/office/subs/${job.id}`} className={`card block hover:border-brand ${job.status === "void" ? "opacity-50" : ""}`}>
+                  <Link href={`/office/subs/${job.id}${returnQuery}`} className={`card block hover:border-brand ${job.status === "void" ? "opacity-50" : ""}`}>
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <p className="font-medium">{job.address}</p>
@@ -148,10 +156,11 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
                       </div>
                       <span className={`pill ${job.status === "scheduled" ? "border-warn text-warn" : ""}`}>{STATUS_LABEL[job.status]}</span>
                     </div>
+                    {job.status === "scheduled" && <p className="mt-3 text-sm font-semibold text-accent">{names.length ? "Review and finish job →" : "Assign crew →"}</p>}
                     {job.status === "done" && (
                       <p className="mt-2 text-sm">
                         {Number(job.squares)} sq at {job.pitch}/12 · billed {formatCents(job.bill_total_cents)}
-                        {invoice && <> (#{invoice.number}{invoice.status === "paid" ? ", paid" : ""})</>} · crew {formatCents(job.pay_total_cents)}
+                        {invoice && <> · invoice #{invoice.number}: {invoice.status === "paid" ? "contractor paid" : "payment outstanding"}</>} · crew earnings {formatCents(job.pay_total_cents)}
                       </p>
                     )}
                   </Link>
@@ -163,7 +172,7 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
       ))}
 
       <p className="text-sm text-muted">
-        <Link className="underline" href={`/office/subs/payroll?week=${week}`}>Payroll for this week</Link> ·{" "}
+        <Link className="underline" href={`/office/subs/payroll${returnQuery}`}>Crew earnings for this week</Link> ·{" "}
         <Link className="underline" href="/office/subs/setup">Setup: contractors, crew, rates</Link>
       </p>
     </>
