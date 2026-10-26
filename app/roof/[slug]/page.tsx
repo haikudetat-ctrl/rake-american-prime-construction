@@ -4,14 +4,21 @@ import { notFound, redirect } from "next/navigation";
 import { LeadForm } from "@/app/roof/[slug]/lead-form";
 import type { IntakeFailure } from "@/lib/intake/messages";
 import { loadRequestLink, newFormToken } from "@/lib/intake/submit";
+import { NEEDS, type Need } from "@/lib/leads/schema";
 import { loadGallery, submitLeadRequest } from "@/lib/leads/submit";
 import { formatPhone } from "@/lib/phone";
 import { BrandBar } from "@/app/_components/brand";
 
 export const metadata: Metadata = { title: "Roofing estimate" };
 
-export default async function RoofRequestPage({ params }: PageProps<"/roof/[slug]">) {
+/** A website link can preselect the kind of work (?need=gutters); anything else is ignored. */
+function needFrom(value: string | string[] | undefined): Need | undefined {
+  return typeof value === "string" && (NEEDS as readonly string[]).includes(value) ? (value as Need) : undefined;
+}
+
+export default async function RoofRequestPage({ params, searchParams }: PageProps<"/roof/[slug]">) {
   const { slug } = await params;
+  const defaultNeed = needFrom((await searchParams).need);
   const link = await loadRequestLink(slug, "roofing");
   if (!link) notFound();
   const gallery = await loadGallery(link.brandId);
@@ -39,7 +46,7 @@ export default async function RoofRequestPage({ params }: PageProps<"/roof/[slug
           </p>
         </header>
 
-        <LeadForm action={submit} formToken={newFormToken()} />
+        <LeadForm action={submit} formToken={newFormToken()} defaultNeed={defaultNeed} />
 
         {gallery.length > 0 && (
           <section className="space-y-2">
