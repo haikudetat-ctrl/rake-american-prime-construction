@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getMember, requireOwner, requireStaff } from "@/lib/auth";
 import { orderStops } from "@/lib/dispatch/order";
 import { back, errorText, optional, str } from "@/lib/flash";
@@ -15,6 +15,7 @@ import { loadFullProposal, loadProposalSettings } from "@/lib/proposals/server";
 import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
+import { SITE_CONTENT_TAG } from "@/lib/site/content";
 import { adminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -312,6 +313,7 @@ export async function updateBrand(form: FormData) {
     })
     .eq("id", str(form, "brandId"));
   if (error) back("/office/settings", errorText(error), "error");
+  revalidateTag(SITE_CONTENT_TAG, "max"); // phone and email on the public site
   done("/office/settings", "Saved.");
 }
 
@@ -567,6 +569,7 @@ export async function addGalleryPhoto(form: FormData) {
     await db.storage.from("gallery").remove([path]);
     back("/office/settings", errorText(error), "error");
   }
+  revalidateTag(SITE_CONTENT_TAG, "max");
   done("/office/settings", "Photo added to the roofing page.");
 }
 
@@ -582,6 +585,7 @@ export async function removeGalleryPhoto(form: FormData) {
   if (!photo) back("/office/settings", "That photo is already gone.", "error");
   await db.from("gallery_photos").delete().eq("id", photo.id);
   await db.storage.from("gallery").remove([photo.path]);
+  revalidateTag(SITE_CONTENT_TAG, "max");
   done("/office/settings", "Photo removed.");
 }
 
@@ -753,6 +757,7 @@ export async function savePriceList(form: FormData) {
   if (!valid.success) back("/office/pricing", valid.error.issues[0]?.message ?? "That price list isn't valid.", "error");
   const { error } = await supabase.rpc("publish_catalog", { p_data: valid.data, p_needs_confirmation: needsConfirmation });
   if (error) back("/office/pricing", errorText(error), "error");
+  revalidateTag(SITE_CONTENT_TAG, "max"); // roofing systems named on the public site
   done("/office/pricing", `Price list version ${current.version + 1} published. Estimates already built keep their prices.`);
 }
 

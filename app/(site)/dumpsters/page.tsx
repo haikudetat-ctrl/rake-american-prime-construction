@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Bebas_Neue } from "next/font/google";
-import { BrandLogo } from "@/app/_components/brand";
-import styles from "./landing.module.css";
+import dropwiseLogo from "@/public/brand/dropwise-logo-white.png";
+import { JsonLd, SiteFooter } from "@/app/(site)/_components/chrome";
+import { ContactLinks } from "@/app/(site)/_components/contact";
+import { COMPANY_NAME, DROPWISE_NAME, PATHS, REQUEST_HREF, canonicalUrl } from "@/lib/site/config";
+import { getSiteContent } from "@/lib/site/content";
+import site from "../site.module.css";
+import styles from "./dropwise.module.css";
 
 const bebas = Bebas_Neue({
   subsets: ["latin"],
@@ -11,17 +16,22 @@ const bebas = Bebas_Neue({
   display: "swap",
   variable: "--font-bebas",
 });
-const requestHref = "/request/dumpster";
+const requestHref = REQUEST_HREF.dumpster;
+
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Dumpster Rentals | American Prime Construction",
+  title: `Dumpster rentals near Atlantic City | ${DROPWISE_NAME}`,
   description:
-    "Roll-off dumpsters for cleanouts, renovations, and construction projects. Explore 10, 15, and 20-yard sizes and request a dumpster from American Prime Construction.",
+    "Roll-off dumpsters for cleanouts, renovations, and roof tear-offs in the Atlantic City area. Explore 10, 15, and 20-yard sizes and request a dumpster from DropWise Dumpsters.",
+  alternates: { canonical: canonicalUrl("dumpster") },
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Dumpster rentals. Made easy. | American Prime Construction",
+    title: `Dumpster rentals. Made easy. | ${DROPWISE_NAME}`,
     description:
       "The right dumpster for your next project. Request your rental online.",
+    url: canonicalUrl("dumpster"),
+    siteName: DROPWISE_NAME,
     type: "website",
   },
 };
@@ -69,15 +79,17 @@ function Dumpster({ size }: { size: number }) {
         className={styles.dumpster}
         style={{ width: `${62 + size * 0.8}%`, height: `${50 + size * 0.9}px` }}
       >
-        <span className={styles.dumpsterBrand}>AMERICAN PRIME</span>
+        <span className={styles.dumpsterBrand}>DROPWISE</span>
         <span className={styles.dumpsterRunner} />
       </div>
     </div>
   );
 }
 
-export default function Home() {
+export default async function DropWiseHome() {
+  const { contacts } = await getSiteContent();
   return (
+    <>
     <div className={`${styles.landing} ${bebas.variable}`}>
       <a href="#main" className={styles.skipLink}>
         Skip to content
@@ -85,11 +97,11 @@ export default function Home() {
       <header className={styles.header}>
         <div className={`${styles.container} ${styles.headerInner}`}>
           <Link
-            href="/"
-            aria-label="American Prime Construction home"
+            href={PATHS.dumpster}
+            aria-label={`${DROPWISE_NAME} home`}
             className={styles.logo}
           >
-            <BrandLogo plate={false} />
+            <Image src={dropwiseLogo} alt={DROPWISE_NAME} className={styles.logoImage} priority />
           </Link>
           <nav aria-label="Main navigation" className={styles.desktopNav}>
             <a href="#dumpsters">Dumpster Rentals</a>
@@ -132,7 +144,7 @@ export default function Home() {
             <div className={styles.heroCopy}>
               <p className={styles.eyebrow}>
                 <span className={styles.smallRule} />
-                AMERICAN PRIME CONSTRUCTION
+                DROPWISE DUMPSTERS
               </p>
               <h1 id="hero-title" className={styles.heroTitle}>
                 DUMPSTER RENTALS.
@@ -184,7 +196,7 @@ export default function Home() {
               <span>We handle the hauling</span>
             </div>
             <div>
-              <strong>AMERICAN PRIME</strong>
+              <strong>BACKED BY AMERICAN PRIME</strong>
               <span>Construction experience at work</span>
             </div>
           </div>
@@ -322,7 +334,7 @@ export default function Home() {
                 common: the debris has to go somewhere.
               </p>
               <p>
-                American Prime Construction helps you make room for what’s next,
+                DropWise Dumpsters, a service of American Prime Construction, helps you make room for what’s next,
                 with roll-off dumpster rentals and a straightforward request
                 process. Tell us what you’re working on. We’ll take it from
                 there.
@@ -395,47 +407,30 @@ export default function Home() {
             <h2 id="cta-title">READY TO GET STARTED?</h2>
             <div className={styles.finalCtaRow}>
               <p>The right dumpster starts with a simple request.</p>
-              <RequestButton />
+              <div className={site.actions}>
+                <RequestButton />
+                <ContactLinks contact={contacts.dumpster} />
+              </div>
             </div>
           </div>
         </section>
       </main>
-      <footer className={styles.footer}>
-        <div className={styles.container}>
-          <div className={styles.footerTop}>
-            <div>
-              <Link
-                href="/"
-                aria-label="American Prime Construction home"
-                className={styles.footerLogo}
-              >
-                <BrandLogo plate={false} />
-              </Link>
-              <p>Make room for what’s next.</p>
-            </div>
-            <div>
-              <h3>EXPLORE</h3>
-              <a href="#dumpsters">Dumpster Rentals</a>
-              <a href="#how-it-works">How It Works</a>
-              <a href="#service-area">Service Area</a>
-            </div>
-            <div>
-              <h3>LET’S GET TO WORK</h3>
-              <Link href={requestHref} prefetch={false}>
-                Request a Dumpster ↗
-              </Link>
-              <a href="#about">About American Prime</a>
-              <Link href="/login">Team sign in</Link>
-            </div>
-          </div>
-          <div className={styles.footerBottom}>
-            <span>
-              © {new Date().getFullYear()} American Prime Construction.
-            </span>
-            <span>Dumpster rentals. Made easy.</span>
-          </div>
-        </div>
-      </footer>
     </div>
+      <SiteFooter />
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "LocalBusiness",
+          name: DROPWISE_NAME,
+          description: "Roll-off dumpster rentals: 10, 15 and 20-yard dumpsters.",
+          url: canonicalUrl("dumpster"),
+          logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/dropwise-logo.png`,
+          parentOrganization: { "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company") },
+          areaServed: "Atlantic City, NJ and surrounding area",
+          ...(contacts.dumpster.phone ? { telephone: contacts.dumpster.phone } : {}),
+          ...(contacts.dumpster.email ? { email: contacts.dumpster.email } : {}),
+        }}
+      />
+    </>
   );
 }

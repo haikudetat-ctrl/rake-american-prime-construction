@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { brandRewrites } from "@/lib/site/config";
 
 /**
  * Refreshes the Supabase session cookie on every matched request.
@@ -15,6 +16,19 @@ import { createServerClient } from "@supabase/ssr";
  * role checks in `lib/auth` and, underneath them, by row-level security.
  */
 export async function proxy(request: NextRequest) {
+  // A brand on its own domain (DROPWISE_SITE_URL, ROOFING_SITE_URL) gets its
+  // page at the root. Public pages need no session, so return straight away.
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? request.nextUrl.host)
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const rewrite = brandRewrites().get(host)?.[request.nextUrl.pathname];
+  if (rewrite) {
+    const url = request.nextUrl.clone();
+    url.pathname = rewrite;
+    return NextResponse.rewrite(url);
+  }
+
   let response = NextResponse.next({ request });
 
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;

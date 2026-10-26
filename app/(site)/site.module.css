@@ -1,0 +1,758 @@
+/*
+ * Public site: American Prime Construction and AP Roofing & Gutters.
+ * Palette and type come from the 2Stack branding kit (Oct 2026):
+ * Charcoal #111111, Prime Orange #F15A24, Bone #F6F4EF, Stone #6B6B6B,
+ * Cloud #D9D9DD; Sora throughout.
+ *
+ * Orange is a fill, never small text: #111 on #F15A24 is 6:1, while
+ * #F15A24 on bone is under 3.5:1.
+ */
+.site {
+  --charcoal: #111111;
+  --orange: #f15a24;
+  --orange-deep: #d9481a;
+  --bone: #f6f4ef;
+  --stone: #6b6b6b;
+  --cloud: #d9d9dd;
+  --white: #ffffff;
+  --on-dark-muted: #b9b9bd;
+  --gutter: clamp(16px, 4vw, 40px);
+  --max: 1200px;
+
+  color-scheme: light;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bone);
+  color: var(--charcoal);
+  font-family: var(--font-sora), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.site main {
+  flex: 1;
+}
+/* Undo the office app's condensed uppercase headings (globals.css, base
+   layer). :where keeps this weaker than any brand page's own heading rule. */
+:where(.site) h1,
+:where(.site) h2,
+:where(.site) h3 {
+  font-family: inherit;
+  text-transform: none;
+}
+/* Low specificity so any page's own link or button color wins. */
+:where(.site) a {
+  color: inherit;
+}
+.site :focus-visible {
+  outline: 3px solid var(--charcoal);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.dark :focus-visible {
+  outline-color: var(--white);
+}
+
+.wrap {
+  width: 100%;
+  max-width: calc(var(--max) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Type scale: major third on a 16px base, display set tight. */
+.display {
+  font-size: clamp(2.5rem, 6.2vw, 5.25rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  margin: 0;
+  text-wrap: balance;
+}
+.h2 {
+  font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  margin: 0;
+  text-wrap: balance;
+}
+.h3 {
+  font-size: 1.3125rem;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  margin: 0;
+}
+.lede {
+  font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+  line-height: 1.6;
+  max-width: 34em;
+  margin: 0;
+}
+.muted {
+  color: var(--stone);
+}
+.dark .muted {
+  color: var(--on-dark-muted);
+}
+.small {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.skip {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 60;
+  padding: 10px 14px;
+  background: var(--white);
+  color: var(--charcoal);
+  font-weight: 600;
+}
+.skip:focus {
+  top: 12px;
+}
+
+/* Buttons. Primary is the only orange text-bearing surface. */
+.btn,
+.btnGhost,
+.btnOnDark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 22px;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn {
+  background: var(--orange);
+  color: var(--charcoal);
+  border: 1px solid var(--orange);
+}
+.btn:hover {
+  background: var(--orange-deep);
+  border-color: var(--orange-deep);
+}
+.btnGhost {
+  background: transparent;
+  color: var(--charcoal);
+  border: 1px solid var(--charcoal);
+}
+.btnGhost:hover {
+  background: var(--white);
+}
+.btnOnDark {
+  background: transparent;
+  color: var(--white);
+  border: 1px solid #ffffff66;
+}
+.btnOnDark:hover {
+  border-color: var(--white);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.textLink {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.textLink:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Header */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--white);
+  border-bottom: 1px solid var(--cloud);
+}
+.headerInner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 72px;
+}
+.brandLink {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.brandLink img {
+  display: block;
+  width: auto;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-left: auto;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.nav a {
+  text-decoration: none;
+  padding-block: 6px;
+  border-bottom: 2px solid transparent;
+}
+.nav a:hover {
+  border-bottom-color: var(--charcoal);
+}
+.nav a[aria-current="page"] {
+  border-bottom-color: var(--orange);
+}
+.headerCta {
+  min-height: 42px;
+  padding: 9px 18px;
+}
+.menu {
+  display: none;
+  margin-left: auto;
+}
+.menu summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  border: 1px solid var(--cloud);
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.menu summary::-webkit-details-marker {
+  display: none;
+}
+.menuPanel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--white);
+  border-bottom: 1px solid var(--cloud);
+  padding: 8px var(--gutter) 20px;
+  display: grid;
+  gap: 4px;
+}
+.menuPanel a {
+  padding: 12px 0;
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid var(--bone);
+}
+.menuPanel .btn {
+  margin-top: 12px;
+  border-bottom: 0;
+}
+@media (max-width: 860px) {
+  .nav,
+  .headerCta {
+    display: none;
+  }
+  .menu {
+    display: block;
+  }
+}
+
+/* Sections */
+.section {
+  padding-block: clamp(56px, 8vw, 104px);
+}
+.sectionTight {
+  padding-block: clamp(40px, 5vw, 64px);
+}
+.dark {
+  background: var(--charcoal);
+  color: var(--white);
+}
+.white {
+  background: var(--white);
+}
+.sectionHead {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 24px 48px;
+  align-items: end;
+  margin-bottom: clamp(32px, 4vw, 48px);
+}
+@media (max-width: 860px) {
+  .sectionHead {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Hub hero */
+.hubHero {
+  padding-block: clamp(56px, 9vw, 120px) clamp(40px, 6vw, 72px);
+}
+.hubHero .display {
+  max-width: 13ch;
+}
+.hubHero .lede {
+  margin-top: 28px;
+}
+
+/* Hub: one full-width band per business, each in its own colorway. */
+.doors {
+  border-top: 1px solid var(--cloud);
+}
+.door {
+  border-bottom: 1px solid var(--cloud);
+}
+.door.dark {
+  border-bottom-color: var(--charcoal);
+}
+.doorInner {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) auto;
+  gap: 24px 56px;
+  align-items: center;
+  padding-block: clamp(36px, 5vw, 56px);
+}
+.doorMark {
+  display: flex;
+  align-items: center;
+  min-height: 96px;
+}
+.doorLogo {
+  height: 96px;
+  width: auto;
+  max-width: 100%;
+}
+.doorLabel {
+  font-size: 1.3125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  max-width: 11em;
+}
+.doorText .h2 {
+  font-size: clamp(1.5rem, 2.6vw, 2.125rem);
+}
+.doorText p {
+  margin: 10px 0 0;
+  max-width: 36em;
+}
+.doorActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  min-width: 220px;
+}
+@media (max-width: 980px) {
+  .doorInner {
+    grid-template-columns: 1fr;
+  }
+  .doorMark {
+    min-height: 0;
+  }
+  .doorLogo {
+    height: 64px;
+  }
+  .doorActions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+}
+
+/* Facts: label/value pairs with a top rule each. */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: 0 32px;
+  margin: 0;
+}
+.facts > div {
+  border-top: 2px solid var(--charcoal);
+  padding-top: 14px;
+  padding-bottom: 20px;
+}
+.dark .facts > div {
+  border-top-color: #ffffff3d;
+}
+.facts dt {
+  font-size: 0.875rem;
+  color: var(--stone);
+  margin-bottom: 4px;
+}
+.dark .facts dt {
+  color: var(--on-dark-muted);
+}
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+}
+@media (max-width: 760px) {
+  .facts {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Roofing hero: copy left, the proposal sheet right. */
+.roofHero {
+  padding-block: clamp(48px, 7vw, 96px);
+}
+.roofHeroGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 48px 64px;
+  align-items: center;
+}
+.roofHero .display {
+  font-size: clamp(2.375rem, 5.4vw, 4.5rem);
+}
+.roofHero .lede {
+  margin-top: 24px;
+}
+.roofHero .actions {
+  margin-top: 32px;
+}
+.credentials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--stone);
+}
+.credentials strong {
+  color: var(--charcoal);
+  font-weight: 600;
+}
+@media (max-width: 960px) {
+  .roofHeroGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The proposal sheet: a typeset picture of what the homeowner receives. */
+.sheetFigure {
+  margin: 0;
+}
+.sheet {
+  background: var(--white);
+  border: 1px solid var(--cloud);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 var(--cloud), 0 24px 48px -28px #11111159;
+  padding: 24px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.sheetTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--cloud);
+}
+.sheetTop img {
+  width: auto;
+  height: 26px;
+}
+.sheetDoc {
+  color: var(--stone);
+  font-size: 0.8125rem;
+}
+.sheetTitle {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin: 18px 0 4px;
+}
+.sheetSub {
+  color: var(--stone);
+  margin: 0 0 16px;
+}
+.options {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.option {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--cloud);
+  border-radius: 4px;
+}
+.optionPicked {
+  border: 2px solid var(--orange);
+  padding: 11px 13px;
+}
+.radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--stone);
+}
+.optionPicked .radio {
+  border: 5px solid var(--orange);
+}
+.optionName {
+  font-weight: 600;
+}
+.optionTier {
+  color: var(--stone);
+  font-size: 0.8125rem;
+}
+.priceBar {
+  display: block;
+  width: 56px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--cloud);
+}
+.sheetRows {
+  margin: 16px 0 0;
+  display: grid;
+  gap: 0;
+}
+.sheetRows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--bone);
+}
+.sheetRows dt {
+  color: var(--stone);
+}
+.sheetRows dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+.signLine {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--charcoal);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+.signature {
+  font-size: 1.25rem;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+.sheetCaption {
+  margin-top: 12px;
+  font-size: 0.8125rem;
+  color: var(--stone);
+}
+
+/* Services: a ruled list, one row per kind of job. */
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 2px solid var(--charcoal);
+}
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) auto;
+  gap: 8px 40px;
+  align-items: baseline;
+  padding-block: 22px;
+  border-bottom: 1px solid var(--cloud);
+}
+.row p {
+  margin: 0;
+}
+.row a {
+  font-size: 0.9375rem;
+}
+@media (max-width: 760px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A real sequence, so it is numbered. */
+.steps {
+  counter-reset: step;
+  display: grid;
+  grid-template-columns: repeat(var(--steps, 4), minmax(0, 1fr));
+  gap: 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.steps li {
+  counter-increment: step;
+  padding-top: 20px;
+  border-top: 2px solid var(--charcoal);
+}
+.dark .steps li {
+  border-top-color: #ffffff3d;
+}
+.steps li::before {
+  content: counter(step);
+  display: block;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  margin-bottom: 18px;
+  color: var(--orange);
+}
+.steps p {
+  margin: 8px 0 0;
+}
+@media (max-width: 960px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Two-column prose block */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 32px 64px;
+  align-items: start;
+}
+.split p {
+  margin: 0 0 16px;
+  max-width: 36em;
+}
+@media (max-width: 860px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.gallery figure {
+  margin: 0;
+}
+.gallery img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--cloud);
+}
+.gallery figcaption {
+  margin-top: 8px;
+  font-size: 0.875rem;
+  color: var(--stone);
+}
+
+/* Closing call to action */
+.closing {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px 48px;
+}
+.closing .h2 {
+  max-width: 16ch;
+}
+
+/* Footer */
+.footer {
+  background: var(--charcoal);
+  color: var(--white);
+  padding-block: 56px 32px;
+  font-size: 0.9375rem;
+}
+.footerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) repeat(3, minmax(0, 2fr));
+  gap: 32px;
+}
+.footerName {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+.footer h2 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--on-dark-muted);
+  margin: 0 0 12px;
+}
+.footer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.footer a {
+  text-decoration: none;
+}
+.footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.footer p {
+  margin: 0;
+  color: var(--on-dark-muted);
+}
+.footerBottom {
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid #ffffff26;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  font-size: 0.8125rem;
+  color: var(--on-dark-muted);
+}
+@media (max-width: 860px) {
+  .footerGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .footerGrid > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site * {
+    transition: none !important;
+  }
+}

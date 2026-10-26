@@ -5,7 +5,7 @@ import { Flash } from "@/app/_components/flash";
 import { useIntakeSubmit } from "@/app/_components/use-intake-submit";
 import { shrinkPhoto } from "@/lib/images/shrink";
 import { intakeErrorText, type IntakeFailure } from "@/lib/intake/messages";
-import { CONTACT_CONSENT, MAX_PHOTOS, NEED_LABEL, NEEDS } from "@/lib/leads/schema";
+import { CONTACT_CONSENT, MAX_PHOTOS, NEED_LABEL, NEEDS, type Need } from "@/lib/leads/schema";
 
 /** Server actions accept ~4 MB per request; leave room for the text fields. */
 const MAX_UPLOAD_BYTES = 3_500_000;
@@ -28,9 +28,12 @@ async function shrinkPhotos(form: FormData): Promise<string | null> {
 export function LeadForm({
   action,
   formToken,
+  defaultNeed = "replacement",
 }: {
   action: (form: FormData) => Promise<IntakeFailure | undefined>;
   formToken: string;
+  /** Preselected from a website link, e.g. /roof/roof?need=gutters. */
+  defaultNeed?: Need;
 }) {
   const { pending, failure, problem, bad, onSubmit } = useIntakeSubmit(action, shrinkPhotos);
   const fieldClass = (name: string) => `input ${bad.includes(name) ? "border-danger" : ""}`;
@@ -50,7 +53,7 @@ export function LeadForm({
 
         <label className="label">
           <span>What do you need?</span>
-          <select name="need" className="input" defaultValue="replacement">
+          <select name="need" className="input" defaultValue={defaultNeed}>
             {NEEDS.map((n) => <option key={n} value={n}>{NEED_LABEL[n]}</option>)}
           </select>
         </label>
