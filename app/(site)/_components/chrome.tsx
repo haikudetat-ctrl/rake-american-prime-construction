@@ -10,7 +10,6 @@ import {
   PATHS,
   REQUEST_HREF,
   ROOFING_NAME,
-  canonicalUrl,
 } from "@/lib/site/config";
 import s from "../site.module.css";
 import { MobileMenu } from "./mobile-menu";
@@ -97,7 +96,7 @@ export function SiteFooter() {
           <div>
             <h2>Company</h2>
             <ul>
-              <li><a href={canonicalUrl("company")}>{COMPANY_NAME}</a></li>
+              <li><Link href={PATHS.company}>{COMPANY_NAME}</Link></li>
               <li><Link href="/login" prefetch={false}>Team sign in</Link></li>
             </ul>
           </div>
