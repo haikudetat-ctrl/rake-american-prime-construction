@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Sora } from "next/font/google";
+import { Bebas_Neue, Cormorant_Garamond } from "next/font/google";
 import { siteOrigin } from "@/lib/site/config";
 import s from "./site.module.css";
 
-const sora = Sora({ subsets: ["latin"], variable: "--font-sora", display: "swap" });
+const display = Bebas_Neue({ subsets: ["latin"], weight: "400", variable: "--font-bebas", display: "swap" });
+const serif = Cormorant_Garamond({ subsets: ["latin"], weight: "400", variable: "--font-serif", display: "swap" });
 
 /**
  * The public website. The root layout keeps everything else (office, driver,
@@ -14,5 +15,5 @@ export const metadata: Metadata = {
 };
 
 export default function SiteLayout({ children }: LayoutProps<"/">) {
-  return <div className={`${sora.variable} ${s.site}`}>{children}</div>;
+  return <div className={`${display.variable} ${serif.variable} ${s.site}`}>{children}</div>;
 }
