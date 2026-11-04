@@ -40,7 +40,7 @@ export default async function DropWiseHome() {
         <div className={s.sizeGrid}>{sizes.map(size=><article key={size.yards} className={s.sizeCard}>
           <h3 className={s.sizeNumber}>{size.yards} <span>yard</span></h3><p>{size.loads}</p>
           <ul>{size.uses.map(use=><li key={use}>{use}</li>)}</ul>
-          <Link href={REQUEST_HREF.dumpster} prefetch={false} className={s.textLink} aria-label={`Request a ${size.yards}-yard dumpster`}>Request this size <span aria-hidden="true">↗</span></Link>
+          <Link href={`${REQUEST_HREF.dumpster}?size=${size.yards}`} prefetch={false} className={s.textLink} aria-label={`Request a ${size.yards}-yard dumpster`}>Request this size <span aria-hidden="true">↗</span></Link>
         </article>)}</div>
         <p className={s.note}>Capacity estimates are a guide. Tell us the size you have in mind in your request; we&apos;ll confirm availability, accepted materials, and rental details.</p>
       </section>

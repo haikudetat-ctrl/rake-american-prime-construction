@@ -1,5 +1,6 @@
 "use client";
 
+import { useIntakeErrors } from "./intake-wizard";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 
 type Suggestion = { placeId: string; main: string; secondary: string; text: string };
@@ -38,6 +39,7 @@ export function AddressField({
   formToken: string;
   bad: string[];
 }) {
+  const clientErrors = useIntakeErrors();
   const id = useId();
   const listId = `${id}-list`;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +60,7 @@ export function AddressField({
   // What to pre-fill the street box with when switching to typing by hand.
   const [carry, setCarry] = useState("");
 
-  const invalid = (name: string) => (bad.includes(name) ? "border-danger" : "");
+  const invalid = (name: string) => (clientErrors[name] ? "border-danger" : "");
 
   // The server answers a rejected submit in place now (the form isn't
   // re-rendered from scratch), so a "town and ZIP needed" has to switch the
@@ -191,17 +193,17 @@ export function AddressField({
         {notice && <p className="text-sm text-warn">{notice}</p>}
         <label className="label">
           <span>{label} (street and number)</span>
-          <input name="address" required minLength={3} autoComplete="address-line1" defaultValue={carry}
+          <input name="address" aria-describedby={clientErrors.address ? "error-address" : undefined} aria-invalid={Boolean(clientErrors.address) || undefined} required minLength={3} autoComplete="address-line1" defaultValue={carry}
             className={`input ${invalid("address")}`} placeholder="12 Ocean Ave" />
         </label>
         <div className="grid grid-cols-[1fr_7rem] gap-3">
           <label className="label">
             <span>Town</span>
-            <input name="town" required autoComplete="address-level2" className={`input ${invalid("town")}`} />
+            <input name="town" aria-describedby={clientErrors.town ? "error-town" : undefined} aria-invalid={Boolean(clientErrors.town) || undefined} required autoComplete="address-level2" className={`input ${invalid("town")}`} />
           </label>
           <label className="label">
             <span>ZIP</span>
-            <input name="zip" required inputMode="numeric" pattern="\d{5}" maxLength={5} autoComplete="postal-code"
+            <input name="zip" aria-describedby={clientErrors.zip ? "error-zip" : undefined} aria-invalid={Boolean(clientErrors.zip) || undefined} required inputMode="numeric" pattern="\d{5}" maxLength={5} autoComplete="postal-code"
               title="5-digit ZIP code" className={`input ${invalid("zip")}`} />
           </label>
         </div>
@@ -226,12 +228,14 @@ export function AddressField({
           ref={inputRef}
           id={id}
           type="text"
+          data-field="address"
+          aria-invalid={Boolean(clientErrors.address) || undefined}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listId}
           aria-activedescendant={activeId}
-          aria-describedby={`${id}-hint`}
+          aria-describedby={`${id}-hint${clientErrors.address ? " error-address" : ""}`}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}

@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, Cormorant_Garamond } from "next/font/google";
+import { publicDisplay, publicSerif } from "@/app/_components/public-fonts";
 import { siteOrigin } from "@/lib/site/config";
 import s from "./site.module.css";
-
-const display = Bebas_Neue({ subsets: ["latin"], weight: "400", variable: "--font-bebas", display: "swap" });
-const serif = Cormorant_Garamond({ subsets: ["latin"], weight: "400", variable: "--font-serif", display: "swap" });
 
 /**
  * The public website. The root layout keeps everything else (office, driver,
@@ -15,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function SiteLayout({ children }: LayoutProps<"/">) {
-  return <div className={`${display.variable} ${serif.variable} ${s.site}`}>{children}</div>;
+  return <div className={`${publicDisplay.variable} ${publicSerif.variable} ${s.site}`}>{children}</div>;
 }

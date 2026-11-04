@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { BrandBar } from "@/app/_components/brand";
+import { IntakeShell } from "@/app/_components/intake-shell";
+import { DUMPSTER_SIZES } from "@/lib/intake/sizes";
 import { RequestForm } from "@/app/request/[slug]/request-form";
 import { addDays, companyToday } from "@/lib/dates";
 import type { IntakeFailure } from "@/lib/intake/messages";
@@ -9,12 +10,14 @@ import { loadRequestLink, newFormToken, submitRentalRequest } from "@/lib/intake
 
 export const metadata: Metadata = { title: "Request a dumpster" };
 
-export default async function RequestPage({ params }: PageProps<"/request/[slug]">) {
+export default async function RequestPage({ params, searchParams }: PageProps<"/request/[slug]">) {
   const { slug } = await params;
   const link = await loadRequestLink(slug);
   if (!link) notFound();
 
   const today = companyToday();
+  const sizeParam = (await searchParams).size;
+  const defaultSize = typeof sizeParam === "string" ? DUMPSTER_SIZES.find(size => String(size) === sizeParam) : undefined;
 
   // Returns what was wrong instead of redirecting, so the form keeps what was typed.
   async function submit(formData: FormData): Promise<IntakeFailure | undefined> {
@@ -28,18 +31,8 @@ export default async function RequestPage({ params }: PageProps<"/request/[slug]
   }
 
   return (
-    <>
-      <BrandBar name={link.brandName} />
-      <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
-        <header>
-          <h1 className="page-title">Request a dumpster</h1>
-          <p className="text-sm text-muted">
-            Tell us where and when. We&apos;ll confirm by text before we drop it off.
-          </p>
-        </header>
-
-        <RequestForm action={submit} formToken={newFormToken()} today={today} tomorrow={addDays(today, 1)} />
-      </main>
-    </>
+    <IntakeShell kind="dumpster" title="A little room for your next project." intro="Tell us where and when. We’ll help with the size and confirm your rental details." phone={link.brandPhone}>
+      <RequestForm action={submit} formToken={newFormToken()} today={today} tomorrow={addDays(today, 1)} defaultSize={defaultSize} />
+    </IntakeShell>
   );
 }

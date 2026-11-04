@@ -70,3 +70,20 @@ its own domain later without code changes:
   "American Prime Construction" (one field in Settings).
 - An "American Prime GC" with Google reviews already exists online; worth checking before
   choosing a domain or profile name.
+
+## Public estimate forms (November 2026)
+
+The roofing, dumpster, and roofing referral forms share a branded two-stage intake layout:
+project details first, then contact details and send. Panels stay mounted to preserve typed
+addresses, notes, photos, and optional roofing text consent when navigating Back or receiving
+server validation errors. Native constraints and phone checks run before moving forward;
+server validation remains authoritative. A server rejection moves focus to the affected step.
+Transport failures remain in the form so the person can retry without losing entries.
+
+Optional notes/photos are collapsed. Roofing has explicit photo-count/type checks before
+compression; no photos are silently discarded. Dumpster size links pass `?size=10`, `15`, or
+`20`, and the request page ignores other values. An unknown size remains a supported choice.
+Dates are preferences, not bookings. Success screens explain the follow-up process.
+
+No new packages, database changes, request slugs, consent wording, or lead routing changes.
+No draft lead data is stored in browser storage.

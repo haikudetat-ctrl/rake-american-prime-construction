@@ -6,8 +6,7 @@ import type { IntakeFailure } from "@/lib/intake/messages";
 import { loadRequestLink, newFormToken } from "@/lib/intake/submit";
 import { NEEDS, type Need } from "@/lib/leads/schema";
 import { loadGallery, submitLeadRequest } from "@/lib/leads/submit";
-import { formatPhone } from "@/lib/phone";
-import { BrandBar } from "@/app/_components/brand";
+import { IntakeShell } from "@/app/_components/intake-shell";
 
 export const metadata: Metadata = { title: "Roofing estimate" };
 
@@ -35,17 +34,7 @@ export default async function RoofRequestPage({ params, searchParams }: PageProp
   }
 
   return (
-    <>
-      <BrandBar name={link.brandName} />
-      <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
-        <header>
-          <h1 className="page-title">Get a roofing estimate</h1>
-          <p className="text-sm text-muted">
-            Tell us about the house. We&apos;ll call or text to set up a visit.
-            {link.brandPhone && <> Or call <a className="underline" href={`tel:${link.brandPhone}`}>{formatPhone(link.brandPhone)}</a>.</>}
-          </p>
-        </header>
-
+    <IntakeShell kind="roofing" title="Let’s take care of your roof." intro="Tell us what you need. We’ll arrange a visit and help you understand your options." phone={link.brandPhone}>
         <LeadForm action={submit} formToken={newFormToken()} defaultNeed={defaultNeed} />
 
         {gallery.length > 0 && (
@@ -63,7 +52,6 @@ export default async function RoofRequestPage({ params, searchParams }: PageProp
             </div>
           </section>
         )}
-      </main>
-    </>
+    </IntakeShell>
   );
 }

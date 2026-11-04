@@ -5,8 +5,7 @@ import { LeadForm } from "@/app/roof/[slug]/lead-form";
 import type { IntakeFailure } from "@/lib/intake/messages";
 import { newFormToken } from "@/lib/intake/submit";
 import { loadGallery, loadReferrer, submitReferralLead } from "@/lib/leads/submit";
-import { adminClient } from "@/lib/supabase/admin";
-import { BrandBar } from "@/app/_components/brand";
+import { IntakeShell } from "@/app/_components/intake-shell";
 
 export const metadata: Metadata = { title: "Roofing estimate", robots: { index: false, follow: false } };
 
@@ -15,7 +14,6 @@ export default async function ReferralPage({ params }: PageProps<"/r/[code]">) {
   const { code } = await params;
   const referrer = await loadReferrer(code);
   if (!referrer) notFound();
-  const { data: brand } = await adminClient().from("brands").select("display_name").eq("id", referrer.brandId ?? "").maybeSingle();
   const gallery = referrer.brandId ? await loadGallery(referrer.brandId) : [];
 
   async function submit(formData: FormData): Promise<IntakeFailure | undefined> {
@@ -29,13 +27,7 @@ export default async function ReferralPage({ params }: PageProps<"/r/[code]">) {
   }
 
   return (
-    <>
-      <BrandBar name={brand?.display_name ?? "American Prime Construction"} />
-      <main className="mx-auto w-full max-w-lg flex-1 space-y-4 p-4">
-        <header>
-          <h1 className="page-title">{referrer.firstName} sent you our way</h1>
-          <p className="text-sm text-muted">Tell us about your house and we&apos;ll call or text to set up a free estimate.</p>
-        </header>
+    <IntakeShell kind="roofing" title={`${referrer.firstName} sent you our way.`} intro="Tell us about your home. We’ll get in touch to arrange a roofing estimate.">
         <LeadForm action={submit} formToken={newFormToken()} />
         {gallery.length > 0 && (
           <section className="grid grid-cols-2 gap-2">
@@ -45,7 +37,6 @@ export default async function ReferralPage({ params }: PageProps<"/r/[code]">) {
             ))}
           </section>
         )}
-      </main>
-    </>
+    </IntakeShell>
   );
 }

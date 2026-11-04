@@ -54,7 +54,11 @@ export function useIntakeSubmit(
         }
       } catch (err) {
         inFlight.current = false;
-        throw err;
+        // Next redirects are control flow; let the router finish them. Other
+        // transport failures stay in the form so the person can retry safely.
+        const digest = err && typeof err === "object" && "digest" in err ? String(err.digest) : "";
+        if (digest.startsWith("NEXT_REDIRECT;") || digest.startsWith("NEXT_HTTP_ERROR_FALLBACK;")) throw err;
+        setFailure({ error: "failed" });
       }
     });
   }
