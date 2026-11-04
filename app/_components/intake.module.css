@@ -5,7 +5,7 @@
 .brand img { height: 36px; width: auto; max-width: 180px; object-fit: contain; object-position: left; }
 .brand[data-brand="dumpster"] img { height: 52px; }
 .brand span { display: block; margin-top: 7px; font-size: .56rem; text-transform: uppercase; letter-spacing: .08em; color: #5e625b; }
-.backLink { font-size: .8rem; text-decoration: none; display: flex; gap: 10px; align-items: center; }
+.backLink { min-height: 44px; font-size: .8rem; text-decoration: none; display: flex; gap: 10px; align-items: center; }
 .backLink:hover { text-decoration: underline; }
 .layout { display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1.15fr); gap: clamp(40px,7vw,100px); width: 100%; max-width: 1280px; padding: 64px clamp(20px,4vw,56px) 80px; margin-inline: auto; align-items: start; }
 .intro { padding-top: 12px; }
@@ -42,7 +42,7 @@
 .form textarea:global(.input) { min-height: 112px; resize: vertical; }
 .form input[aria-invalid=true], .form :global(.border-danger) { border-color: #a62c22; }
 .form :global(.label) { display: grid; gap: 8px; font-size: .85rem; }
-.form :global(.text-accent) { color: #8f2a1c; min-height: 38px; text-underline-offset: 4px; }
+.form :global(.text-accent) { color: #8f2a1c; min-height: 44px; text-underline-offset: 4px; }
 .form :global(.text-danger) { color: #a62c22; }
 .form :global(.text-warn) { color: #815117; }
 .form :global(.bg-surface) { background: white; }
@@ -63,7 +63,7 @@
 .choice input:focus-visible + .choiceBody { outline: 2px solid #191b18; outline-offset: 3px; }
 .choice input:disabled + .choiceBody { opacity: .6; cursor: wait; }
 .details { border-top: 1px solid #deded5; padding-top: 22px; }
-.details summary { cursor: pointer; font-size: .84rem; font-weight: 500; padding-block: 6px; }
+.details summary { min-height: 44px; cursor: pointer; font-size: .84rem; font-weight: 500; padding-block: 6px; }
 .details .fields { margin-top: 20px; }
 .photos { border: 1px dashed #bfc5b8; padding: 18px; border-radius: 5px; background: #fafbf8; }
 .photos input { width: 100%; font-size: .77rem; margin-block: 10px; }
@@ -79,7 +79,7 @@
 .summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px; border-radius: 5px; background: #f1f3ed; margin-bottom: 28px; }
 .summary p { font-size: .8rem; color: #494e46; line-height: 1.6; }
 .summary strong { font-weight: 600; color: #191b18; }
-.summary button { background: none; border: 0; text-decoration: underline; text-underline-offset: 4px; font-size: .75rem; cursor: pointer; padding: 2px; min-height: 24px; }
+.summary button { background: none; border: 0; text-decoration: underline; text-underline-offset: 4px; font-size: .75rem; cursor: pointer; padding: 2px 8px; min-height: 44px; }
 .consent { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; color: #5e625b; font-size: .7rem; line-height: 1.65; }
 .consent input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; accent-color: #9e2b1c; }
 .privacy { font-size: .72rem; color: #5e625b; margin-top: 22px !important; line-height: 1.6; }
@@ -98,7 +98,7 @@
   .brand img { height: 28px; max-width: 140px; }
   .brand[data-brand="dumpster"] img { height: 42px; }
   .brand span { font-size: .48rem; }
-  .backLink { font-size: .7rem; gap: 6px; }
+  .backLink { min-height: 44px; font-size: .7rem; gap: 6px; }
   .layout { grid-template-columns: 1fr; gap: 30px; padding-block: 32px 48px; max-width: 600px; }
   .title { font-size: 3.5rem; max-width: 15ch; }
   .eyebrow { margin-bottom: 16px !important; font-size: .6rem; }
