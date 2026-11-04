@@ -4,6 +4,7 @@ import Link from "next/link";
 import wordmark from "@/public/brand/ap-roofing-wordmark.png";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "@/app/(site)/_components/chrome";
 import { ContactLinks } from "@/app/(site)/_components/contact";
+import { Closing, Faq, PhotoHero, ServiceArea, TrustStrip } from "@/app/(site)/_components/marketing";
 import { roofingNav } from "@/app/(site)/roofing/nav";
 import { NEED_LABEL, type Need } from "@/lib/leads/schema";
 import {
@@ -23,12 +24,12 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: `Roof replacement, repair and gutters | ${ROOFING_NAME}`,
   description:
-    "Roof replacement, leak repair, gutters and storm damage near Atlantic City. A written proposal with good, better and best GAF options, signed online, and a 10-year workmanship warranty.",
+    "Roof replacement, leak repair, gutters and storm damage from Hamilton to Atlantic City and surrounding areas. A written proposal with good, better and best GAF options, signed online, and a 10-year workmanship warranty.",
   alternates: { canonical: canonicalUrl("roofing") },
   robots: { index: true, follow: true },
   openGraph: {
     title: ROOFING_NAME,
-    description: "Roof replacement, repairs and gutters near Atlantic City, with the price in writing.",
+    description: "Roof replacement, repairs and gutters from Hamilton to Atlantic City, with the price in writing.",
     url: canonicalUrl("roofing"),
     siteName: ROOFING_NAME,
     type: "website",
@@ -122,41 +123,17 @@ export default async function RoofingPage() {
   return (
     <>
       <SkipLink />
-      <SiteHeader brand="roofing" nav={roofingNav()} cta={{ href: REQUEST_HREF.roofing, label: "Get an estimate" }} />
+      <SiteHeader brand="roofing" nav={roofingNav()} cta={{ href: REQUEST_HREF.roofing, label: "Request an estimate" }} />
       <main id="main">
-        <section className={`${s.white} ${s.roofHero}`} aria-labelledby="roof-title">
-          <div className={`${s.wrap} ${s.roofHeroGrid}`}>
-            <div>
-              <h1 id="roof-title" className={s.display}>
-                Roof replacement and repair, priced in writing.
-              </h1>
-              <p className={`${s.lede} ${s.muted}`}>
-                Tell us about the house. We measure the roof, then send a written proposal with good,
-                better and best options. Pick one and sign online.
-              </p>
-              <div className={s.actions}>
-                <Link href={REQUEST_HREF.roofing} prefetch={false} className={s.btn}>
-                  Get a roofing estimate
-                </Link>
-                <ContactLinks contact={contact} />
-              </div>
-              <ul className={s.credentials}>
-                <li>
-                  <strong>{WORKMANSHIP_WARRANTY_YEARS}-year</strong> workmanship warranty
-                </li>
-                <li>
-                  NJ HIC <strong>#{HIC_NUMBER}</strong>
-                </li>
-                <li>Serving the Atlantic City area</li>
-              </ul>
-            </div>
-            <ProposalSheet systems={systems} addons={addons} />
-          </div>
-        </section>
+        <PhotoHero label="AP Roofing & Gutters" title="A good roof. A little peace of mind." intro="Roof replacement, repairs, and gutters. Clear options and a written proposal for the home you care about.">
+          <Link href={REQUEST_HREF.roofing} prefetch={false} className={s.btn}>Request an estimate <span aria-hidden="true">↗</span></Link>
+          <Link href="#services" className={s.textLink}>Explore our services</Link>
+        </PhotoHero>
+        <TrustStrip />
 
         <section id="services" className={`${s.wrap} ${s.section}`} aria-labelledby="services-title">
           <div className={s.sectionHead}>
-            <h2 id="services-title" className={s.h2}>What we do</h2>
+            <h2 id="services-title" className={s.h2}>Care for every part<br />of your roof.</h2>
             <p className={s.muted}>
               Every job starts with the same estimate form. Choose the kind of work and we&apos;ll call or
               text to set up a visit.
@@ -183,7 +160,7 @@ export default async function RoofingPage() {
         <section id="how" className={`${s.white} ${s.section}`} aria-labelledby="how-title">
           <div className={s.wrap}>
             <div className={s.sectionHead}>
-              <h2 id="how-title" className={s.h2}>From estimate to new roof</h2>
+              <h2 id="how-title" className={s.h2}>From the first hello<br />to the final shingle.</h2>
             </div>
             <ol className={s.steps}>
               <li>
@@ -206,6 +183,13 @@ export default async function RoofingPage() {
                 <p className={s.muted}>We schedule the crew and keep you posted until the job is done.</p>
               </li>
             </ol>
+          </div>
+        </section>
+
+        <section className={`${s.wrap} ${s.section}`} aria-labelledby="proposal-title">
+          <div className={s.proposalGrid}>
+            <div><h2 id="proposal-title" className={s.h2}>Your options.<br />In black and white.</h2><p className={s.serifCopy}>A new roof is a big decision.<br />You deserve the details.</p><p className={s.muted}>After we measure, your proposal lays out the scope, roofing options, price, and any extras. Take a look, choose what works for your home, and sign online. You keep a PDF copy.</p></div>
+            <ProposalSheet systems={systems} addons={addons} />
           </div>
         </section>
 
@@ -262,7 +246,7 @@ export default async function RoofingPage() {
             <h2 id="crews-title" className={s.h2}>Run a roofing company?</h2>
             <div>
               <p className={s.muted}>
-                We supply labor-only crews to contractors around Atlantic City. Send one job or your
+                We supply labor-only crews to contractors across our service area. Send one job or your
                 whole week, and each one is invoiced when it&apos;s done.
               </p>
               <Link href={PATHS.contractors} className={s.textLink}>
@@ -272,17 +256,14 @@ export default async function RoofingPage() {
           </div>
         </section>
 
-        <section className={`${s.white} ${s.section}`} aria-labelledby="closing-title">
-          <div className={`${s.wrap} ${s.closing}`}>
-            <h2 id="closing-title" className={s.h2}>Start with the estimate form.</h2>
-            <div className={s.actions}>
-              <Link href={REQUEST_HREF.roofing} prefetch={false} className={s.btn}>
-                Get a roofing estimate
-              </Link>
-              <ContactLinks contact={contact} />
-            </div>
-          </div>
-        </section>
+        <ServiceArea />
+        <Faq items={[
+          { question: "Do I need a replacement or a repair?", answer: "Tell us what you have noticed, whether it is a leak, missing shingles, or an aging roof. We will set up a visit to look at the condition and talk through the appropriate work." },
+          { question: "What does the workmanship warranty cover?", answer: "We provide a 10-year workmanship warranty on every roof we install. The terms are included in your proposal. Manufacturer warranties are separate and depend on the selected shingle system." },
+          { question: "Can you help with gutters only?", answer: "Yes. Choose gutters on the estimate form. Seamless gutters can be installed on their own or included with a roof replacement." },
+          { question: "What happens after I request an estimate?", answer: "Our team calls or texts to confirm the project details and arrange a visit. After measuring and reviewing the roof, we send a written proposal with your options and pricing." },
+        ]} />
+        <Closing title="Let’s give your home a good roof."><ContactLinks contact={contact} /></Closing>
       </main>
       <SiteFooter />
       <JsonLd
@@ -293,7 +274,7 @@ export default async function RoofingPage() {
           url: canonicalUrl("roofing"),
           logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/ap-roofing-logo.png`,
           parentOrganization: { "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company") },
-          areaServed: "Atlantic City, NJ and surrounding area",
+          areaServed: "Hamilton Township (Mercer County) to Atlantic City, NJ corridor and approximately 50 miles north and south",
           ...(contact.phone ? { telephone: contact.phone } : {}),
           ...(contact.email ? { email: contact.email } : {}),
           makesOffer: SERVICES.map((service) => ({

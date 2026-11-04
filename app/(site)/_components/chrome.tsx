@@ -1,6 +1,7 @@
 import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
-import companyLockup from "@/public/brand/american-prime-construction-lockup.png";
+import companyLockup from "@/public/brand/american-prime-drive.png";
+import dumpsterLogo from "@/public/brand/dropwise-logo.png";
 import roofingWordmark from "@/public/brand/ap-roofing-wordmark.png";
 import {
   COMPANY_NAME,
@@ -12,11 +13,13 @@ import {
   canonicalUrl,
 } from "@/lib/site/config";
 import s from "../site.module.css";
+import { MobileMenu } from "./mobile-menu";
 
 type NavItem = { href: string; label: string; current?: boolean };
 
-const LOGOS: Record<"company" | "roofing", { src: StaticImageData; alt: string; height: number; href: string }> = {
-  company: { src: companyLockup, alt: COMPANY_NAME, height: 54, href: PATHS.company },
+const LOGOS: Record<"company" | "roofing" | "dumpster", { src: StaticImageData; alt: string; height: number; href: string }> = {
+  company: { src: companyLockup, alt: COMPANY_NAME, height: 62, href: PATHS.company },
+  dumpster: { src: dumpsterLogo, alt: DROPWISE_NAME, height: 58, href: PATHS.dumpster },
   roofing: { src: roofingWordmark, alt: ROOFING_NAME, height: 34, href: PATHS.roofing },
 };
 
@@ -33,7 +36,7 @@ export function SiteHeader({
   nav,
   cta,
 }: {
-  brand: "company" | "roofing";
+  brand: "company" | "roofing" | "dumpster";
   nav: NavItem[];
   cta?: { href: string; label: string };
 }) {
@@ -42,7 +45,7 @@ export function SiteHeader({
     <header className={s.header}>
       <div className={`${s.wrap} ${s.headerInner}`}>
         <Link href={logo.href} className={s.brandLink} aria-label={`${logo.alt} home`}>
-          <Image src={logo.src} alt={logo.alt} style={{ height: logo.height }} priority />
+          <div><Image src={logo.src} alt={logo.alt} style={{ height: logo.height }} preload />{brand !== "company" && <span className={s.brandName}>An American Prime company</span>}</div>
         </Link>
         <nav aria-label="Main" className={s.nav}>
           {nav.map((item) => (
@@ -56,21 +59,7 @@ export function SiteHeader({
             {cta.label}
           </Link>
         )}
-        <details className={s.menu}>
-          <summary>Menu</summary>
-          <nav aria-label="Main" className={s.menuPanel}>
-            {nav.map((item) => (
-              <Link key={item.href} href={item.href} aria-current={item.current ? "page" : undefined}>
-                {item.label}
-              </Link>
-            ))}
-            {cta && (
-              <Link href={cta.href} prefetch={false} className={s.btn}>
-                {cta.label}
-              </Link>
-            )}
-          </nav>
-        </details>
+        <MobileMenu nav={nav} cta={cta} />
       </div>
     </header>
   );
@@ -84,7 +73,7 @@ export function SiteFooter() {
       <div className={s.wrap}>
         <div className={s.footerGrid}>
           <div>
-            <p className={s.footerName}>{COMPANY_NAME}</p>
+            <Link href={PATHS.company} aria-label={`${COMPANY_NAME} home`}><Image src={companyLockup} alt={COMPANY_NAME} className={s.footerLogo} /></Link>
             <p>
               {ROOFING_NAME} and {DROPWISE_NAME} are services of {COMPANY_NAME}.
             </p>
@@ -115,7 +104,7 @@ export function SiteFooter() {
         </div>
         <div className={s.footerBottom}>
           <span>© {year} {COMPANY_NAME}</span>
-          <span>Serving the Atlantic City area</span>
+          <span>Hamilton to Atlantic City & surrounding areas</span>
         </div>
       </div>
     </footer>

@@ -1,7 +1,10 @@
 # Public website
 
-One Next.js app serves the operations system and the public site. The site is three brands
-from the 2Stack branding kit (Oct 2026), all under `app/(site)/`:
+One Next.js app serves the operations system and the public site. The site contains three brands under `app/(site)/`. The November 2026 first pass uses the supplied
+American Prime logo and red-orange #EF3C23, Bebas Neue headings, light serif introductions,
+and a shared light theme across all four public pages. The parent homepage gives roofing and
+dumpsters equal emphasis. See `docs/design/2026-11-04-brand-first-pass.md` and
+`docs/design/image-sources.md` for the brief and asset provenance:
 
 | Path | Brand | Who it's for | Main action |
 | --- | --- | --- | --- |
@@ -31,8 +34,8 @@ local build) the pages still build, with those parts left out.
 ## Claims on the pages
 
 Only what the business has confirmed: NJ HIC #13VH13312300, the 10-year workmanship warranty,
-GAF systems from the price list, and the Atlantic City area (the existing page and the Atlantic
-City yard). Copy rules: no reviews, star ratings, customer counts, years in business, insurance
+GAF systems from the price list, and the owner-confirmed Hamilton Township (Mercer County) to Atlantic City corridor,
+extending approximately 50 miles north and south of that line. Availability is confirmed by address. Copy rules: no reviews, star ratings, customer counts, years in business, insurance
 or town lists until Andre provides them.
 
 ## Search and sharing
@@ -62,7 +65,7 @@ its own domain later without code changes:
 - Phone and email for each brand in Settings (the setup sheet's "Phones and hours").
 - The domain Andre already owns and its current host (setup sheet, "Website, email, and
   Google"), so the old site can be redirected rather than broken.
-- Real job photos for `/roofing`; a Google Business Profile for reviews.
+- Real job photos for `/roofing` (introductory stock photography is in place); a Google Business Profile for reviews.
 - Whether the roofing brand on proposals should read "AP Roofing & Gutters" instead of
   "American Prime Construction" (one field in Settings).
 - An "American Prime GC" with Google reviews already exists online; worth checking before
