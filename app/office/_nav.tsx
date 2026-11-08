@@ -27,7 +27,7 @@ export function OfficeNav({ items }: { items: NavItem[] }) {
   return <>
     <nav aria-label="Workspaces" className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-ink-active bg-ink pb-[env(safe-area-inset-bottom)] shadow-lg lg:static lg:flex lg:flex-col lg:border-0 lg:pb-0 lg:shadow-none">
       {workspaces.map(item => <Link key={item.id} href={item.href} aria-current={workspace === item.id ? 'page' : undefined}
-        className={`flex min-h-14 items-center justify-center px-1 py-3 text-[11px] font-semibold sm:text-sm lg:justify-start lg:rounded-md lg:px-3 ${workspace === item.id ? 'bg-ink-active text-white' : 'text-ink-foreground hover:bg-white/5'}`}>
+        className={`flex min-h-14 items-center justify-center px-1 py-3 text-xs font-semibold sm:text-sm lg:justify-start lg:rounded-md lg:px-3 ${workspace === item.id ? 'bg-ink-active text-white' : 'text-ink-foreground hover:bg-white/5'}`}>
         {item.label}
       </Link>)}
     </nav>

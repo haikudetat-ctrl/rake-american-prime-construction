@@ -83,7 +83,7 @@ export default async function LeadsPage({ searchParams }: PageProps<"/office/lea
                     <div className="flex items-start justify-between gap-2">
                       <Link className="font-semibold hover:underline" href={`/office/leads/${l.id}`}>{l.name}</Link>
                       {needsAttention(l.stage, l.stage_changed_at) && (
-                        <span className="rounded bg-warn px-1.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-white uppercase">Follow up</span>
+                        <span className="rounded bg-warn px-1.5 py-0.5 text-xs font-bold whitespace-nowrap text-white uppercase">Follow up</span>
                       )}
                     </div>
                     <p className="text-sm">{NEED_LABEL[l.need]}{l.area ? ` · ${l.area}` : ""}</p>

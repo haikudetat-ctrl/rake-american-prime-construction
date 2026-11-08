@@ -50,7 +50,7 @@ export default async function ThreadPage({ params, searchParams }: PageProps<"/o
                   Photo {i + 1}
                 </a>
               ))}
-              <p className="mt-1 text-[11px] opacity-75">
+              <p className="mt-1 text-xs opacity-75">
                 {formatDateTime(m.created_at)}
                 {m.direction === "out" && ` · ${STATUS[m.status] ?? m.status}`}
                 {m.error && ` (${m.error})`}
