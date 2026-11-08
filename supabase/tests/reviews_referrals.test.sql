@@ -1,4 +1,4 @@
--- Aftercare: Mark final, feedback gate, review link, referrals and rewards.
+-- Aftercare: Mark final, feedback, review link, referrals and rewards.
 begin;
 \ir support/fixtures.sql
 select plan(25);
@@ -50,7 +50,7 @@ select throws_ok(format($$ select public.submit_feedback(%L, 'great', null) $$, 
   'feedback is recorded by the server only');
 reset role;
 select tests.act_as_service();
-select is(public.record_review_click(:'token1'), null, 'no review link before a great rating');
+select is(public.record_review_click(:'token1'), null, 'no review link before an answer');
 select is(public.submit_feedback(:'token1', 'great', 'Crew was great'), 'great', 'great rating recorded');
 select is(public.submit_feedback(:'token1', 'poor', 'changed mind'), 'great', 'the first answer stands');
 reset role;
@@ -64,14 +64,14 @@ select tests.act_as_service();
 select is(public.record_review_click(:'token1'), 'https://g.page/r/example/review', 'great → review link, click logged');
 reset role;
 
--- A poor rating goes to the office, not to Google.
+-- A poor rating goes to the office, and the review link stays open: no review gating.
 select tests.act_as('00000000-0000-0000-0000-000000000001');
 select public.mark_job_final(:'job2');
 reset role;
 select token as token2 from public.aftercare where job_id = :'job2' \gset
 select tests.act_as_service();
 select public.submit_feedback(:'token2', 'poor', 'Nails in the driveway');
-select is(public.record_review_click(:'token2'), null, 'no review link after a poor rating');
+select is(public.record_review_click(:'token2'), 'https://g.page/r/example/review', 'review link works after a poor rating too');
 reset role;
 select is((select follow_up from public.aftercare where job_id = :'job2'), 'open', 'follow-up opened');
 select is((select count(*)::int from public.outbox_messages where kind = 'feedback_followup'), 1, 'owner texted about it');

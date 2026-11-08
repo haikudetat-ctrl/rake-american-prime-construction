@@ -3,7 +3,7 @@ import { adminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-/** Logs the click, then sends a happy homeowner to the Google review page. */
+/** Logs the click, then sends the homeowner to the Google review page, whatever they answered. */
 export async function GET(req: Request, ctx: RouteContext<"/f/[token]/review">) {
   const { token } = await ctx.params;
   const back = new URL(`/f/${token}`, req.url);

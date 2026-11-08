@@ -11,7 +11,12 @@ const ANSWERS = [
   { value: "poor", label: "Not good", emoji: "🙁" },
 ] as const;
 
-/** "How did we do?" A great answer gets the Google review link; anything else goes to the owner first. */
+/**
+ * "How did we do?" Every answer gets the same Google review link: Google's Business Profile
+ * policy prohibits selectively soliciting positive reviews. "Okay" and "Not good" also open an
+ * owner follow-up (submit_feedback). The referral prompt stays with great answers; reward
+ * eligibility never depends on the rating.
+ */
 export default async function FeedbackPage({ params, searchParams }: PageProps<"/f/[token]">) {
   const { token } = await params;
   const query = await searchParams;
@@ -55,26 +60,31 @@ export default async function FeedbackPage({ params, searchParams }: PageProps<"
             </label>
             <button className="btn w-full py-3">Send</button>
           </form>
-        ) : care.rating === "great" ? (
-          <section className="card space-y-4">
-            <h1 className="page-title">Thank you, {first}!</h1>
-            {settings?.google_review_url && (
-              <>
-                <p>Would you share that in a Google review? It takes a minute and helps neighbors find a roofer they can trust.</p>
-                <a className="btn w-full py-3" href={`/f/${token}/review`}>Leave a Google review</a>
-              </>
-            )}
-            <div className="border-t border-border pt-4">
-              <p className="font-medium">Know someone who needs a roof?</p>
-              <p className="text-sm text-muted">Send them your link. We&apos;ll thank you when their roof is done.</p>
-              <p className="mt-2 break-all rounded-md bg-background p-2 text-sm">{process.env.APP_URL ?? ""}/r/{care.referral_code}</p>
-            </div>
-          </section>
         ) : (
-          <section className="card space-y-2">
-            <h1 className="page-title">Thank you for telling us.</h1>
-            <p>{query.thanks ? "We'll call you to make it right." : "We've got your answer and we'll be in touch."}
-              {brand?.phone && <> You can also reach us at <a className="underline" href={`tel:${brand.phone}`}>{brand.phone}</a>.</>}</p>
+          <section className="card space-y-4">
+            {care.rating === "great" ? (
+              <h1 className="page-title">Thank you, {first}!</h1>
+            ) : (
+              <div className="space-y-2">
+                <h1 className="page-title">Thank you for telling us.</h1>
+                <p>{query.thanks ? "We'll call you to make it right." : "We've got your answer and we'll be in touch."}
+                  {brand?.phone && <> You can also reach us at <a className="underline" href={`tel:${brand.phone}`}>{brand.phone}</a>.</>}</p>
+              </div>
+            )}
+            {/* Same wording and button for every answer: no review gating. */}
+            {settings?.google_review_url && (
+              <div className="space-y-3">
+                <p>Would you leave a Google review? Honest reviews help neighbors choose a roofer, and it takes about a minute.</p>
+                <a className="btn w-full py-3" href={`/f/${token}/review`}>Leave a Google review</a>
+              </div>
+            )}
+            {care.rating === "great" && (
+              <div className="border-t border-border pt-4">
+                <p className="font-medium">Know someone who needs a roof?</p>
+                <p className="text-sm text-muted">Send them your link. We&apos;ll thank you when their roof is done.</p>
+                <p className="mt-2 break-all rounded-md bg-background p-2 text-sm">{process.env.APP_URL ?? ""}/r/{care.referral_code}</p>
+              </div>
+            )}
           </section>
         )}
       </main>
