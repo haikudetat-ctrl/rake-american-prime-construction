@@ -271,7 +271,7 @@ export function AddressField({
             {searched && suggestions.length === 0 && (
               <li className="px-3 py-2.5 text-muted">No match yet. Check the house number, or type it in by hand below.</li>
             )}
-            <li aria-hidden="true" className="bg-sunken px-3 py-1 text-right text-[11px] text-muted">Google Maps</li>
+            <li aria-hidden="true" className="bg-sunken px-3 py-1 text-right text-xs text-muted">Google Maps</li>
           </ul>
         )}
       </div>
