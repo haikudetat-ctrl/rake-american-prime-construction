@@ -44,7 +44,7 @@ didn't happen is cancelled.
   and crews see none of it), and the workflow functions (`create_sub_job`, `update_sub_job`,
   `add_sub_job_extra`, `complete_sub_job`, `reopen_sub_job`, `cancel_sub_job`,
   `record_sub_payment`, `void_sub_payment`). The money is computed here.
-- `supabase/migrations/20261109141000_closeout_fingerprint.sql`: `sub_job_closeout_fingerprint`
+- `supabase/migrations/20261109152244_closeout_fingerprint.sql`: `sub_job_closeout_fingerprint`
   and the `p_expected_fingerprint` check in `complete_sub_job`, so a close can't invoice numbers
   that changed after the office reviewed them.
 - `lib/subcontract/`: invoice lines and payroll shaping (pure) and the invoice loader.
