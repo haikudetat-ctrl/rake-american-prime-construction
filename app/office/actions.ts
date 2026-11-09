@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from "next/cache";
 import { getMember, requireOwner, requireStaff } from "@/lib/auth";
 import { orderStops } from "@/lib/dispatch/order";
-import { back, errorText, optional, str } from "@/lib/flash";
+import { acknowledged, back, errorText, optional, str } from "@/lib/flash";
 import { GoogleGeocodeProvider } from "@/lib/integrations/geocode";
 import { catalogSchema } from "@/lib/estimate/catalog";
 import { applySection, PriceListFormError } from "@/lib/estimate/form";
@@ -255,8 +255,9 @@ export async function addPlace(form: FormData) {
 
 // Billing -------------------------------------------------------------------------
 
-export async function issueStatementsNow() {
+export async function issueStatementsNow(form: FormData) {
   const { supabase } = await staffClient();
+  requireAck(form, "/office/billing");
   const { data, error } = await supabase.rpc("issue_statements", { p_company_id: null });
   if (error) back("/office/billing", errorText(error), "error");
   const count = Array.isArray(data) ? data.length : 0;
@@ -405,6 +406,11 @@ export async function syncQuickBooksNow() {
 // Each one is a database function that checks the role again and refuses to
 // touch money already on a statement; these wrappers only route the result.
 
+/** Actions behind a ConsequenceReview refuse a submission that skipped its acknowledgment. */
+function requireAck(form: FormData, path: string) {
+  if (!acknowledged(form)) back(path, "Tick the box to confirm, then try again.", "error");
+}
+
 async function correction(path: string, rpc: string, args: Record<string, unknown>, ok: string): Promise<never> {
   const { supabase } = await staffClient();
   const { error } = await supabase.rpc(rpc, args);
@@ -414,6 +420,7 @@ async function correction(path: string, rpc: string, args: Record<string, unknow
 
 export async function cancelRental(form: FormData) {
   const id = str(form, "rentalId");
+  requireAck(form, `/office/rentals/${id}`);
   await correction(`/office/rentals/${id}`, "cancel_rental", { p_rental_id: id, p_reason: str(form, "reason") }, "Rental cancelled.");
 }
 
@@ -452,6 +459,7 @@ export async function removeAdjustment(form: FormData) {
 
 export async function voidInvoice(form: FormData) {
   const id = str(form, "rentalId");
+  requireAck(form, `/office/rentals/${id}`);
   await correction(
     `/office/rentals/${id}`,
     "void_invoice",
@@ -462,6 +470,7 @@ export async function voidInvoice(form: FormData) {
 
 export async function voidStatement(form: FormData) {
   const id = str(form, "statementId");
+  requireAck(form, `/office/billing/${id}`);
   await correction(
     `/office/billing/${id}`,
     "void_statement",
@@ -874,6 +883,7 @@ export async function addOwnEquipment(form: FormData) {
 }
 
 export async function voidJobCost(form: FormData) {
+  requireAck(form, `/office/jobs/${str(form, "jobId")}`);
   return jobRpc(`/office/jobs/${str(form, "jobId")}`, "void_job_cost",
     { p_cost_id: str(form, "costId"), p_reason: str(form, "reason") }, "Cost voided.");
 }
@@ -896,6 +906,7 @@ export async function recordJobPayment(form: FormData) {
 }
 
 export async function voidJobPayment(form: FormData) {
+  requireAck(form, `/office/jobs/${str(form, "jobId")}`);
   return jobRpc(`/office/jobs/${str(form, "jobId")}`, "void_job_payment",
     { p_payment_id: str(form, "paymentId"), p_reason: str(form, "reason") }, "Payment voided.");
 }
@@ -965,6 +976,7 @@ export async function markRewardPaid(form: FormData) {
 
 export async function voidReferral(form: FormData) {
   await requireOwner();
+  requireAck(form, "/office/referrals");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("void_referral", { p_referral_id: str(form, "referralId"), p_reason: str(form, "reason") });
   if (error) back("/office/referrals", errorText(error), "error");

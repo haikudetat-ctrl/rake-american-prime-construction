@@ -44,11 +44,15 @@ didn't happen is cancelled.
   and crews see none of it), and the workflow functions (`create_sub_job`, `update_sub_job`,
   `add_sub_job_extra`, `complete_sub_job`, `reopen_sub_job`, `cancel_sub_job`,
   `record_sub_payment`, `void_sub_payment`). The money is computed here.
+- `supabase/migrations/20261109141000_closeout_fingerprint.sql`: `sub_job_closeout_fingerprint`
+  and the `p_expected_fingerprint` check in `complete_sub_job`, so a close can't invoice numbers
+  that changed after the office reviewed them.
 - `lib/subcontract/`: invoice lines and payroll shaping (pure) and the invoice loader.
 - `lib/pdf/sub-invoice-document.tsx`, `lib/outbox/messages.ts` (`subInvoiceEmail`), the
   `sub_invoice_issued` branch in `lib/outbox/drain.ts`.
 - `app/office/subs/`: week board, job page, payroll, setup, invoice PDF route.
-- Tests: `supabase/tests/subcontracting.test.sql`, `test/subcontract.test.ts`.
+- Tests: `supabase/tests/subcontracting.test.sql`, `supabase/tests/closeout_fingerprint.test.sql`,
+  `test/subcontract.test.ts`, `test/money-actions.test.ts`.
 
 ## Open questions for Andre (Tuesday)
 

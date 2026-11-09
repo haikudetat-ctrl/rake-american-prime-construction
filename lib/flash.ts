@@ -21,3 +21,8 @@ export function optional(form: FormData, key: string): string | null {
   const value = str(form, key);
   return value === "" ? null : value;
 }
+
+/** True when a ConsequenceReview's acknowledgment was ticked. Actions behind one refuse without it. */
+export function acknowledged(form: FormData): boolean {
+  return form.get("acknowledged") === "yes";
+}

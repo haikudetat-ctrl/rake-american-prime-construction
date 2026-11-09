@@ -2,10 +2,12 @@
 
 import { subQuery } from "@/lib/subcontract/navigation";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireOwner, requireStaff } from "@/lib/auth";
 import { weekStart } from "@/lib/dates";
-import { back, errorText, optional, str } from "@/lib/flash";
+import { acknowledged, back, errorText, optional, str } from "@/lib/flash";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
+import { parseFingerprint } from "@/lib/subcontract/review";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Every action re-checks the caller's role; the database checks again
@@ -105,11 +107,25 @@ export async function completeSubJob(form: FormData) {
   const pitch = parsePitch(str(form, "pitch"));
   if (squares === null) back(jobPath(form), "Enter the squares, like 24 or 24.5.", "error");
   if (pitch === null) back(jobPath(form), "Enter the pitch, like 6 or 12/12.", "error");
+  const fingerprint = parseFingerprint(str(form, "fingerprint"));
+  if (!fingerprint) back(jobPath(form), "Reload the job and review the closeout again.", "error");
+  if (!acknowledged(form)) back(jobPath(form), "Tick the box to confirm you checked the closeout.", "error");
   const { data: invoiceId, error } = await supabase.rpc("complete_sub_job", {
     p_job_id: str(form, "jobId"),
     p_squares: squares,
     p_pitch: pitch,
+    p_expected_fingerprint: fingerprint,
   });
+  // Crew, extras or rates changed after the review loaded: nothing was written.
+  // Back to a fresh review with what they typed, naming what changed (Figma 85).
+  if (error?.hint === "stale_review") {
+    const url = new URL(jobPath(form), "http://x");
+    url.searchParams.set("stale", error.details ?? "");
+    url.searchParams.set("squares", String(squares));
+    url.searchParams.set("pitch", String(pitch));
+    revalidatePath("/office/subs", "layout");
+    redirect(`${url.pathname}${url.search}#finish`);
+  }
   if (error) back(jobPath(form), errorText(error), "error");
   const { data: invoice } = await supabase
     .from("sub_invoices")
@@ -127,6 +143,7 @@ export async function completeSubJob(form: FormData) {
 
 export async function reopenSubJob(form: FormData) {
   await requireOwner();
+  if (!acknowledged(form)) back(jobPath(form), "Tick the box to confirm the reopen.", "error");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("reopen_sub_job", { p_job_id: str(form, "jobId"), p_reason: str(form, "reason") });
   if (error) back(jobPath(form), errorText(error), "error");
@@ -135,6 +152,7 @@ export async function reopenSubJob(form: FormData) {
 
 export async function cancelSubJob(form: FormData) {
   const { supabase } = await staffClient();
+  if (!acknowledged(form)) back(jobPath(form), "Tick the box to confirm the cancellation.", "error");
   const { error } = await supabase.rpc("cancel_sub_job", { p_job_id: str(form, "jobId"), p_reason: optional(form, "reason") });
   if (error) back(jobPath(form), errorText(error), "error");
   done(jobPath(form), "Job cancelled.");
@@ -157,6 +175,7 @@ export async function recordSubPayment(form: FormData) {
 
 export async function voidSubPayment(form: FormData) {
   const { supabase } = await staffClient();
+  if (!acknowledged(form)) back(jobPath(form), "Tick the box to confirm the void.", "error");
   const { error } = await supabase.rpc("void_sub_payment", { p_payment_id: str(form, "paymentId"), p_reason: str(form, "reason") });
   if (error) back(jobPath(form), errorText(error), "error");
   done(jobPath(form), "Payment voided.");

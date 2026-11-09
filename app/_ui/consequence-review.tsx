@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Callout } from "./callout";
 
@@ -27,6 +27,15 @@ export function ConsequenceReview({
   name?: string;
 }) {
   const [checked, setChecked] = useState(false);
+  const box = useRef<HTMLInputElement>(null);
+  // React resets a form after its action runs; untick with it so the box and the
+  // button never disagree.
+  useEffect(() => {
+    const form = box.current?.form;
+    const untick = () => setChecked(false);
+    form?.addEventListener("reset", untick);
+    return () => form?.removeEventListener("reset", untick);
+  }, []);
   return (
     <div className="space-y-3">
       <Callout tone="warning" title={title}>
@@ -37,7 +46,7 @@ export function ConsequenceReview({
         </ul>
       </Callout>
       <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-row border border-border/60 bg-surface p-3 text-sm font-medium">
-        <input type="checkbox" name={name} value="yes" required checked={checked} onChange={(e) => setChecked(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
+        <input ref={box} type="checkbox" name={name} value="yes" required checked={checked} onChange={(e) => setChecked(e.target.checked)} className="mt-0.5 size-5 shrink-0" />
         <span>{acknowledgment}</span>
       </label>
       <Submit ready={checked} label={submitLabel} pendingLabel={pendingLabel} />
