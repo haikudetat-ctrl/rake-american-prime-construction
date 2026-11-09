@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { overrideOptionPrice, reviseProposal, sendProposal } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { MoneyForm } from "@/app/_ui/money-form";
+import { Submit } from "@/app/_ui/submit";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/dates";
 import type { CostLine } from "@/lib/estimate/price";
@@ -103,7 +105,7 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
       )}
       {proposal.status === "void" && <p className="card text-sm text-muted">Replaced: {proposal.void_reason}.</p>}
       {draft && (
-        <form action={sendProposal} className="card flex flex-wrap items-center gap-4 text-sm">
+        <MoneyForm action={sendProposal} recheckHref={`/office/proposals/${proposal.id}`} className="card flex flex-wrap items-center gap-4 text-sm">
           <input type="hidden" name="proposalId" value={proposal.id} />
           <span className="font-semibold">Send to {lead?.name}</span>
           <label className="flex items-center gap-2">
@@ -112,9 +114,9 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
           <label className="flex items-center gap-2">
             <input type="checkbox" name="byEmail" defaultChecked={Boolean(lead?.email)} disabled={!lead?.email} /> Email {lead?.email ?? "(no email)"}
           </label>
-          <button className="btn" disabled={proposal.needs_confirmation}>Send proposal</button>
+          <Submit className="btn" disabled={proposal.needs_confirmation} pendingLabel="Sending…">Send proposal</Submit>
           {proposal.needs_confirmation && <span className="text-warn">Confirm the price list and re-price before sending.</span>}
-        </form>
+        </MoneyForm>
       )}
       {warnings.length > 0 && (
         <ul className="card list-disc space-y-1 pl-8 text-sm text-warn">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>

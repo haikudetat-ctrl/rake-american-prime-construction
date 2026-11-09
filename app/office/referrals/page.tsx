@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { markRewardPaid, voidReferral } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { ConfirmAction } from "@/app/_ui/confirm-action";
 import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { STAGE_LABEL, type Stage } from "@/lib/leads/schema";
@@ -63,20 +64,28 @@ export default async function ReferralsPage({ searchParams }: PageProps<"/office
                       </form>
                     )}
                     {member.role === "owner" && (r.status === "pending" || r.status === "earned") && (
-                      <details className="text-xs">
-                        <summary className="cursor-pointer">Void</summary>
-                        <form action={voidReferral} className="mt-1 flex gap-1">
-                          <input type="hidden" name="referralId" value={r.id} />
-                          <input name="reason" required placeholder="Why" className="input" />
-                          <button className="btn-secondary">Void</button>
-                        </form>
-                      </details>
+                      <ConfirmAction
+                        action={voidReferral}
+                        trigger="Void"
+                        triggerClassName="text-xs font-semibold underline"
+                        title="Void this referral?"
+                        hidden={{ referralId: r.id }}
+                        reason={{ label: "Why", placeholder: "Same household, already a customer…" }}
+                        effects={[
+                          `${referrer?.customer_name ?? "The referrer"} won't get the ${formatCents(r.reward_cents)} reward for referring ${friend?.name ?? "this friend"}.`,
+                          "It stays on the list, marked void with your reason. Nobody is texted.",
+                        ]}
+                        acknowledgment="Void this referral."
+                        submitLabel="Void referral"
+                        pendingLabel="Voiding…"
+                        recheckHref="/office/referrals"
+                      />
                     )}
                   </td>
                 </tr>
               );
             })}
-            {rows.length === 0 && <tr><td colSpan={6} className="text-muted">No referrals yet. Customers get their link after a great rating.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={6} className="text-muted">No referrals yet. Customers get their link after they answer the feedback text.</td></tr>}
           </tbody>
         </table>
       </section>

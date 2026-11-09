@@ -14,12 +14,15 @@ import {
   voidSubPayment,
 } from "@/app/office/subs/actions";
 import { CrewPicker, rateText, STATUS_LABEL } from "@/app/office/subs/_parts";
+import { ConfirmAction } from "@/app/_ui/confirm-action";
+import { MoneyForm } from "@/app/_ui/money-form";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { companyToday, formatDate, formatDateTime, weekStart } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { loadTeam, one } from "@/lib/office/team";
 import { loadSubInvoice } from "@/lib/subcontract/invoice";
+import { parseStale } from "@/lib/subcontract/review";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const EXTRA_IDEAS = ["Plywood sheet", "Extra layer tear-off", "Second story", "Step flashing", "Chimney flashing"];
@@ -30,6 +33,11 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createSupabaseServerClient();
+
+  // The closeout fingerprint is read before anything the review shows. Everything
+  // below is then at least as new as the fingerprint, and any edit after it fails
+  // the check when the job is closed, so a review can never confirm older numbers.
+  const { data: fingerprint } = await supabase.rpc("sub_job_closeout_fingerprint", { p_job_id: id });
 
   const [{ data: job, error: jobError }, { data: contractors, error: contractorError }, { data: workers, error: workerError }, { data: settings, error: settingsError }, { data: invoices, error: invoiceError }, { data: events }, team] =
     await Promise.all([
@@ -49,6 +57,9 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
   if (jobError || settingsError || invoiceError || workerError || contractorError) return <Unavailable />;
   if (!job) notFound();
   const returnQuery = subQuery({ week: query.week ?? weekStart(job.work_date), filter: query.filter });
+  const here = `/office/subs/${job.id}${returnQuery}`;
+  const number = (v: unknown) => (typeof v === "string" && /^\d{1,3}(\.\d{1,2})?$/.test(v) ? v : null);
+  const typed = number(query.squares) && number(query.pitch) ? { squares: number(query.squares)!, pitch: number(query.pitch)! } : null;
 
   const contractor = one(job.sub_contractors);
   if (!contractor) return <Unavailable />;
@@ -91,7 +102,7 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
 
       {job.status === "scheduled" && (
         <>
-          <section className="card-stripe space-y-3">
+          <section id="finish" className="card-stripe scroll-mt-4 space-y-3">
             <h2 className="font-semibold">Finish job</h2>
             <p className="text-sm text-muted">
               {contractor?.name} pays {contractor && rateText(contractor.cents_per_sq, contractor.pitch_from, contractor.pitch_step_cents)}.
@@ -100,10 +111,13 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
             </p>
             {crew.length === 0 ? (
               <p className="text-sm text-warn">Pick the crew below first.</p>
+            ) : !fingerprint ? (
+              <p role="status" className="text-sm text-danger">Finishing is unavailable right now, so this job can&apos;t be closed from here. Reload to try again.</p>
             ) : (
               <Closeout jobId={job.id} contractor={contractor?.name ?? "Contractor"} email={contractor?.billing_email ?? null}
                 crew={crew} extras={extras.map(e => ({ ...e, qty: Number(e.qty) }))} crewRate={crewRate}
-                billRate={{ base: contractor?.cents_per_sq ?? 0, from: contractor?.pitch_from ?? 9, step: contractor?.pitch_step_cents ?? 0 }} returnQuery={returnQuery} />
+                billRate={{ base: contractor?.cents_per_sq ?? 0, from: contractor?.pitch_from ?? 9, step: contractor?.pitch_step_cents ?? 0 }} returnQuery={returnQuery}
+                fingerprint={JSON.stringify(fingerprint)} recheckHref={`${here}#finish`} stale={parseStale(query.stale)} initial={typed} />
             )}
             <p className="text-xs text-muted">
               Closing splits the crew pay, records earned crew pay for this week, and issues the invoice
@@ -175,12 +189,24 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
               <label className="label"><span>Notes</span><input name="notes" defaultValue={job.notes ?? ""} className="input" /></label>
               <Submit>Save job and crew</Submit>
             </form>
-            <form action={cancelSubJob} className="flex flex-wrap gap-2 border-t border-border pt-3">
-              <input type="hidden" name="jobId" value={job.id} />
-              <input type="hidden" name="returnQuery" value={returnQuery} />
-              <input name="reason" placeholder="Why (rain, moved…)" className="input flex-1" />
-              <button className="btn-secondary">Cancel job</button>
-            </form>
+            <div className="border-t border-border pt-3">
+              <ConfirmAction
+                action={cancelSubJob}
+                trigger="Cancel job"
+                title="Cancel this job?"
+                hidden={{ jobId: job.id, returnQuery }}
+                reason={{ label: "Why", placeholder: "Rain, moved, contractor called it off…", required: false }}
+                effects={[
+                  "The job stays on the list, marked cancelled, with your reason.",
+                  "No invoice is issued and no crew pay is recorded for it.",
+                  "A cancelled job can't be closed later; add a new job if the work happens after all.",
+                ]}
+                acknowledgment="Cancel this job."
+                submitLabel="Cancel job"
+                pendingLabel="Cancelling…"
+                recheckHref={here}
+              />
+            </div>
           </section>
         </>
       )}
@@ -242,13 +268,24 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
                       <tr key={p.id}>
                         <td className="text-muted">
                           Paid {formatDate(p.receivedOn)} · {p.method}{p.reference ? ` #${p.reference}` : ""}
-                          <form action={voidSubPayment} className="mt-1 flex gap-1">
-                            <input type="hidden" name="jobId" value={job.id} />
-                            <input type="hidden" name="returnQuery" value={returnQuery} />
-                            <input type="hidden" name="paymentId" value={p.id} />
-                            <input name="reason" required placeholder="Why void it" className="input w-40 py-1 text-xs" />
-                            <button className="text-xs underline">void</button>
-                          </form>
+                          <div className="mt-1">
+                            <ConfirmAction
+                              action={voidSubPayment}
+                              trigger="Void"
+                              triggerClassName="text-xs font-semibold underline"
+                              title={`Void the ${formatCents(p.amountCents)} payment?`}
+                              hidden={{ jobId: job.id, returnQuery, paymentId: p.id }}
+                              reason={{ label: "Why void it", placeholder: "Bounced check, entered twice…" }}
+                              effects={[
+                                `The ${formatCents(p.amountCents)} payment from ${formatDate(p.receivedOn)} stays on record, marked void with your reason.`,
+                                `Invoice #${invoice.number}'s balance goes back up by ${formatCents(p.amountCents)}${invoice.status === "paid" ? ", and it shows as open again" : ""}.`,
+                              ]}
+                              acknowledgment="Void this payment."
+                              submitLabel="Void payment"
+                              pendingLabel="Voiding…"
+                              recheckHref={here}
+                            />
+                          </div>
                         </td>
                         <td className="text-right text-muted">−{formatCents(p.amountCents)}</td>
                       </tr>
@@ -259,7 +296,7 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
                   </tbody>
                 </table>
                 {invoice.status === "open" && (
-                  <form action={recordSubPayment} className="grid grid-cols-2 gap-2 border-t border-border pt-3 sm:grid-cols-4 sm:items-end">
+                  <MoneyForm action={recordSubPayment} recheckHref={here} className="grid grid-cols-2 gap-2 border-t border-border pt-3 sm:grid-cols-4 sm:items-end">
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="returnQuery" value={returnQuery} />
                     <input type="hidden" name="invoiceId" value={invoice.id} />
@@ -273,23 +310,34 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
                     </label>
                     <label className="label"><span>Check #</span><input name="reference" className="input" /></label>
                     <label className="label"><span>Received</span><input name="receivedOn" type="date" defaultValue={companyToday()} className="input" /></label>
-                    <button className="btn-secondary col-span-2 sm:col-span-4 sm:justify-self-start">Record payment</button>
-                  </form>
+                    <Submit className="btn-secondary col-span-2 sm:col-span-4 sm:justify-self-start">Record payment</Submit>
+                  </MoneyForm>
                 )}
               </section>
             )}
           </div>
 
           {isOwner && invoice?.status === "open" && invoice.payments.length === 0 && (
-            <form action={reopenSubJob} className="card flex flex-wrap items-end gap-2">
-              <input type="hidden" name="jobId" value={job.id} />
-              <input type="hidden" name="returnQuery" value={returnQuery} />
-              <label className="label flex-1">
-                <span>Wrong squares, pitch or crew? Reopen to fix it (voids invoice #{invoice.number}).</span>
-                <input name="reason" required placeholder="What was wrong" className="input" />
-              </label>
-              <button className="btn-secondary">Reopen job</button>
-            </form>
+            <section className="card space-y-2">
+              <p className="text-sm text-muted">Wrong squares, pitch or crew? Reopen the job to fix it.</p>
+              <ConfirmAction
+                action={reopenSubJob}
+                trigger="Reopen job"
+                title={`Reopen and void invoice #${invoice.number}?`}
+                hidden={{ jobId: job.id, returnQuery }}
+                reason={{ label: "What was wrong", placeholder: "Squares were 22, not 25…" }}
+                effects={[
+                  `Invoice #${invoice.number} for ${formatCents(invoice.totalCents)} is voided. It stays on record with your reason${!invoice.sentAt && invoice.contractor.billingEmail ? ", and its email won't go out" : ""}.`,
+                  ...(invoice.sentAt ? [`${invoice.contractor.name} already has it by email, so let them know it's replaced.`] : []),
+                  `The ${formatCents(job.pay_total_cents)} crew pay recorded for this job is cleared until it closes again.`,
+                  "The job goes back to scheduled. Closing it again issues a new invoice with a new number.",
+                ]}
+                acknowledgment={`Void invoice #${invoice.number} and reopen the job.`}
+                submitLabel="Reopen job"
+                pendingLabel="Reopening…"
+                recheckHref={here}
+              />
+            </section>
           )}
         </>
       )}

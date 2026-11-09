@@ -10,6 +10,7 @@ import {
   voidInvoice,
 } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { ConfirmAction } from "@/app/_ui/confirm-action";
 import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -124,11 +125,25 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
           </ul>
 
           {rental.status === "scheduled" && (
-            <form action={cancelRental} className="flex flex-wrap gap-2 border-t border-border pt-3">
-              <input type="hidden" name="rentalId" value={id} />
-              <input name="reason" placeholder="Why (internal)" className="input flex-1" />
-              <button className="btn-secondary">Cancel rental</button>
-            </form>
+            <div className="border-t border-border pt-3">
+              <ConfirmAction
+                action={cancelRental}
+                trigger="Cancel rental"
+                title="Cancel this rental?"
+                hidden={{ rentalId: id }}
+                reason={{ label: "Why (internal)", placeholder: "Customer called it off…", required: false }}
+                effects={[
+                  "The rental is marked cancelled. Your reason stays internal.",
+                  "Its scheduled drop comes off the driver's run.",
+                  "Nothing was billed yet, so there's no invoice to void.",
+                  "The customer isn't told. Call them if they're expecting the can.",
+                ]}
+                acknowledgment="Cancel this rental."
+                submitLabel="Cancel rental"
+                pendingLabel="Cancelling…"
+                recheckHref={`/office/rentals/${id}`}
+              />
+            </div>
           )}
           {rental.status === "pickup_requested" && (
             <form action={cancelPickup} className="border-t border-border pt-3">
@@ -219,12 +234,24 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
               )}
 
               {isOwner && invoiceOpen && (
-                <form action={voidInvoice} className="flex flex-wrap gap-2 border-t border-border pt-3">
-                  <input type="hidden" name="rentalId" value={id} />
-                  <input type="hidden" name="invoiceId" value={invoice.id} />
-                  <input name="reason" required placeholder="Reason for voiding" className="input flex-1" />
-                  <button className="btn-secondary text-danger">Void invoice</button>
-                </form>
+                <div className="border-t border-border pt-3">
+                  <ConfirmAction
+                    action={voidInvoice}
+                    trigger="Void invoice"
+                    title={`Void invoice #${invoice.number}?`}
+                    hidden={{ rentalId: id, invoiceId: invoice.id }}
+                    reason={{ label: "Reason for voiding", placeholder: "Duplicate rental, billed elsewhere…" }}
+                    effects={[
+                      `Invoice #${invoice.number} for ${formatCents(invoice.total_cents)} is voided and stays on record with your reason.`,
+                      "It will not be billed: it never goes on a statement.",
+                      "There's no undo, so this rental can't be billed from Rake after this.",
+                    ]}
+                    acknowledgment={`Void invoice #${invoice.number}.`}
+                    submitLabel="Void invoice"
+                    pendingLabel="Voiding…"
+                    recheckHref={`/office/rentals/${id}`}
+                  />
+                </div>
               )}
             </>
           )}

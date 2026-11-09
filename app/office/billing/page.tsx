@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { issueStatementsNow } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { ConfirmAction } from "@/app/_ui/confirm-action";
 import { requireStaff } from "@/lib/auth";
 import { companyToday, formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -14,7 +15,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
   const [{ data: unbilled }, { data: statements }] = await Promise.all([
     supabase
       .from("invoices")
-      .select("id, number, status, total_cents, rental_id, customers(name), rentals(sites(address))")
+      .select("id, number, status, total_cents, rental_id, customer_id, customers(name, billing_email), rentals(sites(address))")
       .in("status", ["draft", "final"])
       .order("number"),
     supabase
@@ -26,6 +27,15 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
   const today = companyToday();
   const ready = (unbilled ?? []).filter((i) => i.status === "final");
   const open = (unbilled ?? []).filter((i) => i.status === "draft");
+  // What "Issue statements now" would bill if confirmed right now: one statement per customer.
+  const byCustomer = [...ready.reduce((m, i) => {
+    const c = one(i.customers);
+    const entry = m.get(i.customer_id) ?? { name: c?.name ?? "Customer", email: c?.billing_email?.trim() || null, cents: 0, count: 0 };
+    entry.cents += i.total_cents;
+    entry.count += 1;
+    return m.set(i.customer_id, entry);
+  }, new Map<string, { name: string; email: string | null; cents: number; count: number }>()).values()];
+  const noEmail = byCustomer.filter((c) => !c.email);
 
   return (
     <>
@@ -40,9 +50,26 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
           <h2 className="font-semibold">
             Ready to bill · {formatCents(ready.reduce((sum, i) => sum + i.total_cents, 0))}
           </h2>
-          <form action={issueStatementsNow}>
-            <button className="btn" disabled={ready.length === 0}>Issue statements now</button>
-          </form>
+          {ready.length > 0 && (
+            <ConfirmAction
+              action={issueStatementsNow}
+              trigger="Issue statements now"
+              triggerClassName="btn"
+              title="Issue statements now?"
+              effects={[
+                `A statement goes to each customer with invoices ready to bill when you confirm. Right now that is ${byCustomer.length === 1 ? "1 customer" : `${byCustomer.length} customers`} for ${formatCents(ready.reduce((sum, i) => sum + i.total_cents, 0))}: ${byCustomer.map((c) => `${c.name} ${formatCents(c.cents)}`).join(", ")}.`,
+                noEmail.length === byCustomer.length
+                  ? "None of them has a billing email, so nothing is emailed; download each statement from its page to send it."
+                  : `Customers with a billing email get it by email right away${noEmail.length ? `. ${noEmail.map((c) => c.name).join(", ")} ${noEmail.length === 1 ? "has" : "have"} no billing email, so download and send ${noEmail.length === 1 ? "that one" : "those"} yourself` : ""}.`,
+                "These invoices can't be changed after this. Fixing one means an owner voids its statement, before any payment is recorded.",
+                "If QuickBooks sync is on, the invoices go to QuickBooks on its next run.",
+              ]}
+              acknowledgment="Bill these customers now instead of waiting for Monday."
+              submitLabel="Issue statements"
+              pendingLabel="Issuing…"
+              recheckHref="/office/billing"
+            />
+          )}
         </div>
         <InvoiceTable rows={ready} empty="Nothing waiting to be billed." />
       </section>

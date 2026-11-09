@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { recordPayment, voidStatement } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { ConfirmAction } from "@/app/_ui/confirm-action";
+import { MoneyForm } from "@/app/_ui/money-form";
+import { Submit } from "@/app/_ui/submit";
 import { requireStaff } from "@/lib/auth";
 import { companyToday, formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -66,7 +69,7 @@ export default async function StatementPage({ params, searchParams }: PageProps<
           {statement.payments.length === 0 && <li className="text-muted">None yet.</li>}
         </ul>
         {statement.status === "open" && (
-          <form action={recordPayment} className="grid gap-2 sm:grid-cols-5 sm:items-end">
+          <MoneyForm action={recordPayment} recheckHref={`/office/billing/${id}`} className="grid gap-2 sm:grid-cols-5 sm:items-end">
             <input type="hidden" name="statementId" value={id} />
             <label className="label"><span>Amount</span><input name="amount" required inputMode="decimal" defaultValue={(statement.balanceCents / 100).toFixed(2)} className="input" /></label>
             <label className="label"><span>Method</span>
@@ -76,8 +79,8 @@ export default async function StatementPage({ params, searchParams }: PageProps<
             </label>
             <label className="label"><span>Check # / ref</span><input name="reference" className="input" /></label>
             <label className="label"><span>Received</span><input name="receivedOn" type="date" defaultValue={companyToday()} className="input" /></label>
-            <button className="btn">Record payment</button>
-          </form>
+            <Submit className="btn">Record payment</Submit>
+          </MoneyForm>
         )}
       </section>
 
@@ -88,11 +91,23 @@ export default async function StatementPage({ params, searchParams }: PageProps<
             Use this to fix a charge after the statement went out. Its invoices go back to “Ready to bill”;
             correct them on the rental page, then issue a new statement. Send the customer a note that the old one is replaced.
           </p>
-          <form action={voidStatement} className="flex flex-wrap gap-2">
-            <input type="hidden" name="statementId" value={statement.id} />
-            <input name="reason" required placeholder="Reason" className="input flex-1" />
-            <button className="btn-secondary text-danger">Void statement</button>
-          </form>
+          <ConfirmAction
+            action={voidStatement}
+            trigger="Void statement"
+            title={`Void statement #${statement.number}?`}
+            hidden={{ statementId: statement.id }}
+            reason={{ label: "Reason", placeholder: "Wrong tonnage on one rental…" }}
+            effects={[
+              `Statement #${statement.number} for ${formatCents(statement.totalCents)} is voided and stays on record with your reason.`,
+              "Its invoices go back to Ready to bill, where they can be corrected on each rental's page.",
+              "Any of its emails still waiting to go out, reminders included, are stopped.",
+              `${statement.sentAt ? `${statement.customer.name} already has it by email and isn't told it's void, so send them a note. ` : ""}The corrected invoices go on the next statement.`,
+            ]}
+            acknowledgment={`Void statement #${statement.number}.`}
+            submitLabel="Void statement"
+            pendingLabel="Voiding…"
+            recheckHref={`/office/billing/${id}`}
+          />
         </section>
       )}
     </>

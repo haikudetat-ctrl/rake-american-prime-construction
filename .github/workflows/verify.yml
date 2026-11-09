@@ -1,0 +1,33 @@
+# Runs `npm run verify` (lint, typecheck, unit tests, pgTAP) on every pull request
+# and on main. The database tests start their own throwaway Postgres through
+# scripts/test-db.sh, the same way they run locally, so no service container.
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install Postgres 16 and pgTAP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+      - run: npm ci
+      - run: npm run verify

@@ -4,6 +4,9 @@ import {
   addJobCost, addOwnEquipment, markJobFinal, pullStock, recordJobPayment, resolveFollowUp, voidJobCost, voidJobPayment,
 } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { ConfirmAction } from "@/app/_ui/confirm-action";
+import { MoneyForm } from "@/app/_ui/money-form";
+import { Submit } from "@/app/_ui/submit";
 import { requireStaff } from "@/lib/auth";
 import { companyToday, formatDate } from "@/lib/dates";
 import type { CostLine } from "@/lib/estimate/price";
@@ -148,15 +151,23 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
                 <td className="text-right">{signed(c.amount_cents)}</td>
                 <td>
                   {!c.voided_at && (
-                    <details className="text-xs">
-                      <summary className="cursor-pointer">Void</summary>
-                      <form action={voidJobCost} className="mt-1 flex gap-1">
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="costId" value={c.id} />
-                        <input name="reason" required placeholder="Why" className="input" />
-                        <button className="btn-secondary">Void</button>
-                      </form>
-                    </details>
+                    <ConfirmAction
+                      action={voidJobCost}
+                      trigger="Void"
+                      triggerClassName="text-xs font-semibold underline"
+                      title={`Void this ${formatCents(Math.abs(c.amount_cents))} cost?`}
+                      hidden={{ jobId: job.id, costId: c.id }}
+                      reason={{ label: "Why", placeholder: "Entered twice, wrong job…" }}
+                      effects={[
+                        `${c.description} comes off this job's costs and stays on record, struck through, with your reason.`,
+                        ...(c.stock_move_id ? ["It came from stock, so the same quantity goes back on the shelf at the cost it left at."] : []),
+                        "The job's profit is recalculated without it.",
+                      ]}
+                      acknowledgment="Void this cost."
+                      submitLabel="Void cost"
+                      pendingLabel="Voiding…"
+                      recheckHref={`/office/jobs/${job.id}`}
+                    />
                   )}
                 </td>
               </tr>
@@ -228,15 +239,22 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
                 <td className="text-right">{formatCents(p.amount_cents)}</td>
                 <td>
                   {!p.voided_at && (
-                    <details className="text-xs">
-                      <summary className="cursor-pointer">Void</summary>
-                      <form action={voidJobPayment} className="mt-1 flex gap-1">
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <input type="hidden" name="paymentId" value={p.id} />
-                        <input name="reason" required placeholder="Why" className="input" />
-                        <button className="btn-secondary">Void</button>
-                      </form>
-                    </details>
+                    <ConfirmAction
+                      action={voidJobPayment}
+                      trigger="Void"
+                      triggerClassName="text-xs font-semibold underline"
+                      title={`Void the ${formatCents(p.amount_cents)} payment?`}
+                      hidden={{ jobId: job.id, paymentId: p.id }}
+                      reason={{ label: "Why", placeholder: "Bounced check, entered twice…" }}
+                      effects={[
+                        `The ${formatCents(p.amount_cents)} payment from ${formatDate(p.received_on)} stays on record, struck through, with your reason.`,
+                        `What the customer owes on this job goes back up by ${formatCents(p.amount_cents)}.`,
+                      ]}
+                      acknowledgment="Void this payment."
+                      submitLabel="Void payment"
+                      pendingLabel="Voiding…"
+                      recheckHref={`/office/jobs/${job.id}`}
+                    />
                   )}
                 </td>
               </tr>
@@ -244,7 +262,7 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
           </tbody>
         </table>
         {pnl.owedCents > 0 && (
-          <form action={recordJobPayment} className="grid gap-2 sm:grid-cols-5 sm:items-end">
+          <MoneyForm action={recordJobPayment} recheckHref={`/office/jobs/${job.id}`} className="grid gap-2 sm:grid-cols-5 sm:items-end">
             <input type="hidden" name="jobId" value={job.id} />
             <label className="label"><span>Amount ($)</span><input name="amount" required inputMode="decimal" className="input" /></label>
             <label className="label"><span>Method</span>
@@ -252,8 +270,8 @@ export default async function JobPage({ params, searchParams }: PageProps<"/offi
             </label>
             <label className="label"><span>Check / ref #</span><input name="reference" className="input" /></label>
             <label className="label"><span>Received</span><input name="receivedOn" type="date" defaultValue={today} className="input" /></label>
-            <button className="btn sm:justify-self-start">Record payment</button>
-          </form>
+            <Submit className="btn sm:justify-self-start">Record payment</Submit>
+          </MoneyForm>
         )}
       </section>
     </>

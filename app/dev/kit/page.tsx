@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Callout } from "@/app/_ui/callout";
+import { ConfirmAction } from "@/app/_ui/confirm-action";
 import { ConsequenceReview } from "@/app/_ui/consequence-review";
+import { OutcomeUncertain } from "@/app/_ui/money-form";
 import { RailCard, WithRail } from "@/app/_ui/context-rail";
 import { Field } from "@/app/_ui/field";
 import { Icon, iconNames } from "@/app/_ui/icon";
@@ -136,6 +138,34 @@ export default function KitPage() {
       </section>
 
       <section className="space-y-3">
+        <h2>Money actions and recovery</h2>
+        <div className="grid items-start gap-4 lg:grid-cols-3">
+          <div className="space-y-2">
+            <p className="text-sm text-muted">87, 97 to 102: a void opens its consequences first.</p>
+            <ConfirmAction
+              action={demoAction}
+              trigger="Void statement"
+              title="Void statement #1042?"
+              reason={{ label: "Reason", placeholder: "Wrong tonnage on one rental…" }}
+              effects={[
+                "Statement #1042 for $1,020.00 is voided and stays on record with your reason.",
+                "Its invoices go back to Ready to bill, where they can be corrected on each rental's page.",
+                "Any of its emails still waiting to go out, reminders included, are stopped.",
+              ]}
+              acknowledgment="Void statement #1042."
+              submitLabel="Void statement"
+              pendingLabel="Voiding…"
+              recheckHref="/dev/kit"
+            />
+          </div>
+          <OutcomeUncertain href="/dev/kit" />
+          <Callout tone="warning" title="Work changed during review">
+            The crew and the extras changed after you opened the review. Nothing was invoiced. The numbers below are current: check them and finish again.
+          </Callout>
+        </div>
+      </section>
+
+      <section className="space-y-3">
         <h2>States</h2>
         <div className="grid items-start gap-4 lg:grid-cols-3">
           <Skeleton />
@@ -157,4 +187,9 @@ export default function KitPage() {
       </section>
     </main>
   );
+}
+
+/** The kit's confirm demo submits here and changes nothing. */
+async function demoAction() {
+  "use server";
 }
