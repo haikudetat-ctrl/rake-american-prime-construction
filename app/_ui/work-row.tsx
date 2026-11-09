@@ -4,10 +4,11 @@ import { Icon } from "./icon";
 
 /**
  * AP / Work row (Figma 6:783): one linked piece of work, its context, and where it goes.
- * Long addresses and names wrap rather than truncate. Keep money out of `detail` and
- * `aside` unless the viewer's role may see it; this component does not check roles.
+ * Long addresses and names wrap rather than truncate. `action` names the next step: its
+ * own line on phones, a column on wider screens. Keep money out of `detail` and `aside`
+ * unless the viewer's role may see it; this component does not check roles.
  */
-export function WorkRow({ href, title, detail, aside }: { href: string; title: ReactNode; detail?: ReactNode; aside?: ReactNode }) {
+export function WorkRow({ href, title, detail, action, aside }: { href: string; title: ReactNode; detail?: ReactNode; action?: ReactNode; aside?: ReactNode }) {
   return (
     <li>
       <Link
@@ -17,7 +18,9 @@ export function WorkRow({ href, title, detail, aside }: { href: string; title: R
         <span className="min-w-0 flex-1 sm:grid sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] sm:items-center sm:gap-4">
           <span className="block text-sm font-semibold break-words sm:text-base">{title}</span>
           {detail ? <span className="mt-1 block text-xs break-words text-muted sm:mt-0 sm:text-sm">{detail}</span> : null}
+          {action ? <span className="mt-1.5 block text-sm font-semibold text-accent sm:hidden">{action}</span> : null}
         </span>
+        {action ? <span className="hidden shrink-0 text-sm font-semibold text-accent sm:block">{action}</span> : null}
         {aside ? <span className="shrink-0 text-sm">{aside}</span> : null}
         <Icon name="chevron-right" className="shrink-0 text-muted" />
       </Link>
