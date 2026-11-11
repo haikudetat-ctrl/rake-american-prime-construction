@@ -3,6 +3,7 @@ import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/render
 import { formatCents } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import { optionPrice, type ProposalAddon, type ProposalContent, type ProposalOption } from "@/lib/proposals/content";
+import { splitNotice } from "@/lib/proposals/disclosures";
 import { LOGO_PNG_DATA_URL } from "./logo";
 
 const COLORS = { ink: "#1c1917", muted: "#6b6560", rule: "#e7e5e4", accent: "#c2410c", brand: "#ea580c" };
@@ -25,6 +26,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: COLORS.rule, paddingVertical: 3 },
   bold: { fontFamily: "Helvetica-Bold" },
   terms: { fontSize: 8, lineHeight: 1.4 },
+  // NJ: the right to cancel in at least 10-point bold.
+  notice: { fontSize: 10, fontFamily: "Helvetica-Bold", lineHeight: 1.4, borderWidth: 1.5, borderColor: COLORS.ink, padding: 8, marginTop: 10 },
   signature: { width: 220, height: 80, objectFit: "contain", borderBottomWidth: 1, borderBottomColor: COLORS.ink },
 });
 
@@ -50,6 +53,7 @@ const when = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "long", timeStyle: "long" });
 
 export function ProposalDocument({ content, brand, sentAt, satellite, signed }: ProposalPdfProps) {
+  const terms = splitNotice(content.terms);
   return (
     <Document title={`Proposal ${content.number}`} author={brand.name}>
       <Page size="LETTER" style={styles.page}>
@@ -110,7 +114,8 @@ export function ProposalDocument({ content, brand, sentAt, satellite, signed }: 
 
       <Page size="LETTER" style={styles.page}>
         <Text style={styles.h2}>Terms</Text>
-        <Text style={styles.terms}>{content.terms}</Text>
+        <Text style={styles.terms}>{terms.body}</Text>
+        {terms.notice && <View style={styles.notice} wrap={false}><Text>{terms.notice}</Text></View>}
         {signed && (
           <>
             <Text style={styles.h2}>Signature</Text>

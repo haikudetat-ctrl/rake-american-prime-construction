@@ -1,13 +1,59 @@
 import "server-only";
 import { contentHash, optionPrice, PLACEHOLDER_TERMS, scopeLines, type ProposalAddon, type ProposalContent, type ProposalOption } from "@/lib/proposals/content";
+import type { ContractorFacts } from "@/lib/proposals/disclosures";
+import { formatPhone } from "@/lib/phone";
 import { adminClient } from "@/lib/supabase/admin";
 
-export type ProposalSettings = { terms: string; validDays: number; hicNumber: string | null; placeholder: boolean };
+export type ProposalSettings = {
+  terms: string;
+  validDays: number;
+  hicNumber: string | null;
+  placeholder: boolean;
+  legalName: string | null;
+  insurerName: string | null;
+  insurerPhone: string | null;
+  startWithinDays: number | null;
+  finishWithinDays: number | null;
+};
 
 export async function loadProposalSettings(companyId: string): Promise<ProposalSettings> {
   const { data } = await adminClient().from("proposal_settings").select("*").eq("company_id", companyId).maybeSingle();
-  if (!data) return { terms: PLACEHOLDER_TERMS, validDays: 30, hicNumber: null, placeholder: true };
-  return { terms: data.terms, validDays: data.valid_days, hicNumber: data.hic_number, placeholder: data.terms.includes("[PLACEHOLDER") };
+  if (!data) {
+    return {
+      terms: PLACEHOLDER_TERMS, validDays: 30, hicNumber: null, placeholder: true,
+      legalName: null, insurerName: null, insurerPhone: null, startWithinDays: null, finishWithinDays: null,
+    };
+  }
+  return {
+    terms: data.terms,
+    validDays: data.valid_days,
+    hicNumber: data.hic_number,
+    placeholder: data.terms.includes("[PLACEHOLDER"),
+    legalName: data.legal_name ?? null,
+    insurerName: data.insurer_name ?? null,
+    insurerPhone: data.insurer_phone ?? null,
+    startWithinDays: data.start_within_days ?? null,
+    finishWithinDays: data.finish_within_days ?? null,
+  };
+}
+
+/** Settings and the roofing brand as the facts a NJ contract must state. */
+export async function contractorFacts(companyId: string, salesRep: string | null): Promise<{ settings: ProposalSettings; facts: ContractorFacts }> {
+  const [settings, brand] = await Promise.all([loadProposalSettings(companyId), roofingBrand(companyId)]);
+  return {
+    settings,
+    facts: {
+      legalName: settings.legalName,
+      address: brand.address,
+      phone: brand.phone ? formatPhone(brand.phone) : null,
+      hicNumber: settings.hicNumber,
+      insurerName: settings.insurerName,
+      insurerPhone: settings.insurerPhone,
+      startWithinDays: settings.startWithinDays,
+      finishWithinDays: settings.finishWithinDays,
+      salesRep,
+    },
+  };
 }
 
 export type Brand = { name: string; phone: string | null; email: string | null; address: string | null };
