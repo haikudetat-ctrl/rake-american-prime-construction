@@ -13,8 +13,9 @@ select is(app.sub_pitch_cents(9, 500, 12), 2000, '12/12 pays $20 a square extra'
 
 -- Setup as the office: two contractors, four guys, the crew rates. ----------------
 select tests.act_as('00000000-0000-0000-0000-000000000002');
-insert into public.sub_contractors (company_id, name, billing_email, cents_per_sq, payment_terms_days)
-values (:'company', 'All Season', 'ap@allseason.example', 9500, 14) returning id as all_season \gset
+-- Billed per job here, so closing a job emails its invoice (weekly billing: sub_statements.test.sql).
+insert into public.sub_contractors (company_id, name, billing_email, cents_per_sq, payment_terms_days, billing)
+values (:'company', 'All Season', 'ap@allseason.example', 9500, 14, 'per_job') returning id as all_season \gset
 insert into public.sub_contractors (company_id, name, cents_per_sq) values (:'company', 'Rampage', 11000) returning id as rampage \gset
 insert into public.sub_workers (company_id, name) values (:'company', 'Baltimore') returning id as baltimore \gset
 insert into public.sub_workers (company_id, name) values (:'company', 'Carlos') returning id as carlos \gset

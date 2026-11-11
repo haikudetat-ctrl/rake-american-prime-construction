@@ -20,8 +20,8 @@ function EditButton({ onEdit }: { onEdit: () => void }) {
  * the page comes back with `stale` set and the squares and pitch filled in, straight into a
  * fresh review.
  */
-export function Closeout({ jobId, contractor, email, crew, extras, billRate, crewRate, returnQuery, fingerprint, recheckHref, stale, initial }: {
-  jobId: string; contractor: string; email: string | null; crew: { id: string; name: string }[];
+export function Closeout({ jobId, contractor, email, weekly = false, crew, extras, billRate, crewRate, returnQuery, fingerprint, recheckHref, stale, initial }: {
+  jobId: string; contractor: string; email: string | null; weekly?: boolean; crew: { id: string; name: string }[];
   extras: ReviewExtra[]; billRate: Rate; crewRate: Rate; returnQuery: string;
   fingerprint: string; recheckHref: string; stale: FingerprintPart[] | null; initial: { squares: string; pitch: string } | null;
 }) {
@@ -65,9 +65,11 @@ export function Closeout({ jobId, contractor, email, crew, extras, billRate, cre
         <input type="hidden" name="fingerprint" value={fingerprint} />
         <ConsequenceReview
           effects={[
-            recipient
-              ? `Invoice for ${formatCents(result.billCents)} to ${contractor}, emailed to ${recipient} 15 minutes after you confirm. An owner can reopen the job before then to stop the email.`
-              : `Invoice for ${formatCents(result.billCents)} to ${contractor}. No billing email on file, so nothing is emailed; the invoice is ready to download.`,
+            weekly
+              ? `Invoice for ${formatCents(result.billCents)} to ${contractor}. Nothing is emailed now: it goes on their weekly statement with the week's other jobs.`
+              : recipient
+                ? `Invoice for ${formatCents(result.billCents)} to ${contractor}, emailed to ${recipient} 15 minutes after you confirm. An owner can reopen the job before then to stop the email.`
+                : `Invoice for ${formatCents(result.billCents)} to ${contractor}. No billing email on file, so nothing is emailed; the invoice is ready to download.`,
             `${formatCents(result.payCents)} crew pay recorded as earned this week, split ${crew.length} ${crew.length === 1 ? 'way' : 'ways'}. This does not record paying anyone.`,
             gutterOnly
               ? 'The job closes with no squares (gutters and extras only). Changing that later needs an owner to reopen it.'

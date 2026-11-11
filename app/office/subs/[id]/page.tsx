@@ -46,13 +46,13 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
     await Promise.all([
       supabase
         .from("sub_jobs")
-        .select("*, sub_contractors(id, name, billing_email, cents_per_sq, pitch_tiers, min_job_cents), sub_job_crew(worker_id, pay_cents, sub_workers(name)), sub_job_extras(id, description, qty, unit, bill_unit_cents, pay_unit_cents, created_at)")
+        .select("*, sub_contractors(id, name, billing_email, billing, cents_per_sq, pitch_tiers, min_job_cents), sub_job_crew(worker_id, pay_cents, sub_workers(name)), sub_job_extras(id, description, qty, unit, bill_unit_cents, pay_unit_cents, created_at)")
         .eq("id", id)
         .maybeSingle(),
       supabase.from("sub_contractors").select("id, name").order("name"),
       supabase.from("sub_workers").select("id, name, is_active").order("name").order("id"),
       supabase.from("sub_settings").select("*").maybeSingle(),
-      supabase.from("sub_invoices").select("id, number, status, void_reason").eq("job_id", id).order("created_at", { ascending: false }),
+      supabase.from("sub_invoices").select("id, number, status, void_reason, sub_statements(id, number, status)").eq("job_id", id).order("created_at", { ascending: false }),
       supabase.from("domain_events").select("event_type, payload, actor_id, occurred_at").eq("aggregate_id", id).order("occurred_at", { ascending: false }).limit(20),
       loadTeam(supabase),
       supabase.from("sub_price_items").select("id, contractor_id, description, unit, bill_unit_cents, pay_unit_cents")
@@ -91,8 +91,10 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
   // Who can be on the job: everyone active, plus anyone already on it who has since left the list.
   const pickable = (workers ?? []).filter((w) => w.is_active || crew.some((c) => c.id === w.id));
   const isOwner = member.role === "owner";
+  const weekly = contractor.billing !== "per_job";
+  const statement = live ? one(live.sub_statements) : null;
   const emailHeldUntil =
-    invoice && !invoice.sentAt && invoice.status !== "void" && invoice.contractor.billingEmail && job.done_at
+    !weekly && invoice && !invoice.sentAt && invoice.status !== "void" && invoice.contractor.billingEmail && job.done_at
       ? new Date(new Date(job.done_at).getTime() + 15 * 60_000).toISOString()
       : null;
 
@@ -126,14 +128,16 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
             ) : !fingerprint ? (
               <p role="status" className="text-sm text-danger">Finishing is unavailable right now, so this job can&apos;t be closed from here. Reload to try again.</p>
             ) : (
-              <Closeout jobId={job.id} contractor={contractor?.name ?? "Contractor"} email={contractor?.billing_email ?? null}
+              <Closeout jobId={job.id} contractor={contractor?.name ?? "Contractor"} email={contractor?.billing_email ?? null} weekly={weekly}
                 crew={crew} extras={extras.map(e => ({ ...e, qty: Number(e.qty) }))} crewRate={crewRate}
                 billRate={billRate} returnQuery={returnQuery}
                 fingerprint={JSON.stringify(fingerprint)} recheckHref={`${here}#finish`} stale={parseStale(query.stale)} initial={typed} />
             )}
             <p className="text-xs text-muted">
               Closing splits the crew pay, records earned crew pay for this week, and issues the invoice
-              {contractor?.billing_email ? `, emailed to ${contractor.billing_email} 15 minutes later` : " (no billing email on file, so it's ready to download)"}.
+              {weekly
+                ? `, which goes on ${contractor.name}'s weekly statement`
+                : contractor?.billing_email ? `, emailed to ${contractor.billing_email} 15 minutes later` : " (no billing email on file, so it's ready to download)"}.
             </p>
           </section>
 
@@ -288,11 +292,15 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
                   Issued {formatDate(invoice.issuedOn)} · due {formatDate(invoice.dueOn)} ·{" "}
                   {invoice.status === "paid"
                     ? "paid"
-                    : invoice.sentAt
-                      ? `emailed ${formatDateTime(invoice.sentAt)}`
-                      : emailHeldUntil
-                        ? `emails to ${invoice.contractor.billingEmail} at ${formatDateTime(emailHeldUntil)}`
-                        : "not emailed (no billing email)"}
+                    : statement && statement.status !== "void"
+                      ? <>on <Link className="underline" href={`/office/subs/statements/${statement.id}`}>statement #{statement.number}</Link></>
+                      : weekly
+                        ? <>waiting for {invoice.contractor.name}&apos;s weekly <Link className="underline" href="/office/subs/statements">statement</Link></>
+                        : invoice.sentAt
+                          ? `emailed ${formatDateTime(invoice.sentAt)}`
+                          : emailHeldUntil
+                            ? `emails to ${invoice.contractor.billingEmail} at ${formatDateTime(emailHeldUntil)}`
+                            : "not emailed (no billing email)"}
                 </p>
                 <table className="table">
                   <tbody>
@@ -353,7 +361,12 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
             )}
           </div>
 
-          {isOwner && invoice?.status === "open" && invoice.payments.length === 0 && (
+          {isOwner && invoice?.status === "open" && invoice.payments.length === 0 && statement && statement.status !== "void" && (
+            <p className="card text-sm text-muted">
+              To fix this job, void <Link className="underline" href={`/office/subs/statements/${statement.id}`}>statement #{statement.number}</Link> first; then it can be reopened.
+            </p>
+          )}
+          {isOwner && invoice?.status === "open" && invoice.payments.length === 0 && !(statement && statement.status !== "void") && (
             <section className="card space-y-2">
               <p className="text-sm text-muted">Wrong squares, pitch or crew? Reopen the job to fix it.</p>
               <ConfirmAction
@@ -363,10 +376,10 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
                 hidden={{ jobId: job.id, returnQuery }}
                 reason={{ label: "What was wrong", placeholder: "Squares were 22, not 25…" }}
                 effects={[
-                  `Invoice #${invoice.number} for ${formatCents(invoice.totalCents)} is voided. It stays on record with your reason${!invoice.sentAt && invoice.contractor.billingEmail ? ", and its email won't go out" : ""}.`,
+                  `Invoice #${invoice.number} for ${formatCents(invoice.totalCents)} is voided. It stays on record with your reason${!weekly && !invoice.sentAt && invoice.contractor.billingEmail ? ", and its email won't go out" : ""}.`,
                   ...(invoice.sentAt ? [`${invoice.contractor.name} already has it by email, so let them know it's replaced.`] : []),
                   `The ${formatCents(job.pay_total_cents)} crew pay recorded for this job is cleared until it closes again.`,
-                  "The job goes back to scheduled. Closing it again issues a new invoice with a new number.",
+                  `The job goes back to scheduled. Closing it again issues a new invoice with a new number${weekly ? ", for the next statement" : ""}.`,
                 ]}
                 acknowledgment={`Void invoice #${invoice.number} and reopen the job.`}
                 submitLabel="Reopen job"

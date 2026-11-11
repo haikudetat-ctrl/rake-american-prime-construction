@@ -17,6 +17,7 @@ type Contractor = {
   cents_per_sq: number;
   pitch_tiers: unknown;
   min_job_cents: number | null;
+  billing: "weekly" | "per_job";
   notes: string | null;
   is_active: boolean;
 };
@@ -59,7 +60,19 @@ function ContractorFields({ c }: { c?: Contractor }) {
         </label>
       </div>
       <p id="tier-hint" className="text-xs text-muted">{TIER_HINT} The minimum applies to jobs with squares, and prints as its own line on the invoice.</p>
-      <label className="label"><span>Notes</span><input name="notes" defaultValue={c?.notes ?? ""} className="input" /></label>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <label className="label"><span>Billing</span>
+          <select name="billing" defaultValue={c?.billing ?? "weekly"} className="input">
+            <option value="weekly">Weekly statement</option>
+            <option value="per_job">Invoice per job</option>
+          </select>
+        </label>
+        <label className="label sm:col-span-2"><span>Notes</span><input name="notes" defaultValue={c?.notes ?? ""} className="input" /></label>
+      </div>
+      <p className="text-xs text-muted">
+        Weekly: closed jobs wait and go out together on one statement every Monday (or when you send it from Statements).
+        Per job: each invoice emails 15 minutes after the job closes.
+      </p>
     </>
   );
 }
@@ -164,7 +177,7 @@ export default async function SubsSetupPage({ searchParams }: PageProps<"/office
               <details className={`rounded-md border border-border p-3 ${c.is_active ? "" : "opacity-60"}`}>
                 <summary className="cursor-pointer">
                   <span className="font-medium">{c.name}</span>
-                  <span className="text-sm text-muted"> · {rateText(c.cents_per_sq, readTiers(c.pitch_tiers), c.min_job_cents)} · {c.payment_terms_days} days
+                  <span className="text-sm text-muted"> · {rateText(c.cents_per_sq, readTiers(c.pitch_tiers), c.min_job_cents)} · {c.billing === "per_job" ? "invoice per job" : "weekly statement"} · {c.payment_terms_days} days
                     {c.billing_email ? ` · ${c.billing_email}` : " · no billing email"}{c.is_active ? "" : " · inactive"}</span>
                 </summary>
                 <form action={saveSubContractor} className="mt-3 space-y-2">

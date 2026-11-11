@@ -32,14 +32,23 @@ apply to it.
    - splits the crew pot evenly; leftover cents go one each to the first names, so shares
      always add up to the pot,
    - issues the contractor's invoice (numbered from the same sequence as dumpster invoices),
-   - queues the invoice email (PDF attached) 15 minutes out, if the contractor has a billing
-     email. Reopening in that window voids the invoice and the email is skipped.
+   - for a contractor billed **per job**, queues the invoice email (PDF attached) 15 minutes out,
+     if they have a billing email. Reopening in that window voids the invoice and the email is
+     skipped. A contractor billed **weekly** (the default) gets nothing yet: see step 4.
 3. **Sunday**: Subcontracting → Payroll: every closed job in the week (Mon–Sun), per person,
    with the roofs behind each amount. Jobs still open are called out, because they aren't in
    the totals.
-4. **Paid**: record the check or ACH on the job. Paid in full closes the invoice.
+4. **Monday** (weekly contractors): the daily cron issues one statement per contractor for every
+   closed, unbilled job worked through the Sunday before, and emails it with a PDF listing each
+   job's lines. The office can send one sooner from Subcontracting → Statements ("Send statement
+   now" bills everything closed so far). The jobs' invoices take the statement's due date.
+5. **Paid**: record the check against the statement; it is spread over the statement's invoices,
+   oldest first, and the statement is paid when they all are. A per-job contractor's check is
+   recorded on the job.
 
-Mistakes: an owner can reopen a closed job while its invoice has no payment. That voids the
+Mistakes: an owner can reopen a closed job while its invoice has no payment and isn't on a live
+statement (void the statement first; its jobs go back to waiting and the corrected ones go on the
+next statement). That voids the
 invoice (kept on record) and closing again issues a new one with a new number. A job that
 didn't happen is cancelled.
 
@@ -52,6 +61,10 @@ didn't happen is cancelled.
 - `supabase/migrations/20261111180000_sub_pitch_tiers_minimum_price_list.sql`: pitch tiers, the
   minimum job charge, contractor price lists (`sub_price_items`, `add_sub_job_price_item`) and
   gutter-only jobs. `docs/ops/2026-11-11-allseason-veteran-rates.sql` loads the live rates.
+- `supabase/migrations/20261111200000_sub_weekly_statements.sql`: billing per contractor
+  (weekly or per job), `sub_statements`, `issue_sub_statement(s)`, `record_sub_statement_payment`,
+  `void_sub_statement`. Pages in `app/office/subs/statements/`, loader `lib/subcontract/statement.ts`,
+  PDF `lib/pdf/sub-statement-document.tsx`, the `sub_statement_issued` branch in the outbox.
 - `supabase/migrations/20261109152244_closeout_fingerprint.sql`: `sub_job_closeout_fingerprint`
   and the `p_expected_fingerprint` check in `complete_sub_job`, so a close can't invoice numbers
   that changed after the office reviewed them.

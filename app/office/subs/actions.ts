@@ -146,15 +146,17 @@ export async function completeSubJob(form: FormData) {
   if (error) back(jobPath(form), errorText(error), "error");
   const { data: invoice } = await supabase
     .from("sub_invoices")
-    .select("number, total_cents, sub_contractors(billing_email)")
+    .select("number, total_cents, sub_contractors(name, billing_email, billing)")
     .eq("id", invoiceId)
     .single();
-  const email = (Array.isArray(invoice?.sub_contractors) ? invoice?.sub_contractors[0] : invoice?.sub_contractors)?.billing_email;
+  const gc = Array.isArray(invoice?.sub_contractors) ? invoice?.sub_contractors[0] : invoice?.sub_contractors;
   done(
     jobPath(form),
-    `Closed. Invoice #${invoice?.number} for ${formatCents(invoice?.total_cents)} ${
-      email ? `emails to ${email} in 15 minutes.` : "is ready to download (no billing email on file)."
-    }`,
+    gc?.billing === "per_job"
+      ? `Closed. Invoice #${invoice?.number} for ${formatCents(invoice?.total_cents)} ${
+          gc.billing_email ? `emails to ${gc.billing_email} in 15 minutes.` : "is ready to download (no billing email on file)."
+        }`
+      : `Closed. Invoice #${invoice?.number} for ${formatCents(invoice?.total_cents)} goes on ${gc?.name ?? "the contractor"}'s weekly statement.`,
   );
 }
 
@@ -198,6 +200,49 @@ export async function voidSubPayment(form: FormData) {
   done(jobPath(form), "Payment voided.");
 }
 
+// Weekly statements ------------------------------------------------------------------
+
+const STATEMENTS = "/office/subs/statements";
+
+/** Bill one contractor now for every closed job waiting, and email the statement. */
+export async function issueSubStatement(form: FormData) {
+  const { supabase } = await staffClient();
+  if (!acknowledged(form)) back(STATEMENTS, "Tick the box to confirm the statement.", "error");
+  const { data: id, error } = await supabase.rpc("issue_sub_statement", { p_contractor_id: str(form, "contractorId") });
+  if (error) back(STATEMENTS, errorText(error), "error");
+  // Send it now rather than on the next cron run.
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  revalidatePath("/office/subs", "layout");
+  back(`${STATEMENTS}/${id}`, "Statement issued.");
+}
+
+export async function recordSubStatementPayment(form: FormData) {
+  const { supabase } = await staffClient();
+  const id = str(form, "statementId");
+  const amount = parseDollarsToCents(str(form, "amount"));
+  if (amount === null) back(`${STATEMENTS}/${id}`, "Enter the amount, like 2875 or 2,875.00.", "error");
+  const { error } = await supabase.rpc("record_sub_statement_payment", {
+    p_statement_id: id,
+    p_amount_cents: amount,
+    p_method: str(form, "method") || "check",
+    p_reference: optional(form, "reference"),
+    p_received_on: optional(form, "receivedOn"),
+  });
+  if (error) back(`${STATEMENTS}/${id}`, errorText(error), "error");
+  done(`${STATEMENTS}/${id}`, "Payment recorded against the statement's jobs, oldest first.");
+}
+
+export async function voidSubStatement(form: FormData) {
+  await requireOwner();
+  const id = str(form, "statementId");
+  if (!acknowledged(form)) back(`${STATEMENTS}/${id}`, "Tick the box to confirm the void.", "error");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("void_sub_statement", { p_statement_id: id, p_reason: str(form, "reason") });
+  if (error) back(`${STATEMENTS}/${id}`, errorText(error), "error");
+  done(`${STATEMENTS}/${id}`, "Statement voided. Its jobs are waiting again; fix them, then issue a new statement.");
+}
+
 // Setup -----------------------------------------------------------------------------
 
 const SETUP = "/office/subs/setup";
@@ -221,6 +266,7 @@ export async function saveSubContractor(form: FormData) {
     cents_per_sq: rate,
     pitch_tiers: tiers.tiers,
     min_job_cents: minimum,
+    billing: str(form, "billing") === "per_job" ? "per_job" : "weekly",
     notes: optional(form, "notes"),
     is_active: form.get("active") !== null || !form.get("id"),
   };

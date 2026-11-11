@@ -7,6 +7,7 @@
  * decides an amount, it only lays out what was stored.
  */
 
+import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 
 export function pitchLabel(pitch: number): string {
@@ -67,6 +68,11 @@ export function jobLines(job: FrozenJob, extras: Extra[], what = "Roof labor"): 
     });
   }
   return lines;
+}
+
+/** "Mon, Nov 9 to Fri, Nov 13" for a statement's work, or one day. */
+export function periodText(start: string, end: string): string {
+  return start === end ? formatDate(start) : `${formatDate(start)} to ${formatDate(end)}`;
 }
 
 /** "24 squares · 12/12 pitch", or "Gutters and extras" for a job with no squares. */

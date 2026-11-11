@@ -1,5 +1,7 @@
 import type { StatementView } from "@/lib/billing/statement";
 import type { SubInvoiceView } from "@/lib/subcontract/invoice";
+import type { SubStatementView } from "@/lib/subcontract/statement";
+import { periodText } from "@/lib/subcontract/view";
 import { formatDate } from "@/lib/dates";
 import type { Locale } from "@/lib/i18n";
 import { formatCents } from "@/lib/money";
@@ -185,6 +187,30 @@ export function subInvoiceEmail(i: SubInvoiceView): { subject: string; text: str
       `Thank you,`,
       i.brand.name,
       i.brand.phone ? formatPhone(i.brand.phone) : "",
+    ]
+      .join("\n")
+      .trimEnd(),
+  };
+}
+
+export function subStatementEmail(s: SubStatementView): { subject: string; text: string } {
+  const jobs = s.invoices.map((i) => `  #${i.number}  ${formatDate(i.workDate)}  ${i.address}  ${formatCents(i.totalCents)}`);
+  const period = periodText(s.periodStart, s.periodEnd);
+  return {
+    subject: `Statement #${s.number} from ${s.brand.name}: ${s.invoices.length} ${s.invoices.length === 1 ? "job" : "jobs"}, ${formatCents(s.balanceCents)} due ${formatDate(s.dueOn)}`,
+    text: [
+      `Hi ${s.contractor.name},`,
+      "",
+      `Here is our statement for the labor we did for you ${period}. The PDF is attached, with every job's line items.`,
+      "",
+      ...jobs,
+      "",
+      `Total due: ${formatCents(s.balanceCents)} by ${formatDate(s.dueOn)}.`,
+      `One check for the balance to ${s.brand.name}${s.brand.address ? ` (${s.brand.address})` : ""}, or ACH; reply for bank details. Please include statement #${s.number}.`,
+      "",
+      `Thank you,`,
+      s.brand.name,
+      s.brand.phone ? formatPhone(s.brand.phone) : "",
     ]
       .join("\n")
       .trimEnd(),
