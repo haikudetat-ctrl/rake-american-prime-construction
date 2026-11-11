@@ -25,8 +25,8 @@ const SELECT = `
   id, number, issued_on, due_on, status, void_reason, sent_at, total_cents, company_id,
   sub_contractors(name, billing_email),
   sub_payments(id, amount_cents, method, reference, received_on, voided_at),
-  sub_jobs(id, address, work_date, squares, pitch, bill_base_cents, bill_pitch_cents,
-    sub_job_extras(description, qty, bill_unit_cents, created_at))
+  sub_jobs(id, address, work_date, squares, pitch, bill_base_cents, bill_pitch_cents, bill_minimum_cents,
+    sub_job_extras(description, qty, unit, bill_unit_cents, created_at))
 `;
 
 /**
@@ -48,7 +48,7 @@ export async function loadSubInvoice(db: SupabaseClient, id: string): Promise<Su
   const contractor = one(row.sub_contractors as any) as any;
   const extras = [...(job?.sub_job_extras ?? [])]
     .sort((a: any, b: any) => String(a.created_at).localeCompare(String(b.created_at)))
-    .map((e: any) => ({ description: e.description, qty: Number(e.qty), unitCents: e.bill_unit_cents }));
+    .map((e: any) => ({ description: e.description, qty: Number(e.qty), unitCents: e.bill_unit_cents, unit: e.unit ?? null }));
   const payments = ((row.sub_payments as any[]) ?? [])
     .filter((p) => !p.voided_at)
     .map((p) => ({ id: p.id, amountCents: p.amount_cents, method: p.method, reference: p.reference, receivedOn: p.received_on }));
@@ -80,10 +80,17 @@ export async function loadSubInvoice(db: SupabaseClient, id: string): Promise<Su
       squares: Number(job?.squares ?? 0),
       pitch: job?.pitch ?? 0,
     },
-    // Lines are laid out from the rates frozen on the job when it closed.
-    lines: job?.squares
+    // Lines are laid out from the rates frozen on the job when it closed. A
+    // gutter-only job closes at 0 squares, so "closed" is squares being set.
+    lines: job?.squares != null
       ? jobLines(
-          { squares: Number(job.squares), pitch: job.pitch, baseCents: job.bill_base_cents ?? 0, pitchCents: job.bill_pitch_cents ?? 0 },
+          {
+            squares: Number(job.squares),
+            pitch: job.pitch ?? 0,
+            baseCents: job.bill_base_cents ?? 0,
+            pitchCents: job.bill_pitch_cents ?? 0,
+            minimumCents: job.bill_minimum_cents ?? 0,
+          },
           extras,
         )
       : [],

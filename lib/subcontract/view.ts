@@ -22,34 +22,56 @@ export type FrozenJob = {
   pitch: number;
   baseCents: number;
   pitchCents: number;
+  /** The top-up to the contractor's minimum job charge, frozen at close. */
+  minimumCents?: number;
 };
 
-export type Extra = { description: string; qty: number; unitCents: number };
+/** `unit` is what a price-list extra is counted in; null for one typed by hand. */
+export type Extra = { description: string; qty: number; unitCents: number; unit?: string | null };
+
+/** "120 ft", "24.5 sq"; plain counts (each, sheets) stay bare. */
+function counted(qty: number, unit: string | null | undefined): string {
+  return unit === "ft" || unit === "sq" ? `${quantity(qty)} ${unit}` : quantity(qty);
+}
 
 export type InvoiceLine = { description: string; amountCents: number };
 
 /**
  * One line for the squares (base and pitch together, rounded once, exactly
- * as the database totals it) and one per extra.
+ * as the database totals it), one per extra, and the minimum top-up last.
+ * A gutter-only job has no squares, so no squares line.
  */
 export function jobLines(job: FrozenJob, extras: Extra[], what = "Roof labor"): InvoiceLine[] {
   const rate = job.baseCents + job.pitchCents;
   const pitchNote = job.pitchCents > 0
     ? ` (${formatCents(job.baseCents)} + ${formatCents(job.pitchCents)} for ${pitchLabel(job.pitch)} pitch)`
     : ` (${pitchLabel(job.pitch)} pitch)`;
-  const lines: InvoiceLine[] = [
-    {
+  const lines: InvoiceLine[] = [];
+  if (job.squares > 0) {
+    lines.push({
       description: `${what}: ${quantity(job.squares)} squares at ${formatCents(rate)}${pitchNote}`,
       amountCents: Math.round(job.squares * rate),
-    },
-  ];
+    });
+  }
   for (const extra of extras) {
     lines.push({
-      description: `${extra.description}: ${quantity(extra.qty)} at ${formatCents(extra.unitCents)}`,
+      description: `${extra.description}: ${counted(extra.qty, extra.unit)} at ${formatCents(extra.unitCents)}`,
       amountCents: Math.round(extra.qty * extra.unitCents),
     });
   }
+  if (job.minimumCents && job.minimumCents > 0) {
+    const subtotal = lines.reduce((sum, l) => sum + l.amountCents, 0);
+    lines.push({
+      description: `Minimum job charge: brings this job to ${formatCents(subtotal + job.minimumCents)}`,
+      amountCents: job.minimumCents,
+    });
+  }
   return lines;
+}
+
+/** "24 squares · 12/12 pitch", or "Gutters and extras" for a job with no squares. */
+export function jobScope(squares: number, pitch: number): string {
+  return squares > 0 ? `${quantity(squares)} squares · ${pitchLabel(pitch)} pitch` : "Gutters and extras";
 }
 
 export type PayrollRow = {

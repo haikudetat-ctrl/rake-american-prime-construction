@@ -6,6 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   addSubExtra,
+  addSubPriceItem,
   cancelSubJob,
   recordSubPayment,
   removeSubExtra,
@@ -23,6 +24,8 @@ import { formatCents } from "@/lib/money";
 import { loadTeam, one } from "@/lib/office/team";
 import { loadSubInvoice } from "@/lib/subcontract/invoice";
 import { parseStale } from "@/lib/subcontract/review";
+import { readTiers, unitLabel } from "@/lib/subcontract/tiers";
+import { jobScope } from "@/lib/subcontract/view";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const EXTRA_IDEAS = ["Plywood sheet", "Extra layer tear-off", "Second story", "Step flashing", "Chimney flashing"];
@@ -39,11 +42,11 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
   // the check when the job is closed, so a review can never confirm older numbers.
   const { data: fingerprint } = await supabase.rpc("sub_job_closeout_fingerprint", { p_job_id: id });
 
-  const [{ data: job, error: jobError }, { data: contractors, error: contractorError }, { data: workers, error: workerError }, { data: settings, error: settingsError }, { data: invoices, error: invoiceError }, { data: events }, team] =
+  const [{ data: job, error: jobError }, { data: contractors, error: contractorError }, { data: workers, error: workerError }, { data: settings, error: settingsError }, { data: invoices, error: invoiceError }, { data: events }, team, { data: priceItems }] =
     await Promise.all([
       supabase
         .from("sub_jobs")
-        .select("*, sub_contractors(id, name, billing_email, cents_per_sq, pitch_from, pitch_step_cents), sub_job_crew(worker_id, pay_cents, sub_workers(name)), sub_job_extras(id, description, qty, bill_unit_cents, pay_unit_cents, created_at)")
+        .select("*, sub_contractors(id, name, billing_email, cents_per_sq, pitch_tiers, min_job_cents), sub_job_crew(worker_id, pay_cents, sub_workers(name)), sub_job_extras(id, description, qty, unit, bill_unit_cents, pay_unit_cents, created_at)")
         .eq("id", id)
         .maybeSingle(),
       supabase.from("sub_contractors").select("id, name").order("name"),
@@ -52,6 +55,8 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
       supabase.from("sub_invoices").select("id, number, status, void_reason").eq("job_id", id).order("created_at", { ascending: false }),
       supabase.from("domain_events").select("event_type, payload, actor_id, occurred_at").eq("aggregate_id", id).order("occurred_at", { ascending: false }).limit(20),
       loadTeam(supabase),
+      supabase.from("sub_price_items").select("id, contractor_id, description, unit, bill_unit_cents, pay_unit_cents")
+        .eq("is_active", true).order("description"),
     ]);
   // RLS scoped every read above to staff of this company.
   if (jobError || settingsError || invoiceError || workerError || contractorError) return <Unavailable />;
@@ -73,9 +78,16 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
   const names = new Map(team.map((m) => [m.userId, m.name]));
   const crewRate = {
     base: settings?.crew_cents_per_sq ?? 5000,
-    from: settings?.crew_pitch_from ?? 9,
-    step: settings?.crew_pitch_step_cents ?? 500,
+    // Same default as the database when no crew rates were ever saved: $5 a step from 9/12.
+    tiers: settings ? readTiers(settings.crew_pitch_tiers) : Array.from({ length: 16 }, (_, i) => ({ from: 9 + i, cents: 500 * (i + 1) })),
   };
+  const billRate = {
+    base: contractor?.cents_per_sq ?? 0,
+    tiers: readTiers(contractor?.pitch_tiers),
+    minimumCents: contractor?.min_job_cents ?? null,
+  };
+  // Only this job's contractor's list: the database refuses anyone else's.
+  const listItems = (priceItems ?? []).filter((i) => i.contractor_id === job.contractor_id);
   // Who can be on the job: everyone active, plus anyone already on it who has since left the list.
   const pickable = (workers ?? []).filter((w) => w.is_active || crew.some((c) => c.id === w.id));
   const isOwner = member.role === "owner";
@@ -105,8 +117,8 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
           <section id="finish" className="card-stripe scroll-mt-4 space-y-3">
             <h2 className="font-semibold">Finish job</h2>
             <p className="text-sm text-muted">
-              {contractor?.name} pays {contractor && rateText(contractor.cents_per_sq, contractor.pitch_from, contractor.pitch_step_cents)}.
-              {" "}Crew gets {rateText(crewRate.base, crewRate.from, crewRate.step)}
+              {contractor?.name} pays {rateText(billRate.base, billRate.tiers, billRate.minimumCents)}.
+              {" "}Crew gets {rateText(crewRate.base, crewRate.tiers)}
               {crew.length > 0 ? `, split ${crew.length} ways` : ""}.
             </p>
             {crew.length === 0 ? (
@@ -116,7 +128,7 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
             ) : (
               <Closeout jobId={job.id} contractor={contractor?.name ?? "Contractor"} email={contractor?.billing_email ?? null}
                 crew={crew} extras={extras.map(e => ({ ...e, qty: Number(e.qty) }))} crewRate={crewRate}
-                billRate={{ base: contractor?.cents_per_sq ?? 0, from: contractor?.pitch_from ?? 9, step: contractor?.pitch_step_cents ?? 0 }} returnQuery={returnQuery}
+                billRate={billRate} returnQuery={returnQuery}
                 fingerprint={JSON.stringify(fingerprint)} recheckHref={`${here}#finish`} stale={parseStale(query.stale)} initial={typed} />
             )}
             <p className="text-xs text-muted">
@@ -128,7 +140,7 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
           <section className="card space-y-3">
             <h2 className="font-semibold">Extras</h2>
             {extras.length === 0 ? (
-              <p className="text-sm text-muted">Plywood, an extra layer, a second story: anything paid beyond the squares.</p>
+              <p className="text-sm text-muted">Gutters, plywood, an extra layer, a second story: anything paid beyond the squares. A gutter-only job closes at 0 squares.</p>
             ) : (
               <table className="table">
                 <thead><tr><th>Extra</th><th className="text-right">Qty</th><th className="text-right">Contractor pays</th><th className="text-right">Crew gets</th><th /></tr></thead>
@@ -137,8 +149,8 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
                     <tr key={e.id}>
                       <td>{e.description}</td>
                       <td className="text-right">{Number(e.qty)}</td>
-                      <td className="text-right">{formatCents(e.bill_unit_cents)} each</td>
-                      <td className="text-right">{formatCents(e.pay_unit_cents)} each</td>
+                      <td className="text-right">{formatCents(e.bill_unit_cents)} {unitLabel(e.unit)}</td>
+                      <td className="text-right">{formatCents(e.pay_unit_cents)} {unitLabel(e.unit)}</td>
                       <td className="w-px">
                         <form action={removeSubExtra}>
                           <input type="hidden" name="jobId" value={job.id} />
@@ -151,6 +163,24 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
                   ))}
                 </tbody>
               </table>
+            )}
+            {listItems.length > 0 && (
+              <form action={addSubPriceItem} className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
+                <input type="hidden" name="jobId" value={job.id} />
+                <input type="hidden" name="returnQuery" value={returnQuery} />
+                <label className="label col-span-2 sm:col-span-3">
+                  <span>From {contractor.name}&apos;s price list</span>
+                  <select name="itemId" required className="input">
+                    {listItems.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.description}: {formatCents(i.bill_unit_cents)} {unitLabel(i.unit)} (crew {formatCents(i.pay_unit_cents)})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="label"><span>How many</span><input name="qty" required inputMode="decimal" placeholder="120" className="input" /></label>
+                <button className="btn-secondary">Add</button>
+              </form>
             )}
             <form action={addSubExtra} className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
               <input type="hidden" name="jobId" value={job.id} />
@@ -228,9 +258,15 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
               <h2 className="font-semibold">Crew pay earned</h2>
               <p className="text-sm text-muted">Worker payment status is not tracked.</p>
               <p className="text-sm text-muted">
-                {Number(job.squares)} sq × {formatCents((job.pay_base_cents ?? 0) + (job.pay_pitch_cents ?? 0))}
-                {(job.pay_pitch_cents ?? 0) > 0 && <> ({formatCents(job.pay_base_cents)} + {formatCents(job.pay_pitch_cents)} for {job.pitch}/12)</>}
-                {extras.some((e) => e.pay_unit_cents > 0) && <> plus extras</>}, split {crew.length} ways.
+                {Number(job.squares) > 0 ? (
+                  <>
+                    {Number(job.squares)} sq × {formatCents((job.pay_base_cents ?? 0) + (job.pay_pitch_cents ?? 0))}
+                    {(job.pay_pitch_cents ?? 0) > 0 && <> ({formatCents(job.pay_base_cents)} + {formatCents(job.pay_pitch_cents)} for {job.pitch}/12)</>}
+                    {extras.some((e) => e.pay_unit_cents > 0) && <> plus extras</>}
+                  </>
+                ) : (
+                  <>{jobScope(0, 0)}</>
+                )}, split {crew.length} ways.
               </p>
               <table className="table">
                 <tbody>

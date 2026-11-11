@@ -36,8 +36,9 @@ select is((select count(*)::int from public.sub_job_crew where job_id = :'job1')
 select tests.act_as('00000000-0000-0000-0000-000000000002');
 select public.update_sub_job(:'job1', :'all_season', current_date, '232 Hewitt St, Trenton', 'Gate code 1234',
   array[:'baltimore', :'carlos', :'fernando']::uuid[]);
+select throws_ok(format($$ select public.complete_sub_job(%L, 0, 12) $$, :'job1'), 'P0001', 'enter the squares',
+  'squares are required on a job with nothing else to bill');
 select public.add_sub_job_extra(:'job1', 'Plywood sheet', 3, 4500, 1500);
-select throws_ok(format($$ select public.complete_sub_job(%L, 0, 12) $$, :'job1'), 'P0001', 'enter the squares', 'squares are required');
 select throws_ok(format($$ select public.complete_sub_job(%L, 25, 30) $$, :'job1'), 'P0001', 'enter the pitch (0 to 24)', 'pitch is checked');
 select public.complete_sub_job(:'job1', 25, 12) as invoice1 \gset
 reset role;

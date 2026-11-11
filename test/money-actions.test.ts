@@ -125,7 +125,7 @@ describe('uncertain outcomes (screen 84)', () => {
 describe('review screens', () => {
   const props = {
     jobId: 'job-1', contractor: 'Example GC', email: 'ap@example.com', crew: [{ id: 'w1', name: 'Avery' }, { id: 'w2', name: 'Blake' }],
-    extras: [], billRate: { base: 9500, from: 9, step: 500 }, crewRate: { base: 5000, from: 9, step: 500 }, returnQuery: '',
+    extras: [], billRate: { base: 9500, tiers: [{ from: 9, cents: 500 }] }, crewRate: { base: 5000, tiers: [{ from: 9, cents: 500 }] }, returnQuery: '',
     fingerprint: JSON.stringify(FP), recheckHref: '/office/subs/job-1#finish',
   };
   it('opens straight into a fresh review after a stale close, with what changed', () => {
