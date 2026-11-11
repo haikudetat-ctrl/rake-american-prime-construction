@@ -26,6 +26,7 @@ import {
   voicemailReceivedSms,
   type Brand,
 } from "@/lib/outbox/messages";
+import { canSendSms, senderFor, withSenderName, type SmsSender } from "@/lib/outbox/sms-sender";
 import { renderStatementPdf, renderSubInvoicePdf } from "@/lib/pdf/render";
 import { loadSubInvoice } from "@/lib/subcontract/invoice";
 import { adminClient } from "@/lib/supabase/admin";
@@ -42,16 +43,16 @@ type OutboxMessage = {
 
 class Skip extends Error {}
 
-function smsClient() {
-  const { TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, TWILIO_MESSAGING_SERVICE_SID } = process.env;
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_API_KEY_SID || !TWILIO_API_KEY_SECRET || !TWILIO_MESSAGING_SERVICE_SID) return null;
+type SmsClient = { client: TwilioMessagingClient; messagingServiceSid: string };
+
+function smsClient(sender: SmsSender): SmsClient {
   return {
     client: new TwilioMessagingClient({
-      accountSid: TWILIO_ACCOUNT_SID,
-      apiKeySid: TWILIO_API_KEY_SID,
-      apiKeySecret: TWILIO_API_KEY_SECRET,
+      accountSid: sender.accountSid,
+      apiKeySid: sender.apiKeySid,
+      apiKeySecret: sender.apiKeySecret,
     }),
-    messagingServiceSid: TWILIO_MESSAGING_SERVICE_SID,
+    messagingServiceSid: sender.messagingServiceSid,
   };
 }
 
@@ -135,7 +136,7 @@ async function optedOut(companyId: string, phone: string): Promise<boolean> {
 const PERMANENT_SMS_ERRORS = new Set(["21610", "21614", "21211", "21612", "21408"]);
 
 /** An office reply from the inbox: send it and record the outcome on the message. */
-async function sendReply(sms: NonNullable<ReturnType<typeof smsClient>>, message: OutboxMessage): Promise<void> {
+async function sendReply(sms: SmsClient, message: OutboxMessage): Promise<void> {
   const p = message.payload;
   const db = adminClient();
   const { data: optedOut } = await db
@@ -171,8 +172,13 @@ async function deliver(message: OutboxMessage): Promise<void> {
   const appUrl = process.env.APP_URL ?? "";
 
   if (message.channel === "sms") {
-    const sms = smsClient();
-    if (!sms) throw new Error("SMS not configured");
+    // Staff alerts may go out on the ops sender; customer texts only ever on the
+    // business's own number. With only the ops sender set, customer texts fail
+    // (and go dead after their retries) rather than wait: a booking text that
+    // arrives weeks later, once the business is registered, does more harm than good.
+    const sender = senderFor(message.kind, process.env);
+    if (!sender) throw new Error("SMS not configured for this message");
+    const sms = smsClient(sender);
     if (CUSTOMER_SMS.has(message.kind) && (await optedOut(message.company_id, String(p.to)))) {
       throw new Skip("recipient replied STOP");
     }
@@ -250,7 +256,12 @@ async function deliver(message: OutboxMessage): Promise<void> {
     } else {
       throw new Skip(`unknown sms kind ${message.kind}`);
     }
-    await sms.client.send({ messagingServiceSid: sms.messagingServiceSid, to: String(p.to), body, statusCallback: null });
+    await sms.client.send({
+      messagingServiceSid: sms.messagingServiceSid,
+      to: String(p.to),
+      body: withSenderName(sender, body),
+      statusCallback: null,
+    });
     return;
   }
 
@@ -311,7 +322,7 @@ async function deliver(message: OutboxMessage): Promise<void> {
  * so their messages wait instead of failing.
  */
 export async function drainOutbox(batchSize = 20) {
-  const channels = [smsClient() && "sms", emailConfig() && "email"].filter(Boolean) as string[];
+  const channels = [canSendSms(process.env) && "sms", emailConfig() && "email"].filter(Boolean) as string[];
   if (channels.length === 0) return { claimed: 0, sent: 0, failed: 0, skipped: 0, channels };
 
   const db = adminClient();
