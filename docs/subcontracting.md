@@ -58,10 +58,10 @@ didn't happen is cancelled.
   and crews see none of it), and the workflow functions (`create_sub_job`, `update_sub_job`,
   `add_sub_job_extra`, `complete_sub_job`, `reopen_sub_job`, `cancel_sub_job`,
   `record_sub_payment`, `void_sub_payment`). The money is computed here.
-- `supabase/migrations/20261111180000_sub_pitch_tiers_minimum_price_list.sql`: pitch tiers, the
+- `supabase/migrations/20261112143433_sub_pitch_tiers_minimum_price_list.sql`: pitch tiers, the
   minimum job charge, contractor price lists (`sub_price_items`, `add_sub_job_price_item`) and
   gutter-only jobs. `docs/ops/2026-11-11-allseason-veteran-rates.sql` loads the live rates.
-- `supabase/migrations/20261111200000_sub_weekly_statements.sql`: billing per contractor
+- `supabase/migrations/20261112143611_sub_weekly_statements.sql`: billing per contractor
   (weekly or per job), `sub_statements`, `issue_sub_statement(s)`, `record_sub_statement_payment`,
   `void_sub_statement`. Pages in `app/office/subs/statements/`, loader `lib/subcontract/statement.ts`,
   PDF `lib/pdf/sub-statement-document.tsx`, the `sub_statement_issued` branch in the outbox.

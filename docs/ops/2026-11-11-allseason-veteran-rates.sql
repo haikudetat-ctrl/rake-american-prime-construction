@@ -1,4 +1,5 @@
--- Run once, right after 20261111180000_sub_pitch_tiers_minimum_price_list.
+-- Run once, right after 20261112143433_sub_pitch_tiers_minimum_price_list.
+-- Applied to production 2026-11-12, right after that migration.
 -- American Prime's live rates from the Nov 11 onboarding call and Andrey's
 -- Roofing & Repair Price Worksheet. Safe to re-run: every statement checks
 -- what is there first.
