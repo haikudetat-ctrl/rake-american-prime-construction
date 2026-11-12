@@ -25,9 +25,21 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # The runner's apt mirror has outages: on Nov 11 it couldn't resolve
+      # azure.archive.ubuntu.com for ~10 minutes and failed the job before any
+      # test ran. Retry the whole install, with short timeouts so a dead mirror
+      # fails fast instead of eating the job's 15 minutes.
       - name: Install Postgres 16 and pgTAP
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+          apt_opts="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          for attempt in 1 2 3; do
+            if sudo apt-get $apt_opts update && \
+               sudo apt-get $apt_opts install -y --no-install-recommends postgresql-16 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl; then
+              exit 0
+            fi
+            echo "::warning::apt install failed (attempt $attempt of 3); retrying in 30s"
+            sleep 30
+          done
+          exit 1
       - run: npm ci
       - run: npm run verify
