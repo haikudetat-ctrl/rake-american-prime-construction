@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import { optionPrice } from "@/lib/proposals/content";
+import { splitNotice } from "@/lib/proposals/disclosures";
 import { loadFullProposal, signatureDataUrl } from "@/lib/proposals/server";
 import { adminClient } from "@/lib/supabase/admin";
 import { BrandBar } from "@/app/_components/brand";
@@ -23,6 +24,7 @@ export default async function ProposalPublicPage({ params, searchParams }: PageP
   if (p.status === "sent" && !expired) await adminClient().rpc("record_proposal_view", { p_token: token });
 
   const { brand, content } = p;
+  const terms = splitNotice(content.terms);
   const signature = p.signature;
   const signatureImage = signature ? await signatureDataUrl(signature.signaturePath) : null;
 
@@ -84,8 +86,15 @@ export default async function ProposalPublicPage({ params, searchParams }: PageP
 
         <details className="card text-sm">
           <summary className="cursor-pointer font-semibold">Terms</summary>
-          <p className="mt-2 whitespace-pre-line text-xs">{content.terms}</p>
+          <p className="mt-2 whitespace-pre-line text-xs">{terms.body}</p>
         </details>
+
+        {/* NJ requires the right to cancel in at least 10-point bold, so it is never folded away. */}
+        {terms.notice && (
+          <section aria-label="Your right to cancel" className="card border-2 border-foreground">
+            <p className="whitespace-pre-line text-sm font-bold leading-relaxed">{terms.notice}</p>
+          </section>
+        )}
 
         {signature ? (
           <section className="card space-y-2">

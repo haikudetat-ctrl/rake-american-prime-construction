@@ -11,7 +11,8 @@ import { parseRoofrText } from "@/lib/estimate/roofr";
 import { activeCatalog, MEASUREMENT_COLUMNS, priceAndSaveProposal } from "@/lib/estimate/server";
 import { officeLeadSchema, STAGE_LABEL, type Stage } from "@/lib/leads/schema";
 import { contentHash, newProposalToken } from "@/lib/proposals/content";
-import { loadFullProposal, loadProposalSettings } from "@/lib/proposals/server";
+import { composeTerms, missingNjFacts } from "@/lib/proposals/disclosures";
+import { contractorFacts, loadFullProposal } from "@/lib/proposals/server";
 import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
@@ -781,15 +782,20 @@ export async function sendProposal(form: FormData) {
   if (!visible) back("/office/leads", "Proposal not found.", "error");
   const p = await loadFullProposal({ id });
   if (!p) back(path, "Proposal not found.", "error");
-  const settings = await loadProposalSettings(member.companyId);
-  const content = { ...p.content, terms: settings.terms };
+  const { settings, facts } = await contractorFacts(member.companyId, member.name || null);
+  // A NJ home improvement contract has required contents; don't send one without them.
+  if (settings.placeholder) back(path, "Replace the placeholder contract terms in Settings before sending proposals.", "error");
+  const missing = missingNjFacts(facts);
+  if (missing.length) back(path, `Before sending, add to Settings: ${missing.join(", ")}.`, "error");
+  const terms = composeTerms(settings.terms, facts);
+  const content = { ...p.content, terms };
   const { error } = await adminClient().rpc("send_proposal", {
     p_company_id: member.companyId,
     p_actor: member.userId,
     p_proposal_id: id,
     p_token: newProposalToken(),
     p_content_hash: contentHash(content),
-    p_terms: settings.terms,
+    p_terms: terms,
     p_valid_days: settings.validDays,
     p_by_text: form.get("byText") === "on",
     p_by_email: form.get("byEmail") === "on",
@@ -807,6 +813,12 @@ export async function reviseProposal(form: FormData) {
   done(`/office/proposals/${id}`, "New version drafted. Change it, then send it; sending replaces the old one.");
 }
 
+/** 1-365 days, or null when blank or out of range. */
+const days = (input: string) => {
+  const n = Number(input);
+  return Number.isInteger(n) && n >= 1 && n <= 365 ? n : null;
+};
+
 export async function saveProposalSettings(form: FormData) {
   const owner = await requireOwner();
   const terms = str(form, "terms");
@@ -816,6 +828,11 @@ export async function saveProposalSettings(form: FormData) {
     terms: terms.slice(0, 20000),
     valid_days: Math.min(365, Math.max(1, Number(str(form, "validDays")) || 30)),
     hic_number: optional(form, "hicNumber"),
+    legal_name: optional(form, "legalName"),
+    insurer_name: optional(form, "insurerName"),
+    insurer_phone: optional(form, "insurerPhone"),
+    start_within_days: days(str(form, "startWithinDays")),
+    finish_within_days: days(str(form, "finishWithinDays")),
     updated_by: owner.userId,
     updated_at: new Date().toISOString(),
   });
