@@ -8,7 +8,7 @@ import { sendStaffSignInCode } from "@/lib/staff-sign-in";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * Owner and office sign-in: a password, or a six-digit code emailed through
+ * Owner and office sign-in: a password, or a one-time code emailed through
  * Resend (which is also how someone sets their first password, or a new one).
  * There is no sign-up: people are added by an owner on the Team page.
  *
@@ -86,7 +86,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         {awaitingCode ? (
           <>
             {error !== "cooldown" && error !== "code" && (
-              <Flash tone="ok">If {email} is on the team, a 6-digit code is on its way. It can take a minute.</Flash>
+              <Flash tone="ok">If {email} is on the team, a sign-in code is on its way. It can take a minute.</Flash>
             )}
             <form action={verifyCode} className="space-y-3">
               <input type="hidden" name="email" value={email} />
