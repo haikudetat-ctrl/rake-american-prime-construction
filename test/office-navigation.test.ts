@@ -38,7 +38,7 @@ describe('office workspace routes', () => {
 
   it('does not mark Jobs selected on other subcontracting sections', () => {
     expect(sectionActive('/office/subs/abc', '/office/subs')).toBe(true);
-    for (const path of ['payroll', 'setup', 'invoices']) expect(sectionActive(`/office/subs/${path}`, '/office/subs')).toBe(false);
+    for (const path of ['payroll', 'setup', 'invoices', 'statements', 'statements/abc']) expect(sectionActive(`/office/subs/${path}`, '/office/subs')).toBe(false);
   });
 
   it('maps proposal and rental details to their secondary context', () => {

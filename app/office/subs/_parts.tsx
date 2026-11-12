@@ -1,4 +1,5 @@
 import { formatCents } from "@/lib/money";
+import { describeTiers, type PitchTier } from "@/lib/subcontract/tiers";
 
 export type Worker = { id: string; name: string };
 
@@ -22,10 +23,13 @@ export function CrewPicker({ workers, selected = [] }: { workers: Worker[]; sele
   );
 }
 
-/** "$95.00 a square, +$5.00 a square for each pitch step from 9/12". */
-export function rateText(centsPerSq: number, pitchFrom: number, stepCents: number): string {
-  const base = `${formatCents(centsPerSq)} a square`;
-  return stepCents > 0 ? `${base}, +${formatCents(stepCents)} a square for each pitch step from ${pitchFrom}/12` : base;
+/** "$120.00 a square, +$15.00 a square at 9-10/12, +$20.00 a square at 11/12 and up, $1,400.00 minimum". */
+export function rateText(centsPerSq: number, tiers: PitchTier[], minimumCents?: number | null): string {
+  const parts = [`${formatCents(centsPerSq)} a square`];
+  const pitch = describeTiers(tiers);
+  if (pitch) parts.push(pitch);
+  if (minimumCents) parts.push(`${formatCents(minimumCents)} minimum a roof`);
+  return parts.join(", ");
 }
 
 export const STATUS_LABEL: Record<string, string> = { scheduled: "Work scheduled", done: "Work complete", void: "Cancelled" };

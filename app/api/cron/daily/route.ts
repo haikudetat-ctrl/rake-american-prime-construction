@@ -9,7 +9,7 @@ export const maxDuration = 300;
 
 /**
  * Once each morning: queue overdue reminders, and on Mondays issue the
- * weekly statements. Both are idempotent, so a retried or doubled cron run
+ * weekly statements (dumpster customers, and contractors billed weekly). Both are idempotent, so a retried or doubled cron run
  * sends nothing twice. Then deliver what was queued.
  */
 export async function GET(req: Request) {
@@ -24,10 +24,13 @@ export async function GET(req: Request) {
   const results = [];
   for (const company of companies ?? []) {
     const statements = isMonday ? await db.rpc("issue_statements", { p_company_id: company.id }) : null;
+    // Contractors billed weekly: one statement each for last week's closed jobs.
+    const subStatements = isMonday ? await db.rpc("issue_sub_statements", { p_company_id: company.id }) : null;
     const reminders = await db.rpc("enqueue_overdue_reminders", { p_company_id: company.id });
     results.push({
       company: company.id,
       statements: statements?.error ? statements.error.message : (statements?.data?.length ?? 0),
+      subStatements: subStatements?.error ? subStatements.error.message : (subStatements?.data?.length ?? 0),
       reminders: reminders.error ? reminders.error.message : reminders.data,
     });
   }

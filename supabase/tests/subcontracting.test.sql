@@ -13,8 +13,9 @@ select is(app.sub_pitch_cents(9, 500, 12), 2000, '12/12 pays $20 a square extra'
 
 -- Setup as the office: two contractors, four guys, the crew rates. ----------------
 select tests.act_as('00000000-0000-0000-0000-000000000002');
-insert into public.sub_contractors (company_id, name, billing_email, cents_per_sq, payment_terms_days)
-values (:'company', 'All Season', 'ap@allseason.example', 9500, 14) returning id as all_season \gset
+-- Billed per job here, so closing a job emails its invoice (weekly billing: sub_statements.test.sql).
+insert into public.sub_contractors (company_id, name, billing_email, cents_per_sq, payment_terms_days, billing)
+values (:'company', 'All Season', 'ap@allseason.example', 9500, 14, 'per_job') returning id as all_season \gset
 insert into public.sub_contractors (company_id, name, cents_per_sq) values (:'company', 'Rampage', 11000) returning id as rampage \gset
 insert into public.sub_workers (company_id, name) values (:'company', 'Baltimore') returning id as baltimore \gset
 insert into public.sub_workers (company_id, name) values (:'company', 'Carlos') returning id as carlos \gset
@@ -36,8 +37,9 @@ select is((select count(*)::int from public.sub_job_crew where job_id = :'job1')
 select tests.act_as('00000000-0000-0000-0000-000000000002');
 select public.update_sub_job(:'job1', :'all_season', current_date, '232 Hewitt St, Trenton', 'Gate code 1234',
   array[:'baltimore', :'carlos', :'fernando']::uuid[]);
+select throws_ok(format($$ select public.complete_sub_job(%L, 0, 12) $$, :'job1'), 'P0001', 'enter the squares',
+  'squares are required on a job with nothing else to bill');
 select public.add_sub_job_extra(:'job1', 'Plywood sheet', 3, 4500, 1500);
-select throws_ok(format($$ select public.complete_sub_job(%L, 0, 12) $$, :'job1'), 'P0001', 'enter the squares', 'squares are required');
 select throws_ok(format($$ select public.complete_sub_job(%L, 25, 30) $$, :'job1'), 'P0001', 'enter the pitch (0 to 24)', 'pitch is checked');
 select public.complete_sub_job(:'job1', 25, 12) as invoice1 \gset
 reset role;

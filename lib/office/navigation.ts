@@ -22,7 +22,7 @@ export type Workspace = typeof workspaces[number]['id'];
 
 export const sections: Record<Workspace, NavItem[]> = {
   roofing: [{ href: '/office/leads', label: 'Leads' }, { href: '/office/jobs', label: 'Jobs' }, { href: '/office/stock', label: 'Stock' }, { href: '/office/referrals', label: 'Referrals' }],
-  subs: [{ href: '/office/subs', label: 'Jobs' }, { href: '/office/subs/payroll', label: 'Crew Pay' }, { href: '/office/subs/invoices', label: 'Invoices' }, { href: '/office/subs/setup', label: 'Setup' }],
+  subs: [{ href: '/office/subs', label: 'Jobs' }, { href: '/office/subs/payroll', label: 'Crew Pay' }, { href: '/office/subs/statements', label: 'Statements' }, { href: '/office/subs/invoices', label: 'Invoices' }, { href: '/office/subs/setup', label: 'Setup' }],
   dumpsters: [{ href: '/office/dumpsters', label: 'Dispatch' }, { href: '/office/requests', label: 'Requests' }, { href: '/office/cans', label: 'Cans' }, { href: '/office/billing', label: 'Billing' }],
 };
 
@@ -48,7 +48,7 @@ export function primaryFor(path: string): Primary | null {
 }
 
 export function sectionActive(path: string, href: string) {
-  if (href === '/office/subs') return path === href || /^\/office\/subs\/(?!payroll(?:\/|$)|setup(?:\/|$)|invoices(?:\/|$))[^/]+/.test(path);
+  if (href === '/office/subs') return path === href || /^\/office\/subs\/(?!payroll(?:\/|$)|setup(?:\/|$)|invoices(?:\/|$)|statements(?:\/|$))[^/]+/.test(path);
   if (href === '/office/leads' && within(path, '/office/proposals')) return true;
   if (href === '/office/dumpsters' && within(path, '/office/rentals')) return true;
   return within(path, href);

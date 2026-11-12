@@ -22,13 +22,15 @@ import {
   requestReceivedSms,
   statementEmail,
   subInvoiceEmail,
+  subStatementEmail,
   textReceivedSms,
   voicemailReceivedSms,
   type Brand,
 } from "@/lib/outbox/messages";
 import { canSendSms, senderFor, withSenderName, type SmsSender } from "@/lib/outbox/sms-sender";
-import { renderStatementPdf, renderSubInvoicePdf } from "@/lib/pdf/render";
+import { renderStatementPdf, renderSubInvoicePdf, renderSubStatementPdf } from "@/lib/pdf/render";
 import { loadSubInvoice } from "@/lib/subcontract/invoice";
+import { loadSubStatement } from "@/lib/subcontract/statement";
 import { adminClient } from "@/lib/supabase/admin";
 
 type OutboxMessage = {
@@ -288,6 +290,25 @@ async function deliver(message: OutboxMessage): Promise<void> {
       attachments: [{ filename: `invoice-${invoice.number}.pdf`, content: await renderSubInvoicePdf(invoice) }],
     });
     await adminClient().from("sub_invoices").update({ sent_at: new Date().toISOString() }).eq("id", invoice.id);
+    return;
+  }
+  if (message.kind === "sub_statement_issued") {
+    const statement = await loadSubStatement(adminClient(), String(p.statement_id));
+    if (!statement) throw new Skip("statement not found");
+    // Voided before it went out: its jobs go on the corrected statement instead.
+    if (statement.status === "void") throw new Skip("statement was voided before it went out");
+    const brand = await roofingBrand(message.company_id);
+    const content = subStatementEmail(statement);
+    await sendEmail({
+      apiKey: email.apiKey,
+      from: `${statement.brand.name} <${email.from}>`,
+      to: String(p.to),
+      replyTo: brand.email,
+      subject: content.subject,
+      text: content.text,
+      attachments: [{ filename: `statement-${statement.number}.pdf`, content: await renderSubStatementPdf(statement) }],
+    });
+    await adminClient().from("sub_statements").update({ sent_at: new Date().toISOString() }).eq("id", statement.id);
     return;
   }
   const statement = await loadStatement(adminClient(), String(p.statement_id));

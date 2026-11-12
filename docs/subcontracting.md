@@ -10,13 +10,18 @@ receivable.
 
 | | Contractor pays (per job) | Crew gets (per job, split evenly) |
 | --- | --- | --- |
-| Base | Contractor's rate per square (All Season $95, Rampage $110) | $50 a square |
-| Pitch | +$5 a square per pitch step from 9/12 (+$20 at 12/12) | Same steps |
-| Extras | Per line: plywood sheets, extra layer, second story… | Per line, added to the pot |
+| Base | Contractor's rate per square (All Season $120 all-in from Nov 11) | $50 a square |
+| Pitch | Tiers: "from this pitch on, this much more a square". All Season: +$15 at 9-10/12, +$20 from 11/12 | Crew tiers (still the old $5 a step from 9/12) |
+| Extras | Per line, typed or picked from the contractor's price list (gutters by the foot, miters each) | Per line, added to the pot |
+| Minimum | Optional per contractor (All Season $1,400). A roof whose total comes in under it bills the minimum; the top-up prints as its own invoice line | Unchanged by the minimum |
 
-Pitch extra per square = `max(0, pitch − start + 1) × step`. The start pitch and the step are
-set per contractor and for the crew (Office → Subcontracting → Setup), because "where does the
-first $5 start" is still a question for Andre (see below).
+Pitch extra per square = the cents of the highest tier at or below the pitch (`app.sub_tier_cents`).
+The old "+$5 for each pitch step from 9/12" is a tier at every pitch, so the Nov 11 migration
+converted every existing rate exactly. Tiers, the minimum and the price list are edited in Office →
+Subcontracting → Setup.
+
+A job closes at 0 squares when it has extras: a gutter-only visit. No pitch extra and no minimum
+apply to it.
 
 ## Flow
 
@@ -27,14 +32,23 @@ first $5 start" is still a question for Andre (see below).
    - splits the crew pot evenly; leftover cents go one each to the first names, so shares
      always add up to the pot,
    - issues the contractor's invoice (numbered from the same sequence as dumpster invoices),
-   - queues the invoice email (PDF attached) 15 minutes out, if the contractor has a billing
-     email. Reopening in that window voids the invoice and the email is skipped.
+   - for a contractor billed **per job**, queues the invoice email (PDF attached) 15 minutes out,
+     if they have a billing email. Reopening in that window voids the invoice and the email is
+     skipped. A contractor billed **weekly** (the default) gets nothing yet: see step 4.
 3. **Sunday**: Subcontracting → Payroll: every closed job in the week (Mon–Sun), per person,
    with the roofs behind each amount. Jobs still open are called out, because they aren't in
    the totals.
-4. **Paid**: record the check or ACH on the job. Paid in full closes the invoice.
+4. **Monday** (weekly contractors): the daily cron issues one statement per contractor for every
+   closed, unbilled job worked through the Sunday before, and emails it with a PDF listing each
+   job's lines. The office can send one sooner from Subcontracting → Statements ("Send statement
+   now" bills everything closed so far). The jobs' invoices take the statement's due date.
+5. **Paid**: record the check against the statement; it is spread over the statement's invoices,
+   oldest first, and the statement is paid when they all are. A per-job contractor's check is
+   recorded on the job.
 
-Mistakes: an owner can reopen a closed job while its invoice has no payment. That voids the
+Mistakes: an owner can reopen a closed job while its invoice has no payment and isn't on a live
+statement (void the statement first; its jobs go back to waiting and the corrected ones go on the
+next statement). That voids the
 invoice (kept on record) and closing again issues a new one with a new number. A job that
 didn't happen is cancelled.
 
@@ -44,6 +58,13 @@ didn't happen is cancelled.
   and crews see none of it), and the workflow functions (`create_sub_job`, `update_sub_job`,
   `add_sub_job_extra`, `complete_sub_job`, `reopen_sub_job`, `cancel_sub_job`,
   `record_sub_payment`, `void_sub_payment`). The money is computed here.
+- `supabase/migrations/20261111180000_sub_pitch_tiers_minimum_price_list.sql`: pitch tiers, the
+  minimum job charge, contractor price lists (`sub_price_items`, `add_sub_job_price_item`) and
+  gutter-only jobs. `docs/ops/2026-11-11-allseason-veteran-rates.sql` loads the live rates.
+- `supabase/migrations/20261111200000_sub_weekly_statements.sql`: billing per contractor
+  (weekly or per job), `sub_statements`, `issue_sub_statement(s)`, `record_sub_statement_payment`,
+  `void_sub_statement`. Pages in `app/office/subs/statements/`, loader `lib/subcontract/statement.ts`,
+  PDF `lib/pdf/sub-statement-document.tsx`, the `sub_statement_issued` branch in the outbox.
 - `supabase/migrations/20261109152244_closeout_fingerprint.sql`: `sub_job_closeout_fingerprint`
   and the `p_expected_fingerprint` check in `complete_sub_job`, so a close can't invoice numbers
   that changed after the office reviewed them.
