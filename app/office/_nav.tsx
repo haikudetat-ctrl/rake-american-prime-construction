@@ -133,6 +133,7 @@ export function Sidebar({ badges, name, role }: { badges: NavBadges; name: strin
           {/* A div, not a p: a form inside a <p> is invalid HTML and breaks hydration. */}
           <div className="flex gap-3 pt-2 text-muted">
             <Link href="/driver" className="hover:text-foreground hover:underline">Driver view</Link>
+            <Link href="/office/password" className="hover:text-foreground hover:underline">Password</Link>
             <form action="/auth/signout" method="post">
               <button className="hover:text-foreground hover:underline">Sign out</button>
             </form>
