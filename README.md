@@ -76,7 +76,12 @@ Docker available, `supabase test db` runs the same suites.
    hours, then point the number's voice webhook and the Messaging Service's incoming webhook at the
    URLs shown there.
 7. **Twilio:** register the business number for A2P 10DLC before texts go to
-   customers; carrier approval takes weeks.
+   customers; carrier approval takes weeks. Staff alerts can go live first on
+   2Stack's registered line: set the `TWILIO_OPS_*` variables (`.env.example`),
+   and have each owner and office user text START to that line once (its
+   registered opt-in) before their phone goes in Settings → Team. Customer
+   texts never use that line. Don't point the line's inbound webhook at this app:
+   2Stack's own inbound texts would land in this company's inbox.
 
 ## Public website
 
