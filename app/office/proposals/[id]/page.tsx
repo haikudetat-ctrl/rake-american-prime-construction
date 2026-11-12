@@ -101,6 +101,13 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
             good until {formatDateTime(proposal.expires_at)}
           </p>
           <p className="break-all text-xs text-muted">Homeowner link: {process.env.APP_URL ?? ""}/p/{proposal.public_token}</p>
+          <p className="mt-2 flex flex-wrap items-center gap-3">
+            <a className="btn" href={`/p/${proposal.public_token}`} target="_blank" rel="noreferrer">Sign in person</a>
+            <span className="text-xs text-muted">
+              Opens the homeowner&apos;s signing page on this device. Hand it over: they pick an option and sign.
+              {lead?.email ? ` Their signed copy goes to ${lead.email}.` : " No email on file, so download the signed PDF and give them a copy; the three days to cancel run from when they get it."}
+            </span>
+          </p>
         </section>
       )}
       {proposal.status === "void" && <p className="card text-sm text-muted">Replaced: {proposal.void_reason}.</p>}
@@ -115,6 +122,7 @@ export default async function ProposalPage({ params, searchParams }: PageProps<"
             <input type="checkbox" name="byEmail" defaultChecked={Boolean(lead?.email)} disabled={!lead?.email} /> Email {lead?.email ?? "(no email)"}
           </label>
           <Submit className="btn" disabled={proposal.needs_confirmation} pendingLabel="Sending…">Send proposal</Submit>
+          <span className="basis-full text-xs text-muted">Signing in person? Send it by email first so they get their copy, then use Sign in person.</span>
           {proposal.needs_confirmation && <span className="text-warn">Confirm the price list and re-price before sending.</span>}
         </MoneyForm>
       )}

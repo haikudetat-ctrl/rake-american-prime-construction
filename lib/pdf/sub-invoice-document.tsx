@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
 import type { SubInvoiceView } from "@/lib/subcontract/invoice";
-import { pitchLabel } from "@/lib/subcontract/view";
+import { jobScope } from "@/lib/subcontract/view";
 import { LOGO_PNG_DATA_URL } from "./logo";
 
 const COLORS = { ink: "#1c1917", muted: "#6b6560", rule: "#e7e5e4", accent: "#c2410c", brand: "#ea580c" };
@@ -63,7 +63,7 @@ export function SubInvoiceDocument({ invoice }: { invoice: SubInvoiceView }) {
             <Text style={[styles.muted, { textAlign: "right" }]}>Job</Text>
             <Text style={{ textAlign: "right" }}>{job.address}</Text>
             <Text style={{ textAlign: "right" }}>
-              {formatDate(job.workDate)} · {job.squares} squares · {pitchLabel(job.pitch)} pitch
+              {formatDate(job.workDate)} · {jobScope(job.squares, job.pitch)}
             </Text>
           </View>
         </View>

@@ -159,7 +159,7 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
                     {job.status === "scheduled" && <p className="mt-3 text-sm font-semibold text-accent">{names.length ? "Review and finish job →" : "Assign crew →"}</p>}
                     {job.status === "done" && (
                       <p className="mt-2 text-sm">
-                        {Number(job.squares)} sq at {job.pitch}/12 · billed {formatCents(job.bill_total_cents)}
+                        {Number(job.squares) > 0 ? `${Number(job.squares)} sq at ${job.pitch}/12` : "Gutters and extras"} · billed {formatCents(job.bill_total_cents)}
                         {invoice && <> · invoice #{invoice.number}: {invoice.status === "paid" ? "contractor paid" : "payment outstanding"}</>} · crew earnings {formatCents(job.pay_total_cents)}
                       </p>
                     )}

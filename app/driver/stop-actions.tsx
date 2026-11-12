@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { completeStop, recordTicket, type ActionResult } from "@/app/driver/actions";
 import { shrinkPhoto as shrink } from "@/lib/images/shrink";
+import { Icon } from "@/app/_ui/icon";
 import type { MessageKey } from "@/lib/i18n";
 
 type T = Record<MessageKey, string>;
@@ -27,22 +28,55 @@ async function shrinkPhotos(form: FormData) {
 }
 
 /**
+ * A camera button in the driver's language. The browser's own file input
+ * says "Choose file / No file chosen" in the phone's language, which drivers
+ * didn't read as "take a picture". The real input stays in the form (so it
+ * submits and `required` still blocks an empty stop); the button is its label.
+ */
+function PhotoInput({ label, hint, required = false, t }: { label: string; hint?: string; required?: boolean; t: T }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  return (
+    <div className="space-y-1">
+      <span className="text-sm font-medium">{label}</span>
+      <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-border bg-surface px-3 py-2 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand">
+        <input
+          name="photo"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          required={required}
+          className="sr-only"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            setPreview((old) => {
+              if (old) URL.revokeObjectURL(old);
+              return file ? URL.createObjectURL(file) : null;
+            });
+          }}
+        />
+        {preview ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a local preview of the driver's own photo
+          <img src={preview} alt="" className="h-12 w-12 rounded object-cover" />
+        ) : (
+          <Icon name="camera" size={24} />
+        )}
+        <span className="font-semibold">{preview ? `${t["driver.photoReady"]} · ${t["driver.retakePhoto"]}` : t["driver.takePhoto"]}</span>
+      </label>
+      {hint && <span className="block text-xs text-muted">{hint}</span>}
+    </div>
+  );
+}
+
+/**
  * The required photo, straight from the camera, plus an optional second one.
  * The browser won't submit without the first; the server and the database
  * check again.
  */
 function StopPhotos({ label, hint, t }: { label: string; hint: string; t: T }) {
   return (
-    <div className="space-y-2">
-      <label className="label">
-        <span>{label}</span>
-        <input name="photo" type="file" accept="image/*" capture="environment" required className="input py-3" />
-        <span className="text-xs font-normal text-muted">{hint}</span>
-      </label>
-      <label className="label">
-        <span className="font-normal text-muted">{t["driver.extraPhoto"]}</span>
-        <input name="photo" type="file" accept="image/*" capture="environment" className="input" />
-      </label>
+    <div className="space-y-3">
+      <PhotoInput label={label} hint={hint} required t={t} />
+      <PhotoInput label={t["driver.extraPhoto"]} t={t} />
     </div>
   );
 }
@@ -131,10 +165,7 @@ export function TicketAction({
     >
       <input type="hidden" name="stopId" value={stopId} />
       <input type="hidden" name="date" value={date} />
-      <label className="label">
-        <span>{t["driver.ticketPhoto"]}</span>
-        <input name="photo" type="file" accept="image/*" capture="environment" className="input" />
-      </label>
+      <PhotoInput label={t["driver.ticketPhoto"]} t={t} />
       <label className="label">
         <span>{t["driver.landfill"]}</span>
         <select name="landfillId" className="input py-3" defaultValue={landfills[0]?.id ?? ""}>

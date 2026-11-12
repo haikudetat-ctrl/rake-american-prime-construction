@@ -8,6 +8,7 @@ import { weekStart } from "@/lib/dates";
 import { acknowledged, back, errorText, optional, str } from "@/lib/flash";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { parseFingerprint } from "@/lib/subcontract/review";
+import { isUnit, parsePitchTiers } from "@/lib/subcontract/tiers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Every action re-checks the caller's role; the database checks again
@@ -29,10 +30,11 @@ const jobPath = (form: FormData) => {
   return `/office/subs/${str(form, "jobId")}${subQuery({ week: params.get("week"), filter: params.get("filter") })}`;
 };
 
-/** Whole or decimal squares, like 24 or 24.5. */
+/** Whole or decimal squares, like 24 or 24.5. 0 is a gutter-only job. */
 function parseSquares(input: string): number | null {
+  if (input.trim() === "") return null;
   const n = Number(input.replace(/[,\s]/g, ""));
-  return Number.isFinite(n) && n > 0 && n < 1000 ? Math.round(n * 100) / 100 : null;
+  return Number.isFinite(n) && n >= 0 && n < 1000 ? Math.round(n * 100) / 100 : null;
 }
 
 /** "12", "12/12" or "12:12" → 12. */
@@ -94,6 +96,20 @@ export async function addSubExtra(form: FormData) {
   done(jobPath(form), "Extra added.");
 }
 
+/** An item from the contractor's price list, at the list's prices. */
+export async function addSubPriceItem(form: FormData) {
+  const { supabase } = await staffClient();
+  const qty = Number(str(form, "qty").replace(/[,\s]/g, ""));
+  if (!Number.isFinite(qty) || qty <= 0) back(jobPath(form), "Enter how many, like 120 (feet) or 4.", "error");
+  const { error } = await supabase.rpc("add_sub_job_price_item", {
+    p_job_id: str(form, "jobId"),
+    p_item_id: str(form, "itemId"),
+    p_qty: qty,
+  });
+  if (error) back(jobPath(form), errorText(error), "error");
+  done(jobPath(form), "Added from the price list.");
+}
+
 export async function removeSubExtra(form: FormData) {
   const { supabase } = await staffClient();
   const { error } = await supabase.rpc("remove_sub_job_extra", { p_extra_id: str(form, "extraId") });
@@ -104,8 +120,9 @@ export async function removeSubExtra(form: FormData) {
 export async function completeSubJob(form: FormData) {
   const { supabase } = await staffClient();
   const squares = parseSquares(str(form, "squares"));
-  const pitch = parsePitch(str(form, "pitch"));
-  if (squares === null) back(jobPath(form), "Enter the squares, like 24 or 24.5.", "error");
+  // A gutter-only job has no roof pitch to give.
+  const pitch = squares === 0 && str(form, "pitch") === "" ? 0 : parsePitch(str(form, "pitch"));
+  if (squares === null) back(jobPath(form), "Enter the squares, like 24 or 24.5 (0 for a gutter-only job).", "error");
   if (pitch === null) back(jobPath(form), "Enter the pitch, like 6 or 12/12.", "error");
   const fingerprint = parseFingerprint(str(form, "fingerprint"));
   if (!fingerprint) back(jobPath(form), "Reload the job and review the closeout again.", "error");
@@ -129,15 +146,17 @@ export async function completeSubJob(form: FormData) {
   if (error) back(jobPath(form), errorText(error), "error");
   const { data: invoice } = await supabase
     .from("sub_invoices")
-    .select("number, total_cents, sub_contractors(billing_email)")
+    .select("number, total_cents, sub_contractors(name, billing_email, billing)")
     .eq("id", invoiceId)
     .single();
-  const email = (Array.isArray(invoice?.sub_contractors) ? invoice?.sub_contractors[0] : invoice?.sub_contractors)?.billing_email;
+  const gc = Array.isArray(invoice?.sub_contractors) ? invoice?.sub_contractors[0] : invoice?.sub_contractors;
   done(
     jobPath(form),
-    `Closed. Invoice #${invoice?.number} for ${formatCents(invoice?.total_cents)} ${
-      email ? `emails to ${email} in 15 minutes.` : "is ready to download (no billing email on file)."
-    }`,
+    gc?.billing === "per_job"
+      ? `Closed. Invoice #${invoice?.number} for ${formatCents(invoice?.total_cents)} ${
+          gc.billing_email ? `emails to ${gc.billing_email} in 15 minutes.` : "is ready to download (no billing email on file)."
+        }`
+      : `Closed. Invoice #${invoice?.number} for ${formatCents(invoice?.total_cents)} goes on ${gc?.name ?? "the contractor"}'s weekly statement.`,
   );
 }
 
@@ -181,6 +200,49 @@ export async function voidSubPayment(form: FormData) {
   done(jobPath(form), "Payment voided.");
 }
 
+// Weekly statements ------------------------------------------------------------------
+
+const STATEMENTS = "/office/subs/statements";
+
+/** Bill one contractor now for every closed job waiting, and email the statement. */
+export async function issueSubStatement(form: FormData) {
+  const { supabase } = await staffClient();
+  if (!acknowledged(form)) back(STATEMENTS, "Tick the box to confirm the statement.", "error");
+  const { data: id, error } = await supabase.rpc("issue_sub_statement", { p_contractor_id: str(form, "contractorId") });
+  if (error) back(STATEMENTS, errorText(error), "error");
+  // Send it now rather than on the next cron run.
+  const { drainOutbox } = await import("@/lib/outbox/drain");
+  await drainOutbox(5).catch(() => null);
+  revalidatePath("/office/subs", "layout");
+  back(`${STATEMENTS}/${id}`, "Statement issued.");
+}
+
+export async function recordSubStatementPayment(form: FormData) {
+  const { supabase } = await staffClient();
+  const id = str(form, "statementId");
+  const amount = parseDollarsToCents(str(form, "amount"));
+  if (amount === null) back(`${STATEMENTS}/${id}`, "Enter the amount, like 2875 or 2,875.00.", "error");
+  const { error } = await supabase.rpc("record_sub_statement_payment", {
+    p_statement_id: id,
+    p_amount_cents: amount,
+    p_method: str(form, "method") || "check",
+    p_reference: optional(form, "reference"),
+    p_received_on: optional(form, "receivedOn"),
+  });
+  if (error) back(`${STATEMENTS}/${id}`, errorText(error), "error");
+  done(`${STATEMENTS}/${id}`, "Payment recorded against the statement's jobs, oldest first.");
+}
+
+export async function voidSubStatement(form: FormData) {
+  await requireOwner();
+  const id = str(form, "statementId");
+  if (!acknowledged(form)) back(`${STATEMENTS}/${id}`, "Tick the box to confirm the void.", "error");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("void_sub_statement", { p_statement_id: id, p_reason: str(form, "reason") });
+  if (error) back(`${STATEMENTS}/${id}`, errorText(error), "error");
+  done(`${STATEMENTS}/${id}`, "Statement voided. Its jobs are waiting again; fix them, then issue a new statement.");
+}
+
 // Setup -----------------------------------------------------------------------------
 
 const SETUP = "/office/subs/setup";
@@ -188,12 +250,13 @@ const SETUP = "/office/subs/setup";
 export async function saveSubContractor(form: FormData) {
   const { member, supabase } = await staffClient();
   const rate = parseDollarsToCents(str(form, "rate"));
-  const step = parseDollarsToCents(str(form, "pitchStep") || "0");
-  const pitchFrom = Number(str(form, "pitchFrom") || "9");
+  const tiers = parsePitchTiers(str(form, "pitchTiers"));
+  const minimumText = str(form, "minimum");
+  const minimum = minimumText === "" ? null : parseDollarsToCents(minimumText);
   const terms = Number(str(form, "terms") || "14");
   if (rate === null || rate <= 0) back(SETUP, "Enter what they pay per square.", "error");
-  if (step === null) back(SETUP, "Enter the pitch extra per square (0 if none).", "error");
-  if (!Number.isInteger(pitchFrom) || pitchFrom < 1 || pitchFrom > 24) back(SETUP, "The pitch extra starts at a pitch from 1 to 24.", "error");
+  if ("error" in tiers) back(SETUP, tiers.error, "error");
+  if (minimumText !== "" && (minimum === null || minimum <= 0)) back(SETUP, "Enter the minimum in dollars, or leave it blank for none.", "error");
   if (!Number.isInteger(terms) || terms < 0 || terms > 120) back(SETUP, "Payment terms are 0 to 120 days.", "error");
   const row = {
     name: str(form, "name"),
@@ -201,8 +264,9 @@ export async function saveSubContractor(form: FormData) {
     phone: optional(form, "phone"),
     payment_terms_days: terms,
     cents_per_sq: rate,
-    pitch_from: pitchFrom,
-    pitch_step_cents: step,
+    pitch_tiers: tiers.tiers,
+    min_job_cents: minimum,
+    billing: str(form, "billing") === "per_job" ? "per_job" : "weekly",
     notes: optional(form, "notes"),
     is_active: form.get("active") !== null || !form.get("id"),
   };
@@ -212,6 +276,40 @@ export async function saveSubContractor(form: FormData) {
     : await supabase.from("sub_contractors").insert({ ...row, company_id: member.companyId });
   if (error) back(SETUP, error.code === "23505" ? "There's already a contractor with that name." : errorText(error), "error");
   done(SETUP, id ? "Contractor saved." : "Contractor added.");
+}
+
+/** Adds an item to a contractor's price list, or updates the one with the same name. */
+export async function saveSubPriceItem(form: FormData) {
+  const { member, supabase } = await staffClient();
+  const bill = parseDollarsToCents(str(form, "bill"));
+  const pay = parseDollarsToCents(str(form, "pay") || "0");
+  const unit = str(form, "unit");
+  const description = str(form, "description");
+  if (!description) back(SETUP, "Name the item, like 5\" K-style gutter.", "error");
+  if (!isUnit(unit)) back(SETUP, "Pick what the item is counted in.", "error");
+  if (bill === null || pay === null) back(SETUP, "Enter what the contractor pays and what the crew gets (0 is fine).", "error");
+  const { error } = await supabase.from("sub_price_items").upsert(
+    {
+      company_id: member.companyId,
+      contractor_id: str(form, "contractorId"),
+      description,
+      unit,
+      bill_unit_cents: bill,
+      pay_unit_cents: pay,
+      is_active: true,
+    },
+    { onConflict: "contractor_id,description" },
+  );
+  if (error) back(SETUP, errorText(error), "error");
+  done(SETUP, `${description} saved. It applies to items added to jobs from now on.`);
+}
+
+export async function setSubPriceItemActive(form: FormData) {
+  const { supabase } = await staffClient();
+  const active = str(form, "active") === "true";
+  const { error } = await supabase.from("sub_price_items").update({ is_active: active }).eq("id", str(form, "itemId"));
+  if (error) back(SETUP, errorText(error), "error");
+  done(SETUP, active ? "Back on the price list." : "Taken off the price list. Jobs that already have it keep it.");
 }
 
 export async function addSubWorker(form: FormData) {
@@ -234,16 +332,13 @@ export async function setSubWorkerActive(form: FormData) {
 export async function saveSubSettings(form: FormData) {
   const { member, supabase } = await staffClient();
   const rate = parseDollarsToCents(str(form, "crewRate"));
-  const step = parseDollarsToCents(str(form, "crewPitchStep") || "0");
-  const pitchFrom = Number(str(form, "crewPitchFrom") || "9");
-  if (rate === null || step === null || !Number.isInteger(pitchFrom) || pitchFrom < 1 || pitchFrom > 24) {
-    back(SETUP, "Check the crew rates.", "error");
-  }
+  const tiers = parsePitchTiers(str(form, "crewPitchTiers"));
+  if (rate === null) back(SETUP, "Check the crew rate per square.", "error");
+  if ("error" in tiers) back(SETUP, tiers.error, "error");
   const { error } = await supabase.from("sub_settings").upsert({
     company_id: member.companyId,
     crew_cents_per_sq: rate,
-    crew_pitch_from: pitchFrom,
-    crew_pitch_step_cents: step,
+    crew_pitch_tiers: tiers.tiers,
     updated_by: member.userId,
     updated_at: new Date().toISOString(),
   });

@@ -97,7 +97,7 @@ export default async function PayrollPage({ searchParams }: PageProps<"/office/s
                     <td>
                       <Link className="underline" href={`/office/subs/${j.jobId}`}>{j.address}</Link>
                       <div className="text-xs text-muted">
-                        {j.contractor} · {j.squares} sq at {pitchLabel(j.pitch)} · split {j.crewSize} ways
+                        {j.contractor} · {j.squares > 0 ? `${j.squares} sq at ${pitchLabel(j.pitch)}` : "gutters and extras"} · split {j.crewSize} ways
                       </div>
                     </td>
                     <td className="text-right">{formatCents(j.payCents)}</td>
