@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { WorkList, WorkRow } from "@/app/_ui/work-row";
 import { requireStaff } from "@/lib/auth";
 
@@ -39,9 +40,12 @@ export default async function MorePage() {
           <p className="font-semibold break-words">{member.name}</p>
           <p className="text-sm text-muted">{member.role === "owner" ? "Owner" : "Office"}</p>
         </div>
-        <form action="/auth/signout" method="post">
-          <button className="btn-secondary">Sign out</button>
-        </form>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/office/password" className="btn-secondary">Password</Link>
+          <form action="/auth/signout" method="post">
+            <button className="btn-secondary">Sign out</button>
+          </form>
+        </div>
       </section>
     </>
   );

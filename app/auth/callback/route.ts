@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-/** Lands the emailed sign-in link: trades the one-time code for a session. */
+/**
+ * Lands an emailed sign-in link: trades the one-time code for a session.
+ * Office sign-in now uses typed codes (app/login); this stays so a link from
+ * an older email still works, or fails with a clear message.
+ */
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   if (code) {
