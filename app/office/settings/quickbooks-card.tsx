@@ -58,6 +58,7 @@ const ITEM_FIELD: Record<LineKind, string> = {
   delivery: "item_delivery",
   extended_days: "item_extended_days",
   tonnage: "item_tonnage",
+  charge: "item_charge",
   adjustment: "item_adjustment",
 };
 

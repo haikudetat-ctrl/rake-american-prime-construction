@@ -28,7 +28,7 @@ export type StatementView = {
   payments: Array<{ amountCents: number; method: string; reference: string | null; receivedOn: string }>;
 };
 
-const LINE_ORDER = ["delivery", "extended_days", "tonnage", "adjustment"];
+const LINE_ORDER = ["delivery", "extended_days", "tonnage", "charge", "adjustment"];
 
 const SELECT = `
   id, number, issued_on, due_on, status, void_reason, sent_at, total_cents,

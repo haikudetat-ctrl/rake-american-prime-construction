@@ -10,7 +10,7 @@ import {
   type RakeInvoice,
 } from "@/lib/integrations/quickbooks/payload";
 
-const items: ItemMapping = { delivery: "1", extended_days: "2", tonnage: "3", adjustment: "4" };
+const items: ItemMapping = { delivery: "1", extended_days: "2", tonnage: "3", charge: "5", adjustment: "4" };
 
 const invoice: RakeInvoice = {
   number: 1042,
@@ -57,6 +57,13 @@ describe("QuickBooks invoice body", () => {
   it("refuses to build when a line kind has no item chosen", () => {
     expect(() => invoiceBody(invoice, "58", { ...items, tonnage: null })).toThrow(MappingMissing);
     expect(() => invoiceBody(invoice, "58", { ...items, extended_days: null })).not.toThrow();
+  });
+
+  it("asks for an item for price-list charges only once an invoice has one", () => {
+    expect(() => invoiceBody(invoice, "58", { ...items, charge: null })).not.toThrow();
+    const withCharge = { ...invoice, lines: [...invoice.lines, { kind: "charge" as const, description: "Mattress: 2 at $50.00", quantity: 2, unitCents: 5000, amountCents: 10000 }] };
+    expect(() => invoiceBody(withCharge, "58", { ...items, charge: null })).toThrow("Extra charges (price list)");
+    expect(invoiceBody(withCharge, "58", items).Line.at(-1)).toMatchObject({ Amount: 100, SalesItemLineDetail: { ItemRef: { value: "5" }, Qty: 2, UnitPrice: 50 } });
   });
 
   it("hashes identical bodies the same and changed ones differently", () => {

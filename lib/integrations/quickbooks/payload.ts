@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
  * (Accounting API, entity "Invoice"). No I/O here, so it is unit-tested.
  */
 
-export type LineKind = "delivery" | "extended_days" | "tonnage" | "adjustment";
+export type LineKind = "delivery" | "extended_days" | "tonnage" | "charge" | "adjustment";
 
 export type ItemMapping = Record<LineKind, string | null>;
 
@@ -13,6 +13,7 @@ export const LINE_KIND_LABEL: Record<LineKind, string> = {
   delivery: "Delivery / rental",
   extended_days: "Extra days",
   tonnage: "Tonnage",
+  charge: "Extra charges (price list)",
   adjustment: "Adjustments and credits",
 };
 
