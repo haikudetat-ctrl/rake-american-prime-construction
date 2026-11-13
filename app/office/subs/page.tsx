@@ -1,14 +1,15 @@
-import { Submit } from "./_submit";
+import { AddJobs } from "./_add-jobs";
 import { Unavailable } from "../_unavailable";
 import { subQuery } from "@/lib/subcontract/navigation";
 import Link from "next/link";
-import { createSubJob } from "@/app/office/subs/actions";
-import { CrewPicker, STATUS_LABEL } from "@/app/office/subs/_parts";
+import { STATUS_LABEL } from "@/app/office/subs/_parts";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate, weekStart } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { one } from "@/lib/office/team";
+import { crewRateFrom, type ContractorOption } from "@/lib/subcontract/add-jobs";
+import { readTiers } from "@/lib/subcontract/tiers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -26,8 +27,8 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
   const end = addDays(week, 7);
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: contractors, error: contractorsError }, { data: workers, error: workersError }, { data: jobs, error: jobsError }, { data: open, error: invoicesError }] = await Promise.all([
-    supabase.from("sub_contractors").select("id, name").eq("is_active", true).order("name"),
+  const [{ data: contractors, error: contractorsError }, { data: workers, error: workersError }, { data: jobs, error: jobsError }, { data: open, error: invoicesError }, { data: settings, error: settingsError }, { data: priceItems, error: itemsError }] = await Promise.all([
+    supabase.from("sub_contractors").select("id, name, billing, cents_per_sq, pitch_tiers, min_job_cents").eq("is_active", true).order("name"),
     supabase.from("sub_workers").select("id, name").eq("is_active", true).order("name"),
     supabase
       .from("sub_jobs")
@@ -37,9 +38,21 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
       .order("work_date")
       .order("created_at"),
     supabase.from("sub_invoices").select("total_cents, sub_payments(amount_cents, voided_at)").eq("status", "open"),
+    supabase.from("sub_settings").select("crew_cents_per_sq, crew_pitch_tiers").maybeSingle(),
+    supabase.from("sub_price_items").select("id, contractor_id, description, unit, bill_unit_cents, pay_unit_cents").eq("is_active", true).order("description"),
   ]);
 
-  if (contractorsError || workersError || jobsError || invoicesError) return <Unavailable />;
+  if (contractorsError || workersError || jobsError || invoicesError || settingsError || itemsError) return <Unavailable />;
+  // What the add-jobs form needs to show each job's bill before it goes in.
+  const options: ContractorOption[] = (contractors ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    weekly: c.billing !== "per_job",
+    rate: { base: c.cents_per_sq, tiers: readTiers(c.pitch_tiers), minimumCents: c.min_job_cents },
+    items: (priceItems ?? [])
+      .filter((i) => i.contractor_id === c.id)
+      .map((i) => ({ id: i.id, description: i.description, unit: i.unit, billCents: i.bill_unit_cents, payCents: i.pay_unit_cents })),
+  }));
   const filter = query.filter === "scheduled" || query.filter === "done" ? query.filter : "all";
   const returnQuery = subQuery({ week, filter });
   const rows = jobs ?? [];
@@ -102,37 +115,19 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
       )}
 
       <section className="card space-y-3">
-        <h2 className="font-semibold">Assign jobs</h2>
+        <div>
+          <h2 className="font-semibold">Add jobs</h2>
+          <p className="text-sm text-muted">
+            One job or a whole list. Missed one? Put it in with its day, squares and pitch and it closes and bills as it goes in.
+          </p>
+        </div>
         {!ready ? (
           <p className="text-sm text-muted">
             Add the contractors you work for and your crew in <Link className="underline" href="/office/subs/setup">Setup</Link> first.
           </p>
         ) : (
-          <form action={createSubJob} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="label">
-                <span>Day</span>
-                <input name="workDate" type="date" required defaultValue={week === weekStart(today) ? today : week} className="input" />
-              </label>
-              <label className="label sm:col-span-2">
-                <span>Contractor</span>
-                <select name="contractorId" required className="input" defaultValue="">
-                  <option value="" disabled>Pick one</option>
-                  {(contractors ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </label>
-            </div>
-            <label className="label">
-              <span>Address</span>
-              <input name="address" required autoComplete="off" placeholder="232 Hewitt St, Trenton" className="input" />
-            </label>
-            <CrewPicker workers={workers ?? []} />
-            <label className="label">
-              <span>Notes (optional)</span>
-              <input name="notes" placeholder="Gate code, tear-off layers, who's leading…" className="input" />
-            </label>
-            <Submit className="btn w-full sm:w-auto">Assign job</Submit>
-          </form>
+          <AddJobs contractors={options} workers={workers ?? []} crewRate={crewRateFrom(settings)} today={today}
+            defaultDate={week === weekStart(today) ? today : week} />
         )}
       </section>
 

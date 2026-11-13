@@ -2,11 +2,13 @@
 
 import { subQuery } from "@/lib/subcontract/navigation";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { redirect } from "next/navigation";
 import { requireOwner, requireStaff } from "@/lib/auth";
-import { weekStart } from "@/lib/dates";
+import { companyToday, weekStart } from "@/lib/dates";
 import { acknowledged, back, errorText, optional, str } from "@/lib/flash";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
+import { MAX_JOBS, parsePitch, parseQty, parseSquares } from "@/lib/subcontract/add-jobs";
 import { parseFingerprint } from "@/lib/subcontract/review";
 import { isUnit, parsePitchTiers } from "@/lib/subcontract/tiers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -30,37 +32,75 @@ const jobPath = (form: FormData) => {
   return `/office/subs/${str(form, "jobId")}${subQuery({ week: params.get("week"), filter: params.get("filter") })}`;
 };
 
-/** Whole or decimal squares, like 24 or 24.5. 0 is a gutter-only job. */
-function parseSquares(input: string): number | null {
-  if (input.trim() === "") return null;
-  const n = Number(input.replace(/[,\s]/g, ""));
-  return Number.isFinite(n) && n >= 0 && n < 1000 ? Math.round(n * 100) / 100 : null;
-}
-
-/** "12", "12/12" or "12:12" → 12. */
-function parsePitch(input: string): number | null {
-  const m = input.trim().match(/^(\d{1,2})(?:\s*[/:]\s*12)?$/);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return n <= 24 ? n : null;
-}
-
 // Jobs ------------------------------------------------------------------------------
 
-export async function createSubJob(form: FormData) {
+const JobsPayload = z
+  .array(
+    z.object({
+      contractor_id: z.guid(),
+      work_date: z.iso.date(),
+      address: z.string().trim().min(1).max(300),
+      notes: z.string().max(500).nullable(),
+      worker_ids: z.array(z.guid()).max(50),
+      items: z.array(z.object({ item_id: z.guid(), qty: z.number().positive().max(99999) })).max(50),
+      squares: z.number().min(0).max(999).optional(),
+      pitch: z.number().int().min(0).max(24).optional(),
+      expected_bill_cents: z.number().int().min(0).optional(),
+      expected_pay_cents: z.number().int().min(0).optional(),
+    }),
+  )
+  .min(1)
+  .max(MAX_JOBS);
+
+/**
+ * What the add-jobs form gets back. Refused: the message and which job (from 1)
+ * it's about. Added: where to go, with the notice, so the form can clear itself.
+ */
+export type AddJobsState = { ok: false; error: string; job: number | null; at: number } | { ok: true; href: string; at: number } | null;
+
+/**
+ * Adds a list of jobs (one, a week's worth, or the ones that were forgotten)
+ * in one go; those with squares close as they go in. On a refusal nothing is
+ * added and the form keeps everything typed, so this answers with the error
+ * instead of redirecting, and on success with where to go.
+ */
+export async function addSubJobs(_previous: AddJobsState, form: FormData): Promise<AddJobsState> {
   const { supabase } = await staffClient();
-  const date = str(form, "workDate");
-  const week = /^\d{4}-\d{2}-\d{2}$/.test(date) ? weekStart(date) : "";
-  const path = `/office/subs${week ? `?week=${week}` : ""}`;
-  const { error } = await supabase.rpc("create_sub_job", {
-    p_contractor_id: str(form, "contractorId"),
-    p_work_date: optional(form, "workDate"),
-    p_address: str(form, "address"),
-    p_notes: optional(form, "notes"),
-    p_worker_ids: form.getAll("workerId").map(String),
-  });
-  if (error) back(path, errorText(error), "error");
-  done(path, "Job added.");
+  const refuse = (error: string, job: number | null = null): AddJobsState => ({ ok: false, error, job, at: Date.now() });
+  let parsed: z.infer<typeof JobsPayload>;
+  try {
+    parsed = JobsPayload.parse(JSON.parse(str(form, "jobs")));
+  } catch {
+    return refuse("Reload the page and add the jobs again.");
+  }
+  const closing = parsed.filter((j) => j.squares !== undefined);
+  if (closing.length > 0 && !acknowledged(form)) return refuse("Tick the box to confirm you checked the totals.");
+
+  const { data, error } = await supabase.rpc("add_sub_jobs", { p_jobs: parsed });
+  if (error) {
+    const job = Number(/^job:(\d+)$/.exec(error.details ?? "")?.[1]) || null;
+    // A rate changed while the list was typed: send the page's fresh rates down
+    // with the error, so the totals on screen are the ones that will bill.
+    if (error.hint === "stale_review") revalidatePath("/office/subs", "layout");
+    return refuse(errorText(error), job);
+  }
+
+  const results = (data ?? []) as { invoice_number: number | null }[];
+  const numbers = results.map((r) => r.invoice_number).filter((n): n is number => n !== null);
+  const scheduled = results.length - numbers.length;
+  const parts = [results.length === 1 ? "Job added." : `${results.length} jobs added.`];
+  if (numbers.length) parts.push(`Closed with invoice ${numbers.map((n) => `#${n}`).join(", ")}.`);
+  if (numbers.length && scheduled) parts.push(`${scheduled} left to finish later.`);
+  // Crew pay counts on the week the work was done, which may already be paid out.
+  const thisWeek = weekStart(companyToday());
+  const earlier = closing.filter((j) => weekStart(j.work_date) < thisWeek).length;
+  if (earlier) {
+    parts.push(results.length === 1 ? "Its crew pay counts on that week's earnings." : `Crew pay for ${earlier} of them counts on earlier weeks' earnings.`);
+  }
+  revalidatePath("/office/subs", "layout");
+  revalidatePath("/office");
+  const href = new URLSearchParams({ week: weekStart(parsed[0].work_date), notice: parts.join(" ") });
+  return { ok: true, href: `/office/subs?${href}`, at: Date.now() };
 }
 
 export async function updateSubJob(form: FormData) {
@@ -96,18 +136,20 @@ export async function addSubExtra(form: FormData) {
   done(jobPath(form), "Extra added.");
 }
 
-/** An item from the contractor's price list, at the list's prices. */
-export async function addSubPriceItem(form: FormData) {
+/** Several items from the contractor's price list at once: every item with a quantity filled in. */
+export async function addSubPriceItems(form: FormData) {
   const { supabase } = await staffClient();
-  const qty = Number(str(form, "qty").replace(/[,\s]/g, ""));
-  if (!Number.isFinite(qty) || qty <= 0) back(jobPath(form), "Enter how many, like 120 (feet) or 4.", "error");
-  const { error } = await supabase.rpc("add_sub_job_price_item", {
-    p_job_id: str(form, "jobId"),
-    p_item_id: str(form, "itemId"),
-    p_qty: qty,
-  });
+  const items: { item_id: string; qty: number }[] = [];
+  for (const [key, value] of form.entries()) {
+    if (!key.startsWith("qty:") || String(value).trim() === "") continue;
+    const qty = parseQty(String(value));
+    if (qty === null) back(jobPath(form), "Enter how many for each item you picked, like 120 (feet) or 4.", "error");
+    items.push({ item_id: key.slice(4), qty });
+  }
+  if (items.length === 0) back(jobPath(form), "Fill in how many for at least one item.", "error");
+  const { error } = await supabase.rpc("add_sub_job_price_items", { p_job_id: str(form, "jobId"), p_items: items });
   if (error) back(jobPath(form), errorText(error), "error");
-  done(jobPath(form), "Added from the price list.");
+  done(jobPath(form), items.length === 1 ? "Added from the price list." : `${items.length} items added from the price list.`);
 }
 
 export async function removeSubExtra(form: FormData) {
