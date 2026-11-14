@@ -25,8 +25,17 @@ apply to it.
 
 ## Flow
 
-1. **Morning** (Office → Subcontracting): add the job: day, contractor, address, who's on it.
-   The crew changes day to day; it's a set of checkboxes.
+1. **Morning** (Office → Subcontracting → Add jobs): day, contractor, address, who's on it.
+   The crew changes day to day; it's a row of names to tap. The same form takes a list: "+ Another
+   job" copies the last job's day, contractor and crew, and "Paste a list of addresses" makes a job
+   per line (All Season's week). Line items can be ticked from the job's contractor's price list.
+   **A job nobody put in** goes in the same way with its squares and pitch filled in: it closes as
+   it's added (step 2 below, same invoice and crew pay), after a review of the totals. The whole
+   list goes in at once or not at all (`add_sub_jobs`); a refusal names the job and keeps
+   everything typed. It refuses the same contractor, day and address twice, a closed job dated
+   after today, and any closed job whose total no longer matches the one shown (a rate changed
+   while the list was typed). Crew pay for a job worked in an earlier week counts on that week's
+   earnings, which the form and the notice both point out.
 2. **Job done**: on the job, enter squares and pitch (and any extras before that). Closing:
    - freezes the rates on the job (a later rate change never rewrites it),
    - splits the crew pot evenly; leftover cents go one each to the first names, so shares
@@ -65,6 +74,10 @@ didn't happen is cancelled.
   (weekly or per job), `sub_statements`, `issue_sub_statement(s)`, `record_sub_statement_payment`,
   `void_sub_statement`. Pages in `app/office/subs/statements/`, loader `lib/subcontract/statement.ts`,
   PDF `lib/pdf/sub-statement-document.tsx`, the `sub_statement_issued` branch in the outbox.
+- `supabase/migrations/20261113221000_sub_add_jobs.sql`: `add_sub_jobs` (a list of jobs, each
+  created, given its price-list items and, with squares, closed, in one transaction) and
+  `add_sub_job_price_items` (several items on one job). Form `app/office/subs/_add-jobs.tsx`, shaping
+  and checks `lib/subcontract/add-jobs.ts`.
 - `supabase/migrations/20261109152244_closeout_fingerprint.sql`: `sub_job_closeout_fingerprint`
   and the `p_expected_fingerprint` check in `complete_sub_job`, so a close can't invoice numbers
   that changed after the office reviewed them.
@@ -73,7 +86,8 @@ didn't happen is cancelled.
   `sub_invoice_issued` branch in `lib/outbox/drain.ts`.
 - `app/office/subs/`: week board, job page, payroll, setup, invoice PDF route.
 - Tests: `supabase/tests/subcontracting.test.sql`, `supabase/tests/closeout_fingerprint.test.sql`,
-  `test/subcontract.test.ts`, `test/money-actions.test.ts`.
+  `supabase/tests/sub_add_jobs.test.sql`, `test/subcontract.test.ts`, `test/add-jobs.test.ts`,
+  `test/money-actions.test.ts`.
 
 ## Open questions for Andre (Tuesday)
 

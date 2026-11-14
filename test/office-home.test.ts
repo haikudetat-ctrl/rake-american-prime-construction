@@ -8,7 +8,7 @@ const fixture = vi.hoisted(() => ({
   staff: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({ requireStaff: fixture.staff }));
-vi.mock('next/navigation', () => ({ redirect: (url: string) => { throw new Error(`redirect:${url}`); } }));
+vi.mock('next/navigation', () => ({ redirect: (url: string) => { throw new Error(`redirect:${url}`); }, useRouter: () => ({ push: vi.fn() }) }));
 vi.mock('@/lib/supabase/server', () => ({ createSupabaseServerClient: async () => ({ from: fixture.from }) }));
 import HomePage from '@/app/office/page';
 import MorePage from '@/app/office/more/page';
@@ -42,7 +42,7 @@ beforeEach(() => {
     const data = fixture.rows[table] ?? [];
     const result = { data: failed ? null : data, count: failed ? null : (fixture.counts[table] ?? data.length), error: failed ? { code: 'PGRST205', message: 'Missing relation' } : null };
     const chain: Record<string, unknown> = { then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve) };
-    for (const method of ['select', 'eq', 'neq', 'in', 'is', 'lt', 'lte', 'gte', 'order', 'limit']) chain[method] = () => chain;
+    for (const method of ['select', 'eq', 'neq', 'in', 'is', 'lt', 'lte', 'gte', 'order', 'limit', 'maybeSingle']) chain[method] = () => chain;
     return chain;
   });
 });
@@ -164,6 +164,21 @@ describe('office data states', () => {
     expect(html).toContain('Subcontracting unavailable');
     expect(html).not.toContain('$0.00');
     expect(html).not.toContain('<form');
+  });
+
+  it('offers one form for adding jobs, with the only contractor\'s price list ready to pick from', async () => {
+    fixture.rows = {
+      sub_contractors: [{ id: 'gc-1', name: 'Example Roofing Co', billing: 'weekly', cents_per_sq: 9500, pitch_tiers: [], min_job_cents: null }],
+      sub_workers: [{ id: 'w-1', name: 'Avery Example' }],
+      sub_price_items: [{ id: 'item-1', contractor_id: 'gc-1', description: 'Example gutter', unit: 'ft', bill_unit_cents: 650, pay_unit_cents: 550 }],
+    };
+    const html = renderToStaticMarkup(await SubsPage(props()));
+    expect(html).toContain('Add jobs');
+    expect(html).toContain('Avery Example');
+    expect(html).toContain('Line items from Example Roofing Co&#x27;s price list');
+    expect(html).toContain('$6.50 per ft · crew $5.50');
+    expect(html).toContain('Paste a list of addresses');
+    expect(html).toContain('Stays scheduled');
   });
 
   it.each([

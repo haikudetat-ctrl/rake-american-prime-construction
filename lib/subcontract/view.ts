@@ -38,6 +38,16 @@ function counted(qty: number, unit: string | null | undefined): string {
 export type InvoiceLine = { description: string; amountCents: number };
 
 /**
+ * qty × unit price, rounded to the cent the way Postgres rounds
+ * round(numeric × int): quantities are kept to the hundredth, so the
+ * arithmetic runs on whole hundredths and a half cent always rounds up,
+ * never down from float error (2.55 × 650 is 1657.5, not 1657.4999…).
+ */
+export function lineCents(qty: number, unitCents: number): number {
+  return Math.round((Math.round(qty * 100) * unitCents) / 100);
+}
+
+/**
  * One line for the squares (base and pitch together, rounded once, exactly
  * as the database totals it), one per extra, and the minimum top-up last.
  * A gutter-only job has no squares, so no squares line.
@@ -51,13 +61,13 @@ export function jobLines(job: FrozenJob, extras: Extra[], what = "Roof labor"): 
   if (job.squares > 0) {
     lines.push({
       description: `${what}: ${quantity(job.squares)} squares at ${formatCents(rate)}${pitchNote}`,
-      amountCents: Math.round(job.squares * rate),
+      amountCents: lineCents(job.squares, rate),
     });
   }
   for (const extra of extras) {
     lines.push({
       description: `${extra.description}: ${counted(extra.qty, extra.unit)} at ${formatCents(extra.unitCents)}`,
-      amountCents: Math.round(extra.qty * extra.unitCents),
+      amountCents: lineCents(extra.qty, extra.unitCents),
     });
   }
   if (job.minimumCents && job.minimumCents > 0) {

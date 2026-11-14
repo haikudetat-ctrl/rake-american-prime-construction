@@ -6,7 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   addSubExtra,
-  addSubPriceItem,
+  addSubPriceItems,
   cancelSubJob,
   recordSubPayment,
   removeSubExtra,
@@ -22,6 +22,7 @@ import { requireStaff } from "@/lib/auth";
 import { companyToday, formatDate, formatDateTime, weekStart } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { loadTeam, one } from "@/lib/office/team";
+import { crewRateFrom } from "@/lib/subcontract/add-jobs";
 import { loadSubInvoice } from "@/lib/subcontract/invoice";
 import { parseStale } from "@/lib/subcontract/review";
 import { readTiers, unitLabel } from "@/lib/subcontract/tiers";
@@ -76,11 +77,8 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
   const voided = (invoices ?? []).filter((i) => i.status === "void");
   const invoice = live ? await loadSubInvoice(supabase, live.id) : null;
   const names = new Map(team.map((m) => [m.userId, m.name]));
-  const crewRate = {
-    base: settings?.crew_cents_per_sq ?? 5000,
-    // Same default as the database when no crew rates were ever saved: $5 a step from 9/12.
-    tiers: settings ? readTiers(settings.crew_pitch_tiers) : Array.from({ length: 16 }, (_, i) => ({ from: 9 + i, cents: 500 * (i + 1) })),
-  };
+  // Same defaults as the database when no crew rates were ever saved.
+  const crewRate = crewRateFrom(settings);
   const billRate = {
     base: contractor?.cents_per_sq ?? 0,
     tiers: readTiers(contractor?.pitch_tiers),
@@ -169,21 +167,24 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
               </table>
             )}
             {listItems.length > 0 && (
-              <form action={addSubPriceItem} className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
+              <form action={addSubPriceItems} className="space-y-2">
                 <input type="hidden" name="jobId" value={job.id} />
                 <input type="hidden" name="returnQuery" value={returnQuery} />
-                <label className="label col-span-2 sm:col-span-3">
-                  <span>From {contractor.name}&apos;s price list</span>
-                  <select name="itemId" required className="input">
-                    {listItems.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.description}: {formatCents(i.bill_unit_cents)} {unitLabel(i.unit)} (crew {formatCents(i.pay_unit_cents)})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="label"><span>How many</span><input name="qty" required inputMode="decimal" placeholder="120" className="input" /></label>
-                <button className="btn-secondary">Add</button>
+                <p className="text-sm font-medium">From {contractor.name}&apos;s price list: fill in how many of each item used</p>
+                <ul className="divide-y divide-border/60 rounded-row border border-border/60">
+                  {listItems.map((i) => (
+                    <li key={i.id}>
+                      <label className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-sm">
+                        <span>
+                          {i.description}
+                          <span className="block text-xs text-muted">{formatCents(i.bill_unit_cents)} {unitLabel(i.unit)} · crew {formatCents(i.pay_unit_cents)}</span>
+                        </span>
+                        <input name={`qty:${i.id}`} inputMode="decimal" placeholder={i.unit === "ft" ? "Feet" : "0"} aria-label={`How many ${i.description}`} className="input w-24" />
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <Submit>Add to job</Submit>
               </form>
             )}
             <form action={addSubExtra} className="grid grid-cols-2 gap-2 sm:grid-cols-5 sm:items-end">
