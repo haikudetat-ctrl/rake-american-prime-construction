@@ -70,7 +70,7 @@ Rules that keep the two sides from drifting:
   are updated then) or the Rake invoice is voided (they are voided then).
 - Refunds/reversed payments in QuickBooks are not pulled back; fix those by hand.
 
-**Item mapping.** Each kind of Rake line (delivery, extra days, tonnage, adjustments/credits) posts to
+**Item mapping.** Each kind of Rake line (delivery, extra days, tonnage, price-list charges, adjustments/credits) posts to
 a QuickBooks product/service the owner picks from the company's active Service/NonInventory items.
 An invoice whose lines include an unmapped kind is held with "Choose a QuickBooks product/service…".
 These choices are for the accountant to settle; nothing is hard-coded.

@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { AddRentals } from "./_add-rentals";
 import { assignStop, orderRun } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate } from "@/lib/dates";
 import { assignable, loadTeam, one } from "@/lib/office/team";
+import type { RentalContext } from "@/lib/rentals/add-rentals";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const KIND_LABEL = { drop: "Drop", pickup: "Pickup", dump: "Dump" } as const;
@@ -29,7 +31,8 @@ export default async function TodayPage({ searchParams }: PageProps<"/office/dum
   const date = typeof params.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : companyToday();
   const supabase = await createSupabaseServerClient();
 
-  const [{ data, error }, team, { data: yards }] = await Promise.all([
+  const today = companyToday();
+  const [{ data, error }, team, { data: yards }, { data: customers }, { data: cans }, { data: books }, { data: items }, { data: landfills }] = await Promise.all([
     supabase
       .from("stops")
       .select("id, kind, status, sequence, driver_id, rentals(id, size_yards, customers(name), sites(address, area), cans(label))")
@@ -39,7 +42,28 @@ export default async function TodayPage({ searchParams }: PageProps<"/office/dum
       .order("created_at"),
     loadTeam(supabase),
     supabase.from("yards").select("id, name").eq("is_active", true).order("created_at"),
+    // What the add-rentals form needs to price each rental before it goes in.
+    supabase.from("customers").select("id, name, sites(id, address, created_at)").eq("is_active", true).order("name"),
+    supabase.from("cans").select("id, label, size_yards, status").order("label"),
+    supabase.from("price_books").select("id, version, created_at, delivery_fee_cents, extended_after_days, extended_fee_cents_per_day").order("version"),
+    supabase.from("dumpster_price_items").select("id, description, unit, unit_cents").eq("is_active", true).order("description"),
+    supabase.from("landfills").select("id, name").eq("is_active", true).order("name"),
   ]);
+  const context: RentalContext = {
+    today,
+    customers: (customers ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      // Newest address first: the likeliest one for the next rental.
+      sites: [...(c.sites ?? [])].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).map((x) => ({ id: x.id, address: x.address })),
+    })),
+    cans: (cans ?? []).map((c) => ({ id: c.id, label: c.label, sizeYards: c.size_yards, inYard: c.status === "available" })),
+    books: (books ?? []).map((b) => ({
+      id: b.id, version: b.version, createdOn: companyToday(new Date(b.created_at)),
+      deliveryCents: b.delivery_fee_cents, afterDays: b.extended_after_days, perDayCents: b.extended_fee_cents_per_day,
+    })),
+    items: (items ?? []).map((i) => ({ id: i.id, description: i.description, unit: i.unit, unitCents: i.unit_cents })),
+  };
   const stops = (data ?? []) as unknown as StopRow[];
   const people = assignable(team);
   const groups = [
@@ -61,6 +85,24 @@ export default async function TodayPage({ searchParams }: PageProps<"/office/dum
           <Link className="btn-secondary" href={`/office/dumpsters?date=${addDays(date, 1)}`}>Next →</Link>
         </div>
       </div>
+
+      {customers && cans && books && items ? (
+        <details id="add-rentals" className="card">
+          <summary className="flex min-h-11 cursor-pointer flex-wrap items-baseline justify-between gap-2">
+            <span className="font-semibold">Add rentals</span>
+            <span className="text-sm text-muted">One, a list, or ones that already happened</span>
+          </summary>
+          <div className="mt-3">
+            {customers.length === 0 ? (
+              <p className="text-sm text-muted">Add a customer in <Link className="underline" href="/office/customers">Customers</Link> first.</p>
+            ) : (
+              <AddRentals context={context} landfills={landfills ?? []} defaultDate={date < today ? today : date} />
+            )}
+          </div>
+        </details>
+      ) : (
+        <p role="status" className="card text-sm text-muted">Adding rentals is unavailable right now. Reload to try again.</p>
+      )}
 
       {error && <p role="alert" className="card">Dispatch is unavailable. Reload to try again.</p>}
       {!error && groups.length === 0 && <p className="card text-muted">Nothing scheduled.</p>}

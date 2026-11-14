@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { saveDumpsterPriceItem, setDumpsterPriceItemActive } from "@/app/office/dumpsters/actions";
 import { GalleryCard } from "@/app/office/settings/gallery-card";
 import { EquipmentCostCard } from "@/app/office/settings/equipment-cost-card";
 import { PhoneCard } from "@/app/office/settings/phone-card";
@@ -14,13 +15,14 @@ import { formatPhone } from "@/lib/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const ROLE_LABEL = { owner: "Owner", office: "Office", driver: "Driver", crew: "Crew" } as const;
+const CHARGE_UNIT: Record<string, string> = { each: "each", day: "a day", ton: "a ton", hour: "an hour", trip: "a trip" };
 
 export default async function SettingsPage({ searchParams }: PageProps<"/office/settings">) {
   const member = await requireStaff();
   const isOwner = member.role === "owner";
   const params = await searchParams;
   const supabase = await createSupabaseServerClient();
-  const [{ data: priceBook }, { data: brands }, team, { data: yards }, { data: landfills }, { data: links }, { data: gallery }] =
+  const [{ data: priceBook }, { data: brands }, team, { data: yards }, { data: landfills }, { data: links }, { data: gallery }, { data: charges }] =
     await Promise.all([
       supabase.from("price_books").select("*").eq("is_active", true).maybeSingle(),
       supabase.from("brands").select("*").order("kind"),
@@ -29,6 +31,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
       supabase.from("landfills").select("id, name, address, lat").order("created_at"),
       supabase.from("request_links").select("slug, is_active, brands(kind)"),
       supabase.from("gallery_photos").select("id, path, caption").order("sort").order("created_at"),
+      supabase.from("dumpster_price_items").select("id, description, unit, unit_cents, is_active").order("is_active", { ascending: false }).order("description"),
     ]);
 
   return (
@@ -66,6 +69,58 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
           </form>
         ) : (
           <p className="text-sm text-muted">Only an owner can change prices.</p>
+        )}
+      </section>
+
+      <section className="card space-y-3">
+        <div>
+          <h2 className="font-semibold">Dumpster extra charges</h2>
+          <p className="text-sm text-muted">
+            What the office picks from when adding rentals or filling in an invoice: a mattress, tires, a dry run. Changing a
+            price never changes an invoice that already has the charge. Credits stay adjustments on the rental.
+          </p>
+        </div>
+        {(charges ?? []).length === 0 ? (
+          <p className="text-sm text-muted">No charges yet.</p>
+        ) : (
+          <table className="table">
+            <tbody>
+              {(charges ?? []).map((c) => (
+                <tr key={c.id} className={c.is_active ? "" : "opacity-50"}>
+                  <td>{c.description}</td>
+                  <td className="text-right">{formatCents(c.unit_cents)} {CHARGE_UNIT[c.unit] ?? c.unit}</td>
+                  <td className="w-px">
+                    {isOwner && (
+                      <form action={setDumpsterPriceItemActive}>
+                        <input type="hidden" name="itemId" value={c.id} />
+                        <input type="hidden" name="active" value={c.is_active ? "false" : "true"} />
+                        <button className="text-xs underline">{c.is_active ? "take off" : "put back"}</button>
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {isOwner ? (
+          <form action={saveDumpsterPriceItem} className="grid gap-2 sm:grid-cols-4 sm:items-end">
+            <label className="label sm:col-span-2"><span>Charge</span>
+              <input name="description" required placeholder="Mattress" className="input" />
+            </label>
+            <label className="label"><span>Price ($)</span>
+              <input name="price" required inputMode="decimal" placeholder="50" className="input" />
+            </label>
+            <label className="label"><span>Per</span>
+              <select name="unit" className="input" defaultValue="each">
+                {Object.entries(CHARGE_UNIT).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <button className="btn-secondary sm:col-span-4 sm:justify-self-start">Save charge</button>
+            <p className="text-xs text-muted sm:col-span-4">Saving a name that&apos;s already listed changes its price.</p>
+          </form>
+        ) : (
+          <p className="text-sm text-muted">Only an owner can change these.</p>
         )}
       </section>
 

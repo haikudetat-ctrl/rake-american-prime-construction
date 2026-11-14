@@ -144,6 +144,27 @@ built so they attach to `companies`, `brands`, and `memberships` without change.
 3. Office approves (creates `customer`/`site` if new, a `rental`, and a `drop`
    stop) or declines/reschedules. Customer gets a confirmation email/SMS.
 
+### Adding rentals from the office (Nov 13)
+Dispatch → **Add rentals** takes one rental or a list ("+ Another rental" copies the
+customer, day and status; "Paste a list of addresses" makes one per line). Each is:
+- **Booked**: today or later, exactly like booking from the customer page.
+- **Out on the job**: dropped and still out, for a drop nobody recorded. The can
+  leaves the yard and the invoice opens with the delivery line; pickup and dump then
+  go through the driver as usual.
+- **Picked up and dumped**: a whole rental nobody recorded. Drop, pickup and dump are
+  recorded on their days, extra days and disposal (from the scale ticket) are billed
+  as the driver steps would bill them, and the invoice is final for the next
+  statement.
+
+Dropped rentals can carry **extra charges** from the owner's price list (Settings →
+Dumpster extra charges: a mattress, tires, a dry run). They are invoice lines of kind
+`charge`, priced when added, and can also be added to any open invoice from the
+rental page. Rentals entered after the fact are billed from the price book in force
+on their drop day, have no photos (the rental page says so), and their history shows
+"rental recorded". The whole list goes in at once or not at all (`add_rentals`); it
+refuses the same customer, address and drop day twice, a can Rake doesn't have in
+the yard, and any invoice whose total no longer matches the one shown.
+
 ### Driver run
 1. Driver signs in with a text-message code.
 2. `/driver` shows today's stops grouped by area (yard → town), in order.

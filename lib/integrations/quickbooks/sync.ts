@@ -32,7 +32,7 @@ import { one } from "@/lib/office/team";
 
 const PUSH_LIMIT = 40; // per run; the cron picks up the rest five minutes later
 const CLAIM_TIMEOUT_MS = 10 * 60 * 1000;
-const LINE_ORDER: LineKind[] = ["delivery", "extended_days", "tonnage", "adjustment"];
+const LINE_ORDER: LineKind[] = ["delivery", "extended_days", "tonnage", "charge", "adjustment"];
 
 /** Errors that affect every call, so the run stops instead of failing invoice by invoice. */
 const STOPS_RUN: QboErrorKind[] = ["not_configured", "not_connected", "reconnect", "bad_credentials", "forbidden", "rate_limited", "unavailable"];
@@ -126,7 +126,7 @@ export async function syncCompany(companyId: string): Promise<SyncResult> {
     .eq("company_id", companyId)
     .eq("sync_enabled", true)
     .or(`run_started_at.is.null,run_started_at.lt.${staleBefore}`)
-    .select("item_delivery, item_extended_days, item_tonnage, item_adjustment")
+    .select("item_delivery, item_extended_days, item_tonnage, item_charge, item_adjustment")
     .maybeSingle();
   if (claimError) throw new Error(claimError.message);
   if (!claimed) return { ...result, skipped: "sync is off or already running" };
@@ -135,6 +135,7 @@ export async function syncCompany(companyId: string): Promise<SyncResult> {
     delivery: claimed.item_delivery,
     extended_days: claimed.item_extended_days,
     tonnage: claimed.item_tonnage,
+    charge: claimed.item_charge,
     adjustment: claimed.item_adjustment,
   };
 

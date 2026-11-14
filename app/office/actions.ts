@@ -375,7 +375,7 @@ export async function disconnectQuickBooks() {
   done("/office/settings", "QuickBooks disconnected.");
 }
 
-const QBO_ITEM_FIELDS = ["item_delivery", "item_extended_days", "item_tonnage", "item_adjustment"] as const;
+const QBO_ITEM_FIELDS = ["item_delivery", "item_extended_days", "item_tonnage", "item_charge", "item_adjustment"] as const;
 
 export async function saveQuickBooksSync(form: FormData) {
   const owner = await requireOwner();

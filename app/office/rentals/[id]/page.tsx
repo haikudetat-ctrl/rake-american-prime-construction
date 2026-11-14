@@ -10,6 +10,7 @@ import {
   voidInvoice,
 } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { addInvoiceCharges } from "@/app/office/dumpsters/actions";
 import { ConfirmAction } from "@/app/_ui/confirm-action";
 import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
@@ -27,6 +28,8 @@ const STATUS: Record<string, string> = {
   cancelled: "Cancelled",
 };
 const KIND = { drop: "Drop", pickup: "Pickup", dump: "Dump" } as const;
+const LINE_ORDER = ["delivery", "extended_days", "tonnage", "charge", "adjustment"];
+const CHARGE_UNIT: Record<string, string> = { each: "each", day: "a day", ton: "a ton", hour: "an hour", trip: "a trip" };
 
 function when(at: string | null) {
   return at ? new Date(at).toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" }) : "";
@@ -39,7 +42,7 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
   const query = await searchParams;
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: rental }, { data: stops }, { data: invoice }, { data: ticket }, { data: cans }, team, { data: events }, { data: stopPhotos }] =
+  const [{ data: rental }, { data: stops }, { data: invoice }, { data: ticket }, { data: cans }, team, { data: events }, { data: stopPhotos }, { data: charges }] =
     await Promise.all([
       supabase
         .from("rentals")
@@ -53,6 +56,7 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
       loadTeam(supabase),
       supabase.from("domain_events").select("event_type, payload, actor_id, occurred_at").eq("aggregate_id", id).order("occurred_at", { ascending: false }).limit(30),
       supabase.from("stop_photos").select("id, kind, path, taken_by, taken_at").eq("rental_id", id).order("taken_at"),
+      supabase.from("dumpster_price_items").select("id, description, unit, unit_cents").eq("is_active", true).order("description"),
     ]);
   // RLS already scoped every read above to staff of this company.
   if (!rental) notFound();
@@ -78,8 +82,10 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
   const can = one(rental.cans);
   const book = one(rental.price_books);
   const lines = [...(invoice?.invoice_lines ?? [])].sort(
-    (a, b) => ["delivery", "extended_days", "tonnage", "adjustment"].indexOf(a.kind) - ["delivery", "extended_days", "tonnage", "adjustment"].indexOf(b.kind),
+    (a, b) => LINE_ORDER.indexOf(a.kind) - LINE_ORDER.indexOf(b.kind) || String(a.created_at).localeCompare(String(b.created_at)),
   );
+  // Entered by the office after it happened (add_rentals): there were never any photos.
+  const recorded = (events ?? []).some((e) => e.event_type === "rental_recorded");
   const invoiceOpen = invoice && (invoice.status === "draft" || invoice.status === "final");
   const statement = one(invoice?.statements);
   // Only the newest completed step can be undone (the database enforces this too).
@@ -190,7 +196,7 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
                       <td>{line.description}</td>
                       <td className="text-right">{formatCents(line.amount_cents)}</td>
                       <td className="w-px">
-                        {line.kind === "adjustment" && invoiceOpen && (
+                        {(line.kind === "adjustment" || line.kind === "charge") && invoiceOpen && (
                           <form action={removeAdjustment}>
                             <input type="hidden" name="rentalId" value={id} />
                             <input type="hidden" name="lineId" value={line.id} />
@@ -207,6 +213,25 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
                   </tr>
                 </tbody>
               </table>
+
+              {invoiceOpen && (charges ?? []).length > 0 && (
+                <form action={addInvoiceCharges} className="space-y-2 border-t border-border pt-3">
+                  <input type="hidden" name="rentalId" value={id} />
+                  <input type="hidden" name="invoiceId" value={invoice.id} />
+                  <p className="text-sm font-medium">Extra charges: fill in how many of each</p>
+                  <ul className="divide-y divide-border/60 rounded-row border border-border/60">
+                    {(charges ?? []).map((c) => (
+                      <li key={c.id}>
+                        <label className="flex min-h-11 items-center justify-between gap-3 px-3 py-2 text-sm">
+                          <span>{c.description}<span className="block text-xs text-muted">{formatCents(c.unit_cents)} {CHARGE_UNIT[c.unit] ?? c.unit}</span></span>
+                          <input name={`qty:${c.id}`} inputMode="decimal" placeholder="0" aria-label={`How many ${c.description}`} className="input w-24" />
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  <button className="btn-secondary">Add charges</button>
+                </form>
+              )}
 
               {invoiceOpen ? (
                 <form action={addAdjustment} className="grid gap-2 border-t border-border pt-3 sm:grid-cols-4 sm:items-end">
@@ -260,7 +285,9 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
         <section className="card space-y-3">
           <h2 className="font-semibold">Drop and pickup photos</h2>
           {!stopPhotos?.length ? (
-            <p className="text-sm text-muted">The driver adds these at the drop and the pickup.</p>
+            <p className="text-sm text-muted">
+              {recorded ? "None: the office recorded this rental after it happened." : "The driver adds these at the drop and the pickup."}
+            </p>
           ) : (
             (["drop", "pickup"] as const).map((kind) => {
               const shots = stopPhotos.filter((p) => p.kind === kind);
