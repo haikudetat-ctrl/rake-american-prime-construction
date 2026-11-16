@@ -1,9 +1,10 @@
-/* Shared public brand system. The supplied American Prime SVG defines #ef3c23.
-   Black on this accent passes AA; white small text on it does not. */
+/* Shared public brand system. Buttons and accents use the Authority/DropWise logo orange
+   (#ed5a23) on every page, the hub included. Black (#111) text on it is 5.1:1 (AA); white small
+   text is not. The American Prime logo keeps its own red-orange. */
 .site {
   --charcoal: #191b18;
-  --orange: #ef3c23;
-  --orange-deep: #de351e;
+  --orange: #ed5a23;
+  --orange-deep: #dc5220;
   --bone: #faf8f4;
   --stone: #5e625b;
   --cloud: #deded5;
@@ -28,15 +29,19 @@
 .wrap { width: 100%; max-width: calc(var(--max) + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
 .display, .h2 { font-family: var(--font-bebas), 'Arial Narrow', sans-serif; font-weight: 400; letter-spacing: -.015em; line-height: .98; text-wrap: balance; }
 .display { font-size: clamp(3.9rem, 6.7vw, 6.9rem); max-width: 12ch; }
+/* 12.5% less leading than .display, for hero titles that set their own line breaks. */
+.displayTight { line-height: .858; max-width: none; }
 .h2 { font-size: clamp(2.8rem, 4.7vw, 4.5rem); }
 .h3 { font-family: var(--font-inter), Arial, sans-serif; font-size: clamp(1.2rem, 1.8vw, 1.55rem); font-weight: 600; line-height: 1.3; letter-spacing: -.025em; }
-.lede, .serifCopy { font-family: var(--font-serif), Georgia, serif; font-weight: 400; font-size: clamp(1.5rem, 2.2vw, 2rem); line-height: 1.25; letter-spacing: -.01em; }
+.lede, .serifCopy { font-family: var(--font-roboto), Roboto, Arial, sans-serif; font-weight: 300; font-size: clamp(1.5rem, 2.2vw, 2rem); line-height: 1.3; letter-spacing: -.015em; text-wrap: pretty; }
 .lede { max-width: 27ch; color: #494e46; }
-/* Authority Roofing (app/(site)/roofing/layout.tsx): the accent is the logo's orange, and the
-   secondary headlines are Roboto. The wrapper adds no box. #111 on #ef5923 is 5.5:1, on
-   the hover shade 4.8:1, so button text still passes AA. */
-.roofing { display: contents; --orange: #ef5923; --orange-deep: #de5321; }
-.roofing :is(.lede, .serifCopy) { font-family: var(--font-roboto), Roboto, Arial, sans-serif; font-weight: 300; letter-spacing: -.015em; line-height: 1.3; text-wrap: pretty; }
+/* Brand accents: each brand's buttons and accents use its own logo's orange, set by that brand's
+   layout (the wrappers add no box). The hub keeps --orange above, the parent logo's colour.
+   #111 button text stays above 4.5:1 on each, hover shades included. */
+.roofing, .dropwise { display: contents; }
+/* The *Accent classes put a brand's orange on one element, e.g. its card and buttons on the hub. */
+.roofing, .roofingAccent { --orange: #ef5923; --orange-deep: #de5321; }
+.dropwise, .dropwiseAccent { --orange: #ed5a23; --orange-deep: #dc5220; }
 .muted { color: var(--stone); }
 .small { font-size: .875rem; }
 .eyebrow { font-size: .7rem; text-transform: uppercase; font-weight: 600; letter-spacing: .16em; margin-bottom: 22px !important; }
@@ -72,6 +77,13 @@
 .heroCopy .actions { margin-top: 32px; }
 .heroPhoto { position: relative; min-height: 520px; height: 100%; max-height: 680px; border-radius: 110px 4px 4px 4px; overflow: hidden; background: #d9ded4; }
 .heroPhoto img { object-fit: cover; object-position: 48% center; }
+/* Backdrop hero (/roofing): full-width photo behind the copy. The page colour is solid behind
+   the text and fades to clear over the house, so dark text and the orange button keep contrast. */
+.heroBackdrop { position: relative; isolation: isolate; display: flex; align-items: center; min-height: clamp(560px, 76vh, 780px); }
+.heroBackdropMedia { position: absolute; inset: 0; z-index: -1; margin: 0; overflow: hidden; background: #d9ded4; }
+.heroBackdropMedia img { object-fit: cover; object-position: 72% center; }
+.heroBackdropMedia::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--bone) 0%, rgb(250 248 244 / .97) 36%, rgb(250 248 244 / .86) 46%, rgb(250 248 244 / .45) 60%, rgb(250 248 244 / 0) 74%); }
+.heroBackdropCopy { max-width: 620px; padding-block: clamp(56px, 8vw, 110px); }
 .trustStrip { border-block: 1px solid var(--cloud); background: #f0f1ea; }
 .trustGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; padding-block: 26px; }
 .trustGrid > div { display: grid; gap: 4px; }
@@ -99,6 +111,16 @@
 .steps li { counter-increment: step; padding-top: 22px; border-top: 1px solid #b7bcae; }
 .steps li::before { content: '0' counter(step); display: block; font-family: var(--font-bebas), sans-serif; font-size: 2.2rem; color: #9e2b1c; line-height: 1; margin-bottom: 30px; }
 .steps p { margin-top: 14px; font-size: .9rem; }
+/* How it works (/roofing): one connected timeline. Filled nodes are the homeowner's steps. */
+.journey { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; list-style: none; margin: 0; padding: 0; }
+.journey li { position: relative; display: flex; flex-direction: column; align-items: flex-start; }
+.journey li:not(:last-child)::after { content: ''; position: absolute; top: 22px; left: 56px; right: -20px; height: 1px; background: #b7bcae; }
+.journeyNode { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--charcoal); background: #fff; font-family: var(--font-bebas), sans-serif; font-size: 1.35rem; line-height: 1; padding-top: 2px; margin-bottom: 26px; }
+.journeyYou .journeyNode { background: var(--orange); border-color: var(--orange); color: #111; }
+.journeyWho { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .16em; color: var(--stone); margin-bottom: 10px; }
+.journeyYou .journeyWho { color: var(--charcoal); }
+.journey .muted { margin-top: 12px; font-size: .9rem; }
+.journey .textLink { margin-top: 18px; }
 .areaPanel { background: #eeefe7; border-radius: 5px; padding: clamp(28px, 5vw, 70px); display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
 .areaPanel .muted { margin: 22px 0; font-size: .9rem; }
 .contractorBand { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-block: 35px; border-block: 1px solid var(--cloud); }
@@ -250,4 +272,32 @@
   .brandName { display: none; }
   .headerCta { font-size: .6rem; padding-inline: 10px; max-width: 124px; white-space: normal; text-align: center; }
   .menu summary { font-size: .72rem; }
+}
+
+/* Backdrop hero on phones: copy first, photo below it fading up into the page colour. */
+@media (max-width: 760px) {
+  .heroBackdrop { flex-direction: column; align-items: stretch; min-height: 0; }
+  .heroBackdropMedia { position: relative; inset: auto; z-index: auto; height: 340px; }
+  .heroBackdropMedia img { object-position: 60% center; }
+  .heroBackdropMedia::after { background: linear-gradient(180deg, var(--bone) 0%, rgb(250 248 244 / 0) 40%); }
+  .heroBackdropCopy { padding-block: 32px 4px; }
+}
+@media (max-width: 480px) {
+  .heroBackdropMedia { height: 290px; }
+}
+
+/* How it works timeline: two per row on tablets, a vertical line on phones. */
+@media (max-width: 920px) {
+  .journey { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 44px; }
+  .journey li:nth-child(2n)::after { display: none; }
+}
+@media (max-width: 760px) {
+  .journey { grid-template-columns: 1fr; gap: 0; }
+  .journey li { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 18px; align-items: start; padding-bottom: 34px; }
+  .journey li > * { grid-column: 2; }
+  .journey .journeyNode { grid-column: 1; grid-row: 1 / span 4; margin-bottom: 0; }
+  .journeyWho { min-height: 44px; display: flex; align-items: center; margin-bottom: 0; }
+  .journey li:nth-child(2n)::after { display: block; }
+  .journey li:not(:last-child)::after { top: 52px; bottom: 8px; left: 22px; right: auto; width: 1px; height: auto; }
+  .journey .textLink { justify-self: start; }
 }

@@ -90,7 +90,7 @@ export function SiteFooter() {
             <h2>Dumpsters</h2>
             <ul>
               <li><Link href={REQUEST_HREF.dumpster} prefetch={false}>Request a dumpster</Link></li>
-              <li><Link href={`${PATHS.dumpster}#sizes`}>Dumpster sizes</Link></li>
+              <li><Link href={`${PATHS.dumpster}#sizes`}>Our 20-yard dumpster</Link></li>
             </ul>
           </div>
           <div>

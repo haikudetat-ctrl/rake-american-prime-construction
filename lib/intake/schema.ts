@@ -102,7 +102,7 @@ export const rentalRequestSchema = z
     sizeYards: z.coerce
       .number()
       .int()
-      .refine((v) => (DUMPSTER_SIZES as readonly number[]).includes(v))
+      .refine((v) => DUMPSTER_SIZES.includes(v))
       .optional()
       .catch(undefined),
     notes: optionalText(1000),
