@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import wordmark from "@/public/brand/ap-roofing-wordmark.png";
+import lockup from "@/public/brand/authority-roofing-lockup.png";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "@/app/(site)/_components/chrome";
 import { ContactLinks } from "@/app/(site)/_components/contact";
 import { Closing, Faq, PhotoHero, ServiceArea, TrustStrip } from "@/app/(site)/_components/marketing";
@@ -66,7 +66,7 @@ function ProposalSheet({ systems, addons }: { systems: RoofSystem[]; addons: str
         aria-label={`Example proposal: ${options.map((o) => o.name).join(", ")}, optional add-ons, a ${WORKMANSHIP_WARRANTY_YEARS}-year workmanship warranty and an online signature.`}
       >
         <div className={s.sheetTop}>
-          <Image src={wordmark} alt="" />
+          <Image src={lockup} alt="" />
           <span className={s.sheetDoc}>Proposal</span>
         </div>
         <p className={s.sheetTitle}>Your new roof</p>
@@ -125,7 +125,7 @@ export default async function RoofingPage() {
       <SkipLink />
       <SiteHeader brand="roofing" nav={roofingNav()} cta={{ href: REQUEST_HREF.roofing, label: "Request an estimate" }} />
       <main id="main">
-        <PhotoHero label="AP Roofing & Gutters" title="A good roof. A little peace of mind." intro="Roof replacement, repairs, and gutters. Clear options and a written proposal for the home you care about.">
+        <PhotoHero label={ROOFING_NAME} title="A good roof. A little peace of mind." intro="Roof replacement, repairs, and gutters. Clear options and a written proposal for the home you care about.">
           <Link href={REQUEST_HREF.roofing} prefetch={false} className={s.btn}>Request an estimate <span aria-hidden="true">↗</span></Link>
           <Link href="#services" className={s.textLink}>Explore our services</Link>
         </PhotoHero>
@@ -272,7 +272,7 @@ export default async function RoofingPage() {
           "@type": "RoofingContractor",
           name: ROOFING_NAME,
           url: canonicalUrl("roofing"),
-          logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/ap-roofing-logo.png`,
+          logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/authority-roofing-logo.png`,
           parentOrganization: { "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company") },
           areaServed: "Hamilton Township (Mercer County) to Atlantic City, NJ corridor and approximately 50 miles north and south",
           ...(contact.phone ? { telephone: contact.phone } : {}),

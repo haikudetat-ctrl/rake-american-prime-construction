@@ -16,7 +16,7 @@ Supabase project: `rake-american-prime-construction` (`jfonoearbpcqsofkmqvr`, us
 ## Layout
 
 ```
-app/(site)           public website: company hub, AP Roofing & Gutters, DropWise (docs/website.md)
+app/(site)           public website: company hub, Authority Roofing, DropWise (docs/website.md)
 app/request/[slug]   public dumpster request link (no login)
 app/roof/[slug]      public roofing estimate link (no login), with past-job photos
 app/office           owner/office: today, dumpster requests, roofing leads, subcontracting, inbox (texts, calls), jobs (P&L, aftercare), stock, referrals, cans, customers, billing, numbers, settings
@@ -85,8 +85,8 @@ Docker available, `supabase test db` runs the same suites.
 
 ## Public website
 
-`app/(site)/` is the public site: the American Prime Construction hub at `/`, AP Roofing &
-Gutters at `/roofing` (and `/roofing/contractors` for labor-only crews), and DropWise
+`app/(site)/` is the public site: the American Prime Construction hub at `/`, Authority
+Roofing at `/roofing` (and `/roofing/contractors` for labor-only crews), and DropWise
 Dumpsters at `/dumpsters`. Every call to action opens an existing request link, so website
 leads land in Roofing Leads and Dumpster Requests. Brand phone/email, the roofing systems and
 past-job photos come from Settings and the price list. Details, open items and how to give a

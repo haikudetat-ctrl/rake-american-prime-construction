@@ -51,7 +51,7 @@ export default async function ContractorsPage() {
           <Link href={`${REQUEST_HREF.roofing}?need=other`} prefetch={false} className={s.btn}>Request crew pricing <span aria-hidden="true">↗</span></Link>
           <a href="#gc-how-title" className={s.textLink}>See how it works</a>
         </PhotoHero>
-        <section className={s.aboutSection}><div className={`${s.wrap} ${s.aboutGrid}`}><h2 className={s.h2}>More work lined up?<br />Let’s talk crews.</h2><div><p className={s.serifCopy}>One job or a week’s schedule.</p><p className={s.muted}>AP Roofing & Gutters supplies labor-only crews to roofing contractors. You sell the job and coordinate the material delivery. We assign the crew, confirm the day with you, and invoice each job when it is complete.</p></div></div></section>
+        <section className={s.aboutSection}><div className={`${s.wrap} ${s.aboutGrid}`}><h2 className={s.h2}>More work lined up?<br />Let’s talk crews.</h2><div><p className={s.serifCopy}>One job or a week’s schedule.</p><p className={s.muted}>Authority Roofing supplies labor-only crews to roofing contractors. You sell the job and coordinate the material delivery. We assign the crew, confirm the day with you, and invoice each job when it is complete.</p></div></div></section>
 
         <section className={`${s.wrap} ${s.section}`} aria-labelledby="gc-how-title">
           <div className={s.sectionHead}>

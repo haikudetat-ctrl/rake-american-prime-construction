@@ -32,6 +32,9 @@
 .h3 { font-family: var(--font-inter), Arial, sans-serif; font-size: clamp(1.2rem, 1.8vw, 1.55rem); font-weight: 600; line-height: 1.3; letter-spacing: -.025em; }
 .lede, .serifCopy { font-family: var(--font-serif), Georgia, serif; font-weight: 400; font-size: clamp(1.5rem, 2.2vw, 2rem); line-height: 1.25; letter-spacing: -.01em; }
 .lede { max-width: 27ch; color: #494e46; }
+/* Authority Roofing: secondary headlines in Roboto (app/(site)/roofing/layout.tsx). The wrapper adds no box. */
+.roofing { display: contents; }
+.roofing :is(.lede, .serifCopy) { font-family: var(--font-roboto), Roboto, Arial, sans-serif; font-weight: 300; letter-spacing: -.015em; line-height: 1.3; text-wrap: pretty; }
 .muted { color: var(--stone); }
 .small { font-size: .875rem; }
 .eyebrow { font-size: .7rem; text-transform: uppercase; font-weight: 600; letter-spacing: .16em; margin-bottom: 22px !important; }

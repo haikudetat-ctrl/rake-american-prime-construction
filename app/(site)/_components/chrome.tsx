@@ -2,7 +2,7 @@ import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import companyLockup from "@/public/brand/american-prime-drive.png";
 import dumpsterLogo from "@/public/brand/dropwise-logo.png";
-import roofingWordmark from "@/public/brand/ap-roofing-wordmark.png";
+import roofingLockup from "@/public/brand/authority-roofing-lockup.png";
 import {
   COMPANY_NAME,
   DROPWISE_NAME,
@@ -19,7 +19,7 @@ type NavItem = { href: string; label: string; current?: boolean };
 const LOGOS: Record<"company" | "roofing" | "dumpster", { src: StaticImageData; alt: string; height: number; href: string }> = {
   company: { src: companyLockup, alt: COMPANY_NAME, height: 62, href: PATHS.company },
   dumpster: { src: dumpsterLogo, alt: DROPWISE_NAME, height: 58, href: PATHS.dumpster },
-  roofing: { src: roofingWordmark, alt: ROOFING_NAME, height: 34, href: PATHS.roofing },
+  roofing: { src: roofingLockup, alt: ROOFING_NAME, height: 44, href: PATHS.roofing },
 };
 
 export function SkipLink() {

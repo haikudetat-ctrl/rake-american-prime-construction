@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import roofingLogo from "@/public/brand/ap-roofing-wordmark.png";
+import roofingLogo from "@/public/brand/authority-roofing-lockup.png";
 import dropwiseLogo from "@/public/brand/dropwise-logo.png";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "./_components/chrome";
 import { Faq, PhotoHero, ServiceArea, TrustStrip } from "./_components/marketing";
@@ -10,7 +10,7 @@ import s from "./site.module.css";
 
 export const metadata: Metadata = {
   title: `${COMPANY_NAME} | Roofing, gutters & dumpster rentals`,
-  description: "Roofing, gutters and roll-off dumpster rentals from Hamilton to Atlantic City and surrounding areas. Meet AP Roofing & Gutters and DropWise, part of American Prime Construction.",
+  description: "Roofing, gutters and roll-off dumpster rentals from Hamilton to Atlantic City and surrounding areas. Meet Authority Roofing and DropWise, part of American Prime Construction.",
   alternates: { canonical: canonicalUrl("company") }, robots: { index: true, follow: true },
   openGraph: { title: COMPANY_NAME, description: "Good work. A home you can feel good about.", url: canonicalUrl("company"), siteName: COMPANY_NAME, type: "website" },
 };
@@ -31,7 +31,7 @@ export default function CompanyHome() {
           <article className={s.serviceCard}>
             <div className={s.serviceLogo}><Image src={roofingLogo} alt={ROOFING_NAME} /></div>
             <h3 className={s.h3}>Take care of what&apos;s overhead.</h3>
-            <p className={s.muted}>From a persistent leak to a new GAF shingle roof, AP Roofing & Gutters helps protect the place you call home—with your scope, options, and price in writing.</p>
+            <p className={s.muted}>From a persistent leak to a new GAF shingle roof, Authority Roofing helps protect the place you call home, with your scope, options, and price in writing.</p>
             <ul className={s.inlineList}><li>Roof replacement</li><li>Repairs</li><li>Gutters</li></ul>
             <Link href={REQUEST_HREF.roofing} prefetch={false} className={s.btn}>Request a roofing estimate <span aria-hidden="true">↗</span></Link>
             <Link href={PATHS.roofing} className={s.textLink}>Explore roofing & gutters</Link>
@@ -48,7 +48,7 @@ export default function CompanyHome() {
       </section>
       <section id="about" className={s.aboutSection} aria-labelledby="about-title"><div className={`${s.wrap} ${s.aboutGrid}`}>
         <div><p className={s.eyebrow}>The American Prime family</p><h2 id="about-title" className={s.h2}>Your home means a lot.<br />So does the work.</h2></div>
-        <div><p className={s.serifCopy}>Big decisions feel better when the next step is clear.</p><p className={s.muted}>American Prime Construction brings AP Roofing & Gutters and DropWise Dumpsters together under one parent company. Whether you&apos;re protecting your home or making room to improve it, you can start with a simple request.</p><p className={s.muted}>Tell us about the project. We&apos;ll confirm the details, explain your options, and help you work out what comes next.</p></div>
+        <div><p className={s.serifCopy}>Big decisions feel better when the next step is clear.</p><p className={s.muted}>American Prime Construction brings Authority Roofing and DropWise Dumpsters together under one parent company. Whether you&apos;re protecting your home or making room to improve it, you can start with a simple request.</p><p className={s.muted}>Tell us about the project. We&apos;ll confirm the details, explain your options, and help you work out what comes next.</p></div>
       </div></section>
       <section className={`${s.wrap} ${s.section}`} aria-labelledby="how-title"><div className={s.sectionHead}><h2 id="how-title" className={s.h2}>A simple place to start.</h2></div>
         <ol className={s.steps} style={{ "--steps": 3 } as React.CSSProperties}>
@@ -60,7 +60,7 @@ export default function CompanyHome() {
       <ServiceArea company />
       <section className={`${s.wrap} ${s.contractorBand}`}><div><h2 className={s.h3}>A crew for the work you&apos;ve lined up.</h2><p className={s.muted}>Roofing contractor? We also supply labor-only installation crews.</p></div><Link href={PATHS.contractors} className={s.textLink}>For contractors <span aria-hidden="true">↗</span></Link></section>
       <Faq items={[
-        { question: "Which company should I contact?", answer: "For roofs, repairs, inspections, or gutters, choose AP Roofing & Gutters. For a roll-off dumpster, choose DropWise. Both are services of American Prime Construction." },
+        { question: "Which company should I contact?", answer: "For roofs, repairs, inspections, or gutters, choose Authority Roofing. For a roll-off dumpster, choose DropWise. Both are services of American Prime Construction." },
         { question: "Can I start without creating an account?", answer: "Yes. Both request forms work without an account. Share your contact details and project address so our team can follow up." },
         { question: "Do you work in my area?", answer: "We serve the Hamilton Township in Mercer County to Atlantic City corridor and approximately 50 miles north and south of that line. Send your project address so we can confirm service and availability." },
         { question: "Can you help with both a roof and a dumpster?", answer: "Tell us about both needs in your request. Our team will confirm what is needed for your project and coordinate the next steps with you." },
