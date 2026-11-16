@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "@/app/(site)/_components/chrome";
-import { Closing, Faq, PhotoHero, ServiceArea } from "@/app/(site)/_components/marketing";
+import { Closing, Faq, Journey, PhotoHero, ServiceArea, type JourneyStep } from "@/app/(site)/_components/marketing";
 import { ContactLinks } from "@/app/(site)/_components/contact";
 import { COMPANY_NAME, DROPWISE_NAME, PATHS, REQUEST_HREF, canonicalUrl } from "@/lib/site/config";
 import { getSiteContent } from "@/lib/site/content";
@@ -10,62 +10,63 @@ import s from "../site.module.css";
 export const revalidate = 3600;
 export const metadata: Metadata = {
   title: `Dumpster rentals | ${DROPWISE_NAME}`,
-  description: "10, 15 and 20-yard roll-off dumpster rentals for cleanouts, renovations and roofing projects from Hamilton to Atlantic City and surrounding areas. Request your estimate online.",
+  description: "20-yard roll-off dumpsters for construction debris: roof tear-offs, renovations and job sites from Hamilton to Atlantic City. Request one online.",
   alternates: { canonical: canonicalUrl("dumpster") }, robots: { index: true, follow: true },
-  openGraph: { title: `Make room for what’s next. | ${DROPWISE_NAME}`, description: "Roll-off dumpster rentals for your home or job site.", url: canonicalUrl("dumpster"), siteName: DROPWISE_NAME, type: "website" },
+  openGraph: { title: `Tear it out. We’ll haul it away. | ${DROPWISE_NAME}`, description: "Roll-off dumpsters for construction debris, from a roofing company that uses them on its own jobs.", url: canonicalUrl("dumpster"), siteName: DROPWISE_NAME, type: "website" },
 };
-const sizes = [
-  { yards: 10, loads: "About 3 pickup-truck loads", uses: ["Garage & basement cleanouts", "Small renovation projects", "Household debris"] },
-  { yards: 15, loads: "About 4–5 pickup-truck loads", uses: ["Roofing projects", "Kitchen & bath remodels", "Deck removal"] },
-  { yards: 20, loads: "About 6 pickup-truck loads", uses: ["Whole-home cleanouts", "Construction debris", "Larger renovations"] },
+const nav = [{ href: "#sizes", label: "The dumpster" }, { href: "#how", label: "How it works" }, { href: "#service-area", label: "Service area" }, { href: PATHS.company, label: "American Prime" }];
+
+const HOW: JourneyStep[] = [
+  { who: "you", title: "Tell us about the project", body: "The address, the day you want it, and what's going in it.", link: { href: REQUEST_HREF.dumpster, label: "Request a dumpster", arrow: "↗", request: true } },
+  { who: "us", title: "We drop it off", body: "We confirm by text and agree on where it goes and when." },
+  { who: "you", title: "You load it up", body: "Fill it up. When you're done, let us know." },
+  { who: "us", title: "We haul it away", body: "We set up the pickup and take it from there." },
 ];
-const nav = [{ href: "#sizes", label: "Dumpster sizes" }, { href: "#how", label: "How it works" }, { href: "#service-area", label: "Service area" }, { href: PATHS.company, label: "American Prime" }];
 
 export default async function DropWiseHome() {
   const { contacts } = await getSiteContent();
   return <>
     <SkipLink /><SiteHeader brand="dumpster" nav={nav} cta={{ href: REQUEST_HREF.dumpster, label: "Request an estimate" }} />
     <main id="main">
-      <PhotoHero label="DropWise Dumpsters" title="A fresh start. A little less in the way." intro="The cleanout. The renovation. The project you’re ready to start. We’ll help you make room." image="dumpster">
+      <PhotoHero backdrop label="DropWise Dumpsters" title={<>Tear it out.<br />We’ll haul it away.</>} titleClassName={s.displayTight} intro="Roll-off dumpsters for construction debris. Tear-offs, renovations, new builds. DropWise started with the debris from our own roofs, so we know what a job site needs." image="dumpster">
         <Link href={REQUEST_HREF.dumpster} prefetch={false} className={s.btn}>Request a dumpster estimate <span aria-hidden="true">↗</span></Link>
-        <a href="#sizes" className={s.textLink}>Find your size</a>
+        <a href="#sizes" className={s.textLink}>See the dumpster</a>
       </PhotoHero>
       <div className={s.trustStrip}><div className={`${s.wrap} ${s.trustGrid}`}>
-        <div><strong>10, 15 & 20 yards</strong><span>Find the space your project needs</span></div>
-        <div><strong>Delivery & pickup</strong><span>Coordinated with our team</span></div>
-        <div><strong>Part of American Prime</strong><span>A construction company behind your project</span></div>
+        <div><strong>20-yard cans</strong><span>One size, so there&apos;s no guessing</span></div>
+        <div><strong>Delivery & pickup</strong><span>Confirmed with you by text</span></div>
+        <div><strong>Run by a roofing company</strong><span>We use these on our own jobs</span></div>
       </div></div>
       <section id="sizes" className={`${s.wrap} ${s.section}`} aria-labelledby="sizes-title">
-        <div className={s.sectionHead}><h2 id="sizes-title" className={s.h2}>A size for your<br />next chapter.</h2><p className={s.serifCopy}>Start with your project.<br />We&apos;ll help you find the fit.</p></div>
-        <div className={s.sizeGrid}>{sizes.map(size=><article key={size.yards} className={s.sizeCard}>
-          <h3 className={s.sizeNumber}>{size.yards} <span>yard</span></h3><p>{size.loads}</p>
-          <ul>{size.uses.map(use=><li key={use}>{use}</li>)}</ul>
-          <Link href={REQUEST_HREF.dumpster} prefetch={false} className={s.textLink} aria-label={`Request a ${size.yards}-yard dumpster`}>Request this size <span aria-hidden="true">↗</span></Link>
-        </article>)}</div>
-        <p className={s.note}>Capacity estimates are a guide. Tell us the size you have in mind in your request; we&apos;ll confirm availability, accepted materials, and rental details.</p>
+        <div className={s.aboutGrid}>
+          <div className={s.sectionHead}><h2 id="sizes-title" className={s.h2}>One size.<br />Twenty yards.</h2><p className={s.serifCopy}>Every DropWise can is a 20-yard, so there&apos;s no guessing. Tell us the job and we&apos;ll tell you if it takes one or two.</p></div>
+          <article className={s.sizeCard}>
+            <h3 className={s.sizeNumber}>20 <span>yard</span></h3><p>About 6 pickup-truck loads</p>
+            <ul><li>Roof tear-offs</li><li>Renovations and demo</li><li>New construction</li></ul>
+            <Link href={REQUEST_HREF.dumpster} prefetch={false} className={s.textLink}>Request a 20-yard <span aria-hidden="true">↗</span></Link>
+          </article>
+        </div>
+        <p className={s.note}>Capacity is a rough guide. We confirm weight limits and accepted materials with your rental.</p>
       </section>
       <section id="how" className={s.aboutSection} aria-labelledby="how-title"><div className={s.wrap}>
-        <div className={s.sectionHead}><h2 id="how-title" className={s.h2}>You fill it.<br />We take it from there.</h2></div>
-        <ol className={s.steps} style={{ "--steps": 3 } as React.CSSProperties}>
-          <li><h3 className={s.h3}>Tell us about the project</h3><p className={s.muted}>Share your address, preferred date, and the kind of cleanup or renovation you&apos;re planning.</p></li>
-          <li><h3 className={s.h3}>We confirm & deliver</h3><p className={s.muted}>We confirm availability and rental details by text, then coordinate a place and time for drop-off.</p></li>
-          <li><h3 className={s.h3}>Load up. We haul away.</h3><p className={s.muted}>Get to work. When you&apos;re finished, let us know and we&apos;ll coordinate pickup.</p></li>
-        </ol>
+        <div className={s.sectionHead}><h2 id="how-title" className={s.h2}>You fill it.<br />We take it from there.</h2><p className={s.serifCopy}>You tell us and you fill it. We do the driving.</p></div>
+        <Journey steps={HOW} />
       </div></section>
       <section className={`${s.wrap} ${s.section}`} aria-labelledby="about-title"><div className={s.aboutGrid}>
-        <div><h2 id="about-title" className={s.h2}>For the projects<br />that happen at home.</h2></div>
-        <div><p className={s.serifCopy}>Sometimes, making a home starts with making space.</p><p className={s.muted}>DropWise is a service of American Prime Construction. We rent roll-off dumpsters to homeowners, roofing contractors, builders, and property managers for cleanouts, renovations, and active job sites.</p><p className={s.muted}>Not sure what size you need or where a dumpster can go? Tell us about your project and access. We&apos;ll talk through the details before scheduling.</p><div className={s.actions} style={{ marginTop: 24 }}><ContactLinks contact={contacts.dumpster} /></div></div>
+        <div><h2 id="about-title" className={s.h2}>Built for<br />job sites.</h2></div>
+        <div><p className={s.serifCopy}>We started DropWise for our own roofing jobs.</p><p className={s.muted}>Now roofing contractors, remodelers and builders use them too, on tear-offs, renovations and active job sites. DropWise is part of American Prime Construction.</p><p className={s.muted}>Running jobs every week? Ask about a standing order and one statement a week instead of a pile of invoices. Tight lot or a busy street? Tell us about the spot and we&apos;ll work out where the can goes before anything is scheduled.</p><div className={s.actions} style={{ marginTop: 24 }}><ContactLinks contact={contacts.dumpster} /></div></div>
       </div></section>
       <ServiceArea dumpster />
       <Faq items={[
-        { question: "What size dumpster do I need?", answer: "That depends on your project and materials. The 10, 15, and 20-yard options above are a starting point. Tell us what you are removing and we will help confirm a suitable size and availability." },
-        { question: "What can I put in the dumpster?", answer: "Describe your debris in your request. Our team will confirm accepted materials, exclusions, and any applicable weight limits before the rental is scheduled." },
-        { question: "How much does a rental cost?", answer: "Request an estimate with your address, preferred date, and project details. We will confirm pricing, rental period, and terms for your location before scheduling." },
-        { question: "Where can the dumpster be placed?", answer: "Share the access and placement details with your request. We will confirm a suitable spot. If you are considering street placement, check with your municipality about permit requirements." },
-        { question: "How do I arrange pickup?", answer: "Contact our team when you are finished. We will coordinate pickup with you according to the agreed rental details." },
+        { question: "Do you have smaller dumpsters?", answer: "No. Every can is a 20-yard. Tell us the job, like the squares and layers on a tear-off or the scope of a remodel, and we'll tell you if it takes one can or two." },
+        { question: "Do you work with contractors every week?", answer: "Yes. Most of our cans go to roofing companies and builders. Ask about a standing order and a single weekly statement." },
+        { question: "What can go in it?", answer: "Tell us in your request. We'll confirm what's accepted, what isn't, and any weight limits before we schedule." },
+        { question: "How much does it cost?", answer: "Send your address, the date and the project. We'll confirm the price, rental period and terms for your spot before anything is booked." },
+        { question: "Where can it go?", answer: "Tell us about the spot: driveway, lot or street. We'll confirm it works. If it's the street, check with the town about a permit first." },
+        { question: "How do I get it picked up?", answer: "Let us know you're done and we'll set up the pickup." },
       ]} />
-      <Closing dumpster title="Let’s make room for what’s next." />
+      <Closing dumpster title="Got a job coming up?" />
     </main><SiteFooter />
-    <JsonLd data={{ "@context": "https://schema.org", "@type": "LocalBusiness", name: DROPWISE_NAME, description: "Roll-off dumpster rentals: 10, 15 and 20-yard dumpsters.", url: canonicalUrl("dumpster"), logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/dropwise-logo.png`, parentOrganization: { "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company") }, areaServed: "Hamilton Township (Mercer County) to Atlantic City, NJ corridor and approximately 50 miles north and south", ...(contacts.dumpster.phone ? { telephone: contacts.dumpster.phone } : {}), ...(contacts.dumpster.email ? { email: contacts.dumpster.email } : {}) }} />
+    <JsonLd data={{ "@context": "https://schema.org", "@type": "LocalBusiness", name: DROPWISE_NAME, description: "20-yard roll-off dumpster rentals for construction debris.", url: canonicalUrl("dumpster"), logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/dropwise-logo.png`, parentOrganization: { "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company") }, areaServed: "Hamilton Township (Mercer County) to Atlantic City, NJ corridor and approximately 50 miles north and south", ...(contacts.dumpster.phone ? { telephone: contacts.dumpster.phone } : {}), ...(contacts.dumpster.email ? { email: contacts.dumpster.email } : {}) }} />
   </>;
 }

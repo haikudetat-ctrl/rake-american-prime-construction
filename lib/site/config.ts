@@ -2,8 +2,8 @@
  * The public website: one parent company and two customer-facing brands.
  *
  *   /                      American Prime Construction (the parent, a directory of the two)
- *   /roofing               AP Roofing & Gutters (homeowners)
- *   /roofing/contractors   AP Roofing & Gutters (roofing crews for contractors)
+ *   /roofing               Authority Roofing (homeowners)
+ *   /roofing/contractors   Authority Roofing (roofing crews for contractors)
  *   /dumpsters             DropWise Dumpsters
  *
  * Every call to action goes to an existing Rake request link, so a website
@@ -17,7 +17,7 @@
 export type SiteBrand = "company" | "roofing" | "dumpster";
 
 export const COMPANY_NAME = "American Prime Construction";
-export const ROOFING_NAME = "AP Roofing & Gutters";
+export const ROOFING_NAME = "Authority Roofing";
 export const DROPWISE_NAME = "DropWise Dumpsters";
 
 /** NJ Home Improvement Contractor registration, printed on every proposal. */

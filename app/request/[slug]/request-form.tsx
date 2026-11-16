@@ -41,15 +41,24 @@ export function RequestForm({
             <input name="requestedDate" type="date" required min={today} defaultValue={tomorrow}
               className={fieldClass("requestedDate")} />
           </label>
-          <label className="label">
-            <span>Size</span>
-            <select name="sizeYards" className="input" defaultValue="">
-              <option value="">Not sure</option>
-              {DUMPSTER_SIZES.map((s) => (
-                <option key={s} value={s}>{s} yard</option>
-              ))}
-            </select>
-          </label>
+          {DUMPSTER_SIZES.length === 1 ? (
+            // One size in the fleet: show it and send it, nothing to choose.
+            <label className="label">
+              <span>Size</span>
+              <input type="hidden" name="sizeYards" value={DUMPSTER_SIZES[0]} />
+              <input className="input" value={`${DUMPSTER_SIZES[0]} yard`} readOnly tabIndex={-1} />
+            </label>
+          ) : (
+            <label className="label">
+              <span>Size</span>
+              <select name="sizeYards" className="input" defaultValue="">
+                <option value="">Not sure</option>
+                {DUMPSTER_SIZES.map((s) => (
+                  <option key={s} value={s}>{s} yard</option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
         <label className="label">

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import wordmark from "@/public/brand/ap-roofing-wordmark.png";
+import lockup from "@/public/brand/authority-roofing-lockup.png";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "@/app/(site)/_components/chrome";
 import { ContactLinks } from "@/app/(site)/_components/contact";
-import { Closing, Faq, PhotoHero, ServiceArea, TrustStrip } from "@/app/(site)/_components/marketing";
+import { Closing, Faq, Journey, PhotoHero, ServiceArea, TrustStrip, type JourneyStep } from "@/app/(site)/_components/marketing";
 import { roofingNav } from "@/app/(site)/roofing/nav";
 import { NEED_LABEL, type Need } from "@/lib/leads/schema";
 import {
@@ -24,12 +24,12 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: `Roof replacement, repair and gutters | ${ROOFING_NAME}`,
   description:
-    "Roof replacement, leak repair, gutters and storm damage from Hamilton to Atlantic City and surrounding areas. A written proposal with good, better and best GAF options, signed online, and a 10-year workmanship warranty.",
+    "Roof replacement, leak repair, gutters and storm damage from Hamilton to Atlantic City. Every option priced in writing, signed online, and backed by a 10-year workmanship warranty.",
   alternates: { canonical: canonicalUrl("roofing") },
   robots: { index: true, follow: true },
   openGraph: {
     title: ROOFING_NAME,
-    description: "Roof replacement, repairs and gutters from Hamilton to Atlantic City, with the price in writing.",
+    description: "Roofs done right, with every option and price in writing. Hamilton to Atlantic City.",
     url: canonicalUrl("roofing"),
     siteName: ROOFING_NAME,
     type: "website",
@@ -38,11 +38,19 @@ export const metadata: Metadata = {
 
 /** One row per option on the estimate form; each link opens the form with it chosen. */
 const SERVICES: { need: Need; title: string; body: string }[] = [
-  { need: "replacement", title: "Roof replacement", body: "Tear-off and a new GAF shingle roof, with the scope and price written out before work starts." },
-  { need: "repair", title: "Leaks and repairs", body: "Find where the water is getting in and fix it, from flashing and pipe boots to damaged shingles." },
-  { need: "inspection", title: "Inspections and estimates", body: "A look at the roof's condition and a written estimate you can keep." },
-  { need: "gutters", title: "Gutters", body: "Seamless gutters on their own, or added to a new roof." },
-  { need: "storm", title: "Storm damage", body: "Wind and storm damage checked and repaired." },
+  { need: "replacement", title: "Roof replacement", body: "Full tear-off and a new GAF shingle roof. The scope and the price are in writing before anyone climbs a ladder." },
+  { need: "repair", title: "Leaks and repairs", body: "We find where the water is actually getting in, whether it's flashing, a pipe boot or a few bad shingles, and fix that." },
+  { need: "inspection", title: "Inspections and estimates", body: "An honest look at your roof and a written estimate you can keep, even if the answer is that it has years left." },
+  { need: "gutters", title: "Gutters", body: "Seamless gutters on their own, or with a new roof." },
+  { need: "storm", title: "Storm damage", body: "Wind or storm damage checked, photographed and repaired." },
+];
+
+/** How it works. "you" steps are the homeowner's; the node is filled so they can see they only do two things. */
+const JOURNEY: JourneyStep[] = [
+  { who: "you", title: "Request an estimate", body: "Tell us the address and what's going on. It takes a couple of minutes, and there's no account to make.", link: { href: REQUEST_HREF.roofing, label: "Start your request", arrow: "↗", request: true } },
+  { who: "us", title: "We come out and measure", body: "We call or text to set up a time, then measure and take a real look at the roof." },
+  { who: "you", title: "You pick and sign", body: "Your proposal shows each option, what it includes and what it costs. Choose one, add any extras, sign online and keep the PDF.", link: { href: "#proposal", label: "See a sample proposal", arrow: "↓" } },
+  { who: "us", title: "We install", body: "Our crew does the job, and we keep you posted until it's done." },
 ];
 
 const TIER_NAME = { good: "Good", better: "Better", best: "Best" } as const;
@@ -66,7 +74,7 @@ function ProposalSheet({ systems, addons }: { systems: RoofSystem[]; addons: str
         aria-label={`Example proposal: ${options.map((o) => o.name).join(", ")}, optional add-ons, a ${WORKMANSHIP_WARRANTY_YEARS}-year workmanship warranty and an online signature.`}
       >
         <div className={s.sheetTop}>
-          <Image src={wordmark} alt="" />
+          <Image src={lockup} alt="" />
           <span className={s.sheetDoc}>Proposal</span>
         </div>
         <p className={s.sheetTitle}>Your new roof</p>
@@ -110,7 +118,7 @@ function ProposalSheet({ systems, addons }: { systems: RoofSystem[]; addons: str
         </div>
       </div>
       <figcaption className={s.sheetCaption}>
-        The proposal you get after we measure, with prices for your roof filled in.
+        What your proposal looks like after we measure, with your roof&apos;s prices filled in.
       </figcaption>
     </figure>
   );
@@ -125,18 +133,17 @@ export default async function RoofingPage() {
       <SkipLink />
       <SiteHeader brand="roofing" nav={roofingNav()} cta={{ href: REQUEST_HREF.roofing, label: "Request an estimate" }} />
       <main id="main">
-        <PhotoHero label="AP Roofing & Gutters" title="A good roof. A little peace of mind." intro="Roof replacement, repairs, and gutters. Clear options and a written proposal for the home you care about.">
+        <PhotoHero backdrop label={ROOFING_NAME} title={<>A good roof.<br />Real peace<br />of mind.</>} titleClassName={s.displayTight} intro="Roof replacement, repairs and gutters. Every option and every price in writing, and a straight answer about which one your house actually needs.">
           <Link href={REQUEST_HREF.roofing} prefetch={false} className={s.btn}>Request an estimate <span aria-hidden="true">↗</span></Link>
-          <Link href="#services" className={s.textLink}>Explore our services</Link>
+          <Link href="#services" className={s.textLink}>See what we do</Link>
         </PhotoHero>
         <TrustStrip />
 
         <section id="services" className={`${s.wrap} ${s.section}`} aria-labelledby="services-title">
           <div className={s.sectionHead}>
-            <h2 id="services-title" className={s.h2}>Care for every part<br />of your roof.</h2>
+            <h2 id="services-title" className={s.h2}>Whatever&apos;s going on<br />up there.</h2>
             <p className={s.muted}>
-              Every job starts with the same estimate form. Choose the kind of work and we&apos;ll call or
-              text to set up a visit.
+              Pick the closest match on the estimate form and we&apos;ll call or text to set up a visit.
             </p>
           </div>
           <ul className={s.rows}>
@@ -161,34 +168,15 @@ export default async function RoofingPage() {
           <div className={s.wrap}>
             <div className={s.sectionHead}>
               <h2 id="how-title" className={s.h2}>From the first hello<br />to the final shingle.</h2>
+              <p className={s.serifCopy}>You do two things. We take care of the rest.</p>
             </div>
-            <ol className={s.steps}>
-              <li>
-                <h3 className={s.h3}>Request an estimate</h3>
-                <p className={s.muted}>Fill in the online form with the address and what you need. No account needed.</p>
-              </li>
-              <li>
-                <h3 className={s.h3}>We measure the roof</h3>
-                <p className={s.muted}>We call or text to set up a visit, then measure and look at the roof.</p>
-              </li>
-              <li>
-                <h3 className={s.h3}>You choose and sign</h3>
-                <p className={s.muted}>
-                  Your proposal lists each option with its price. Pick one, add any extras and sign online.
-                  You get a PDF copy.
-                </p>
-              </li>
-              <li>
-                <h3 className={s.h3}>We install</h3>
-                <p className={s.muted}>We schedule the crew and keep you posted until the job is done.</p>
-              </li>
-            </ol>
+            <Journey steps={JOURNEY} />
           </div>
         </section>
 
-        <section className={`${s.wrap} ${s.section}`} aria-labelledby="proposal-title">
+        <section id="proposal" className={`${s.wrap} ${s.section}`} aria-labelledby="proposal-title">
           <div className={s.proposalGrid}>
-            <div><h2 id="proposal-title" className={s.h2}>Your options.<br />In black and white.</h2><p className={s.serifCopy}>A new roof is a big decision.<br />You deserve the details.</p><p className={s.muted}>After we measure, your proposal lays out the scope, roofing options, price, and any extras. Take a look, choose what works for your home, and sign online. You keep a PDF copy.</p></div>
+            <div><h2 id="proposal-title" className={s.h2}>Your options.<br />In black and white.</h2><p className={s.serifCopy}>Three prices, and exactly what each one gets you.</p><p className={s.muted}>Each option lists what&apos;s included, from the shingles to the underlayment, so you can see why one costs more than another. Planning to sell in a couple of years? Tell us. You probably don&apos;t need the top system, and we&apos;ll say so.</p><p className={s.muted} style={{ marginTop: 14 }}>Pick one, sign online and keep the PDF.</p></div>
             <ProposalSheet systems={systems} addons={addons} />
           </div>
         </section>
@@ -198,7 +186,7 @@ export default async function RoofingPage() {
             <div>
               <h2 id="warranty-title" className={s.h2}>What you get in writing</h2>
               <p className={s.muted} style={{ marginTop: 20 }}>
-                Everything we agree on goes on the proposal you sign, and you keep the PDF.
+                If we agreed to it, it&apos;s on the proposal you sign, and you keep the PDF.
               </p>
             </div>
             <dl className={s.facts} style={{ "--cols": 1 } as React.CSSProperties}>
@@ -246,8 +234,8 @@ export default async function RoofingPage() {
             <h2 id="crews-title" className={s.h2}>Run a roofing company?</h2>
             <div>
               <p className={s.muted}>
-                We supply labor-only crews to contractors across our service area. Send one job or your
-                whole week, and each one is invoiced when it&apos;s done.
+                Other roofing companies already hire our crews to install their jobs. Labor only, one job
+                or the whole week, invoiced when each one is done.
               </p>
               <Link href={PATHS.contractors} className={s.textLink}>
                 Crews for contractors
@@ -258,10 +246,11 @@ export default async function RoofingPage() {
 
         <ServiceArea />
         <Faq items={[
-          { question: "Do I need a replacement or a repair?", answer: "Tell us what you have noticed, whether it is a leak, missing shingles, or an aging roof. We will set up a visit to look at the condition and talk through the appropriate work." },
-          { question: "What does the workmanship warranty cover?", answer: "We provide a 10-year workmanship warranty on every roof we install. The terms are included in your proposal. Manufacturer warranties are separate and depend on the selected shingle system." },
-          { question: "Can you help with gutters only?", answer: "Yes. Choose gutters on the estimate form. Seamless gutters can be installed on their own or included with a roof replacement." },
-          { question: "What happens after I request an estimate?", answer: "Our team calls or texts to confirm the project details and arrange a visit. After measuring and reviewing the roof, we send a written proposal with your options and pricing." },
+          { question: "Do I need a new roof or just a repair?", answer: "Tell us what you're seeing: a leak, missing shingles, an old roof. We'll come look and give you a straight answer. If a repair will do it, that's what we'll recommend." },
+          { question: "Why does my proposal have three prices?", answer: "Because houses and plans are different. The top option is a full system with the strongest manufacturer coverage, and the others trade some of that for a lower price. Each one lists what's included, so you're comparing real differences." },
+          { question: "What does the 10-year warranty cover?", answer: "Our installation, on every roof we put on, for 10 years. The exact terms are in your proposal. Shingle warranties come from the manufacturer and depend on the system you choose." },
+          { question: "Can you do gutters only?", answer: "Yes. Choose gutters on the estimate form. We do seamless gutters on their own or with a new roof." },
+          { question: "What happens after I send the form?", answer: "We call or text to set up a visit, measure the roof, then send your written proposal with every option and its price." },
         ]} />
         <Closing title="Let’s give your home a good roof."><ContactLinks contact={contact} /></Closing>
       </main>
@@ -272,7 +261,7 @@ export default async function RoofingPage() {
           "@type": "RoofingContractor",
           name: ROOFING_NAME,
           url: canonicalUrl("roofing"),
-          logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/ap-roofing-logo.png`,
+          logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/authority-roofing-logo.png`,
           parentOrganization: { "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company") },
           areaServed: "Hamilton Township (Mercer County) to Atlantic City, NJ corridor and approximately 50 miles north and south",
           ...(contact.phone ? { telephone: contact.phone } : {}),

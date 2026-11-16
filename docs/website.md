@@ -9,8 +9,8 @@ dumpsters equal emphasis. See `docs/design/2026-11-04-brand-first-pass.md` and
 | Path | Brand | Who it's for | Main action |
 | --- | --- | --- | --- |
 | `/` | American Prime Construction | Anyone: picks a business | Links to the two below |
-| `/roofing` | AP Roofing & Gutters | Homeowners | `/roof/roof` (Roofing Leads) |
-| `/roofing/contractors` | AP Roofing & Gutters | Roofing contractors (labor-only crews) | Phone, text or email from Settings |
+| `/roofing` | Authority Roofing | Homeowners | `/roof/roof` (Roofing Leads) |
+| `/roofing/contractors` | Authority Roofing | Roofing contractors (labor-only crews) | Phone, text or email from Settings |
 | `/dumpsters` | DropWise Dumpsters | Homeowners and contractors | `/request/dumpster` (Dumpster Requests) |
 
 Every call to action goes to an existing Rake request link, so a website lead lands in the
@@ -66,7 +66,7 @@ its own domain later without code changes:
 - The domain Andre already owns and its current host (setup sheet, "Website, email, and
   Google"), so the old site can be redirected rather than broken.
 - Real job photos for `/roofing` (introductory stock photography is in place); a Google Business Profile for reviews.
-- Whether the roofing brand on proposals should read "AP Roofing & Gutters" instead of
+- Whether the roofing brand on proposals should read "Authority Roofing" instead of
   "American Prime Construction" (one field in Settings).
 - An "American Prime GC" with Google reviews already exists online; worth checking before
   choosing a domain or profile name.

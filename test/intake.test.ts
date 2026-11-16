@@ -46,7 +46,7 @@ describe("rental request schema", () => {
   it("books a size we don't run as \"not sure\"", () => {
     expect(rentalRequestSchema.parse({ ...valid, sizeYards: "30" }).sizeYards).toBeUndefined();
     expect(rentalRequestSchema.parse({ ...valid, sizeYards: "" }).sizeYards).toBeUndefined();
-    expect(rentalRequestSchema.parse({ ...valid, sizeYards: "15" }).sizeYards).toBe(15);
+    expect(rentalRequestSchema.parse({ ...valid, sizeYards: "15" }).sizeYards).toBeUndefined(); // only 20-yard cans
   });
 
   it("flags forms submitted faster than a person can type", () => {

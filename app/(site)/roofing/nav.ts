@@ -1,6 +1,6 @@
 import { PATHS } from "@/lib/site/config";
 
-/** Header links for the AP Roofing & Gutters pages. */
+/** Header links for the Authority Roofing pages. */
 export function roofingNav(current?: "contractors") {
   return [
     { href: `${PATHS.roofing}#services`, label: "Services" },

@@ -47,11 +47,11 @@ export default async function ContractorsPage() {
         cta={{ href: `${REQUEST_HREF.roofing}?need=other`, label: "Request crew pricing" }}
       />
       <main id="main">
-        <PhotoHero label="For roofing contractors" title="Your next roof. Our next crew." intro="Labor-only roofing crews. You bring the work and materials. We bring the people to install it.">
+        <PhotoHero label="For roofing contractors" title="Your next roof. Our next crew." intro="Labor-only crews that install roofs for other contractors every week. You sell it and bring the materials. We show up and put it on.">
           <Link href={`${REQUEST_HREF.roofing}?need=other`} prefetch={false} className={s.btn}>Request crew pricing <span aria-hidden="true">↗</span></Link>
           <a href="#gc-how-title" className={s.textLink}>See how it works</a>
         </PhotoHero>
-        <section className={s.aboutSection}><div className={`${s.wrap} ${s.aboutGrid}`}><h2 className={s.h2}>More work lined up?<br />Let’s talk crews.</h2><div><p className={s.serifCopy}>One job or a week’s schedule.</p><p className={s.muted}>AP Roofing & Gutters supplies labor-only crews to roofing contractors. You sell the job and coordinate the material delivery. We assign the crew, confirm the day with you, and invoice each job when it is complete.</p></div></div></section>
+        <section className={s.aboutSection}><div className={`${s.wrap} ${s.aboutGrid}`}><h2 className={s.h2}>More work lined up?<br />Let’s talk crews.</h2><div><p className={s.serifCopy}>One job or a week’s schedule.</p><p className={s.muted}>Installing roofs for other contractors is how we got started, and it&apos;s still a big part of our week. You sell the job and handle the material delivery. We assign the crew, confirm the day with you, and invoice each job when it&apos;s done.</p></div></div></section>
 
         <section className={`${s.wrap} ${s.section}`} aria-labelledby="gc-how-title">
           <div className={s.sectionHead}>
@@ -61,18 +61,18 @@ export default async function ContractorsPage() {
             <li>
               <h3 className={s.h3}>Send the work</h3>
               <p className={s.muted}>
-                One job or the whole week&apos;s schedule: address, squares, pitch, layers to tear off and
-                when materials arrive.
+                One job or the whole week: address, squares, pitch, layers to tear off and when the
+                materials land.
               </p>
             </li>
             <li>
               <h3 className={s.h3}>We put a crew on it</h3>
-              <p className={s.muted}>We assign a crew to each job and confirm the day with you.</p>
+              <p className={s.muted}>Each job gets a crew we trust, and we confirm the day with you.</p>
             </li>
             <li>
               <h3 className={s.h3}>You get an invoice per job</h3>
               <p className={s.muted}>
-                When the roof is done, the invoice for that job comes to you by email as a PDF.
+                When the roof is done, that job&apos;s invoice comes to you by email as a PDF. One job, one invoice.
               </p>
             </li>
           </ol>

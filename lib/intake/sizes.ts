@@ -1,7 +1,7 @@
 /**
- * Dumpster sizes offered on the request form and the landing page. American
- * Prime runs up to 20 yards (Oct 21 call); a larger size never reaches a
- * request, even if someone posts one by hand.
+ * Dumpster sizes offered on the request form. Every DropWise can is a 20-yard
+ * (Nov 16, 2026), so the form shows the size instead of asking for it. Any
+ * other size posted by hand books as "not sure"; the office confirms anyway.
  */
-export const DUMPSTER_SIZES = [10, 15, 20] as const;
+export const DUMPSTER_SIZES: readonly number[] = [20];
 export const MAX_DUMPSTER_YARDS = 20;
