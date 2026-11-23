@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { StatementView } from "@/lib/billing/statement";
-import { reminderEmail, requestApprovedSms, requestReceivedSms, statementEmail } from "@/lib/outbox/messages";
+import {
+  reminderEmail,
+  requestApprovedEmail,
+  requestApprovedSms,
+  requestReceivedEmail,
+  requestReceivedSms,
+  statementEmail,
+} from "@/lib/outbox/messages";
 
 const statement: StatementView = {
   id: "s1",
@@ -50,5 +57,61 @@ describe("outbox messages", () => {
 
   it("says how late a reminder is", () => {
     expect(reminderEmail(statement, 5).text).toContain("5 days past due");
+  });
+});
+
+describe("dumpster request emails (Nov 23)", () => {
+  const request = {
+    name: "AKG Contractor LLC",
+    contact: "Alex Kim",
+    phone: "+16095550123",
+    email: "alex@akg.example",
+    date: "2026-11-24",
+    address: "109 Center Ave, Phoenixville, PA 19460, USA",
+    notes: "Driveway, first thing",
+  };
+
+  it("tells staff who, when, where and how to reach them, with the link to approve", () => {
+    const { subject, text } = requestReceivedEmail(request, "https://app.example");
+    expect(subject).toBe("New dumpster request: AKG Contractor LLC, Tue, Nov 24");
+    expect(text).toContain("Address: 109 Center Ave, Phoenixville, PA 19460, USA");
+    expect(text).toContain("Contact: Alex Kim");
+    expect(text).toContain("Phone: (609) 555-0123");
+    expect(text).toContain("Notes: Driveway, first thing");
+    expect(text).toContain("https://app.example/office/requests");
+    expect(text).toContain("Replying to this email goes to the customer.");
+  });
+
+  it("leaves out what the customer didn't give, and the contact line when it's the same name", () => {
+    const { text } = requestReceivedEmail({ ...request, contact: "AKG Contractor LLC", email: null, notes: null }, "");
+    expect(text).not.toContain("Contact:");
+    expect(text).not.toContain("Email:");
+    expect(text).not.toContain("Notes:");
+    expect(text).not.toContain("Replying");
+    expect(text).not.toContain("null");
+  });
+
+  it("writes to staff in Spanish when that is their language", () => {
+    expect(requestReceivedEmail({ ...request, locale: "es" }, "").subject).toMatch(/^Nueva solicitud de contenedor/);
+  });
+
+  it("confirms the booking to the customer by first name, with a way to change it", () => {
+    const { subject, text } = requestApprovedEmail(
+      { name: "Alex Kim", date: "2026-11-24", address: "232 Hewitt St, Trenton, NJ 08611, USA", sizeYards: 20 },
+      { name: "DropWise", phone: "+16095550100" },
+    );
+    expect(subject).toBe("Your 20-yard dumpster is booked for Tue, Nov 24");
+    expect(text).toMatch(/^Hi Alex,/);
+    expect(text).toContain("232 Hewitt St, Trenton, NJ 08611, USA");
+    expect(text).toContain("reply to this email or call (609) 555-0100");
+    expect(text).not.toContain("STOP");
+  });
+
+  it("still reads right with no size or phone", () => {
+    const { subject, text } = requestApprovedEmail({ name: "", date: "2026-11-24", address: "X", sizeYards: null }, { name: "DropWise", phone: null });
+    expect(subject).toBe("Your dumpster is booked for Tue, Nov 24");
+    expect(text).toMatch(/^Hi,\n/);
+    expect(text).toContain("Just reply to this email.");
+    expect(text).not.toContain("null");
   });
 });

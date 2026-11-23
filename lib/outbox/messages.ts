@@ -170,6 +170,89 @@ export function requestApprovedSms(p: { date: string; address: string }, brand: 
   return `${brand.name}: your dumpster is booked for ${formatDate(p.date)} at ${p.address}.${contact} Reply STOP to opt out.`;
 }
 
+const lines = (parts: (string | null)[]) => parts.filter((x): x is string => x !== null).join("\n");
+
+/**
+ * To the owner and office, by email, when a dumpster request comes in on the
+ * website (Nov 23): the text alert only reached staff with a phone on file.
+ * Sent with the customer as reply-to, so answering it reaches them.
+ */
+export function requestReceivedEmail(
+  p: {
+    name: string;
+    contact: string | null;
+    phone: string | null;
+    email: string | null;
+    date: string;
+    address: string;
+    notes: string | null;
+    locale?: Locale;
+  },
+  appUrl: string,
+): { subject: string; text: string } {
+  const link = `${appUrl}/office/requests`;
+  const contact = p.contact && p.contact !== p.name ? p.contact : null;
+  if (p.locale === "es") {
+    return {
+      subject: `Nueva solicitud de contenedor: ${p.name}, ${formatDate(p.date, "es-US")}`,
+      text: lines([
+        `${p.name} pidió un contenedor para el ${formatDate(p.date, "es-US")}.`,
+        "",
+        `Dirección: ${p.address}`,
+        contact ? `Contacto: ${contact}` : null,
+        p.phone ? `Teléfono: ${formatPhone(p.phone)}` : null,
+        p.email ? `Correo: ${p.email}` : null,
+        p.notes ? `Notas: ${p.notes}` : null,
+        "",
+        `Aprobar o rechazar en Rake: ${link}`,
+        p.email ? "Si responde a este correo, le llega al cliente." : null,
+      ]),
+    };
+  }
+  return {
+    subject: `New dumpster request: ${p.name}, ${formatDate(p.date)}`,
+    text: lines([
+      `${p.name} asked for a dumpster on ${formatDate(p.date)}.`,
+      "",
+      `Address: ${p.address}`,
+      contact ? `Contact: ${contact}` : null,
+      p.phone ? `Phone: ${formatPhone(p.phone)}` : null,
+      p.email ? `Email: ${p.email}` : null,
+      p.notes ? `Notes: ${p.notes}` : null,
+      "",
+      `Approve or decline it in Rake: ${link}`,
+      p.email ? "Replying to this email goes to the customer." : null,
+    ]),
+  };
+}
+
+/**
+ * To the customer, by email, once the office approves their request (Nov 23).
+ * The booking text can't reach customers until the business's own texting
+ * registration is approved; this is how they hear in the meantime.
+ */
+export function requestApprovedEmail(
+  p: { name: string; date: string; address: string; sizeYards: number | null },
+  brand: Brand,
+): { subject: string; text: string } {
+  const can = p.sizeYards ? `${p.sizeYards}-yard dumpster` : "dumpster";
+  return {
+    subject: `Your ${can} is booked for ${formatDate(p.date)}`,
+    text: lines([
+      p.name.trim() ? `Hi ${firstName(p.name.trim())},` : "Hi,",
+      "",
+      `Your ${can} from ${brand.name} is booked for ${formatDate(p.date)} at:`,
+      p.address,
+      "",
+      "Need a different day or spot for it? Just reply to this email" + (brand.phone ? ` or call ${formatPhone(brand.phone)}.` : "."),
+      "",
+      "Thanks,",
+      brand.name,
+      brand.phone ? formatPhone(brand.phone) : null,
+    ]),
+  };
+}
+
 /** The contractor's labor invoice for one subcontract job, sent when the job is closed. */
 export function subInvoiceEmail(i: SubInvoiceView): { subject: string; text: string } {
   return {

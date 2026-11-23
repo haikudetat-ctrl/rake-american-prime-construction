@@ -17,8 +17,10 @@ import {
   referralInviteSms,
   referralPaidSms,
   reminderEmail,
+  requestApprovedEmail,
   requestApprovedSms,
   rewardOwedSms,
+  requestReceivedEmail,
   requestReceivedSms,
   statementEmail,
   subInvoiceEmail,
@@ -121,6 +123,18 @@ async function dumpsterBrand(companyId: string): Promise<Brand & { email: string
     .eq("kind", "dumpster")
     .single();
   return { name: data?.display_name ?? "American Prime Construction", phone: data?.phone ?? null, email: data?.email ?? null };
+}
+
+/**
+ * DropWise for the customer's booking email, with American Prime's phone and
+ * email wherever DropWise has none yet, so a customer who replies or calls
+ * reaches someone.
+ */
+async function dumpsterContact(companyId: string): Promise<Brand & { email: string | null }> {
+  const brand = await dumpsterBrand(companyId);
+  if (brand.phone && brand.email) return brand;
+  const parent = await roofingBrand(companyId);
+  return { name: brand.name, phone: brand.phone ?? parent.phone, email: brand.email ?? parent.email };
 }
 
 /** Texts to customers (not staff alerts): never sent to a number that replied STOP. */
@@ -269,6 +283,36 @@ async function deliver(message: OutboxMessage): Promise<void> {
 
   const email = emailConfig();
   if (!email) throw new Error("Email not configured");
+  if (message.kind === "request_received") {
+    const brand = await dumpsterBrand(message.company_id);
+    const content = requestReceivedEmail(
+      {
+        name: String(p.name),
+        contact: p.contact ? String(p.contact) : null,
+        phone: p.phone ? String(p.phone) : null,
+        email: p.email ? String(p.email) : null,
+        date: String(p.date),
+        address: String(p.address),
+        notes: p.notes ? String(p.notes) : null,
+        locale: isLocale(p.locale) ? p.locale : "en",
+      },
+      appUrl,
+    );
+    // Reply-to is the customer, so answering the alert reaches them.
+    await sendEmail({ apiKey: email.apiKey, from: `${brand.name} <${email.from}>`, to: String(p.to), replyTo: p.email ? String(p.email) : null, ...content });
+    return;
+  }
+  if (message.kind === "request_approved") {
+    const { data: rental } = await adminClient().from("rentals").select("status").eq("id", String(p.rental_id)).maybeSingle();
+    if (rental?.status === "cancelled") throw new Skip("rental was cancelled before the email went out");
+    const brand = await dumpsterContact(message.company_id);
+    const content = requestApprovedEmail(
+      { name: String(p.name ?? ""), date: String(p.date), address: String(p.address), sizeYards: p.size_yards ? Number(p.size_yards) : null },
+      brand,
+    );
+    await sendEmail({ apiKey: email.apiKey, from: `${brand.name} <${email.from}>`, to: String(p.to), replyTo: brand.email, ...content });
+    return;
+  }
   if (message.kind === "proposal_link" || message.kind === "proposal_signed" || message.kind === "aftercare_warranty") {
     await deliverProposalEmail(message, email, appUrl);
     return;

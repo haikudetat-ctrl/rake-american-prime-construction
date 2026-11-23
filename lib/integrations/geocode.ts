@@ -8,6 +8,8 @@
  * Billing: $5 per 1,000 requests.
  */
 
+import { inServiceState, SERVICE_AREA } from "./service-area";
+
 const ENDPOINT = "https://maps.googleapis.com/maps/api/geocode/json";
 const TIMEOUT_MS = 10_000;
 
@@ -116,10 +118,12 @@ export class GoogleGeocodeProvider implements GeocodeProvider {
   constructor(
     private readonly apiKey: string,
     /**
-     * Restricting to New Jersey keeps "123 Main St" from resolving to a Main
-     * Street three states away. Every American Prime job is in NJ.
+     * US only. This used to add administrative_area:NJ, which turned every
+     * Pennsylvania address into the state of New Jersey itself. Nearby
+     * matches are now preferred through `bounds` (lib/integrations/service-area.ts)
+     * and the result's state is checked in normalizeGeocode.
      */
-    private readonly components = "country:US|administrative_area:NJ",
+    private readonly components = "country:US",
   ) {
     if (!apiKey) throw new GeocodeConfigError("GOOGLE_MAPS_API_KEY missing");
   }
@@ -128,6 +132,9 @@ export class GoogleGeocodeProvider implements GeocodeProvider {
     const url = new URL(ENDPOINT);
     url.searchParams.set("address", address);
     url.searchParams.set("components", postalCode ? `${this.components}|postal_code:${postalCode}` : this.components);
+    // A preference, not a limit: "123 Main St" lands on a Main Street here first.
+    const a = SERVICE_AREA;
+    url.searchParams.set("bounds", `${a.south},${a.west}|${a.north},${a.east}`);
     url.searchParams.set("key", this.apiKey);
 
     let res: Response;
@@ -186,6 +193,21 @@ export function normalizeGeocode(
     throw new GeocodeNotFound(`Geocode result for "${address}" had no location`);
   }
 
+  // When Google can't find the street it answers with whatever it can: the
+  // town, the ZIP, the county or the whole state. Every caller would replace
+  // what was typed with that ("New Jersey, USA"), so it counts as not found
+  // and the address is kept as typed.
+  const onAStreet = ["route", "premise", "street_address"].some((t) =>
+    r.address_components?.some((c) => c.types?.includes(t)),
+  );
+  if (!onAStreet) {
+    throw new GeocodeNotFound(`Geocode result for "${address}" is not a street address (${r.formatted_address ?? "no address"})`);
+  }
+  const state = component(r.address_components, "administrative_area_level_1");
+  if (!inServiceState(state)) {
+    throw new GeocodeNotFound(`Geocode result for "${address}" is outside the service area (${state ?? "no state"})`);
+  }
+
   return {
     formattedAddress: r.formatted_address ?? address,
     placeId: r.place_id ?? null,
@@ -194,7 +216,7 @@ export function normalizeGeocode(
     precision: normalizePrecision(r.geometry?.location_type),
     // Absent means false; Google only sets the key when it is true.
     partialMatch: r.partial_match === true,
-    state: component(r.address_components, "administrative_area_level_1"),
+    state,
     postalCode: component(r.address_components, "postal_code"),
     locality:
       component(r.address_components, "locality", "long") ??
