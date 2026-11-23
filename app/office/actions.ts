@@ -16,6 +16,7 @@ import { contractorFacts, loadFullProposal } from "@/lib/proposals/server";
 import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
 import { toE164 } from "@/lib/phone";
+import { loadPhoneSettings, startBridgeCall, webhookUrl } from "@/lib/phone/server";
 import { SITE_CONTENT_TAG } from "@/lib/site/content";
 import { adminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -570,6 +571,51 @@ export async function addLeadNote(form: FormData) {
   const { error } = await supabase.rpc("add_lead_note", { p_lead_id: id, p_body: str(form, "body") });
   if (error) back(`/office/leads/${id}`, errorText(error), "error");
   done(`/office/leads/${id}`, "Note added.");
+}
+
+/**
+ * Calls a lead from the business number (Nov 23): rings the staff member's own
+ * phone first; they press 1 and Twilio dials the lead with the business number
+ * showing. The call lands on the lead's timeline and in the call log.
+ */
+export async function callLead(form: FormData) {
+  const { member, supabase } = await staffClient();
+  const id = str(form, "leadId");
+  const path = `/office/leads/${id}`;
+  const { data: lead } = await supabase.from("leads").select("id, phone").eq("id", id).maybeSingle();
+  if (!lead) back("/office/leads", "Lead not found.", "error");
+  if (!lead.phone) back(path, "This lead has no phone number.", "error");
+  const db = adminClient();
+  const [{ data: me }, settings] = await Promise.all([
+    db.from("profiles").select("phone").eq("user_id", member.userId).maybeSingle(),
+    loadPhoneSettings({ companyId: member.companyId }),
+  ]);
+  if (!settings.businessNumber) back(path, "Add the business number in Settings first.", "error");
+  if (!me?.phone) back(path, "Add your mobile number to your profile first, so the call can ring you.", "error");
+
+  let sid: string | null = null;
+  let failure: string | null = null;
+  try {
+    sid = await startBridgeCall({
+      staffPhone: me.phone,
+      businessNumber: settings.businessNumber,
+      url: webhookUrl(`/api/twilio/voice/outbound?lead=${lead.id}`),
+      statusCallback: webhookUrl("/api/twilio/voice/outbound/status"),
+    });
+  } catch (err) {
+    failure = (err as Error).message;
+  }
+  if (!sid) back(path, `Couldn't start the call: ${failure ?? "unknown error"}`, "error");
+  await db.from("phone_calls").insert({
+    company_id: member.companyId,
+    call_sid: sid,
+    direction: "out",
+    from_number: lead.phone,
+    to_number: settings.businessNumber,
+    lead_id: lead.id,
+    placed_by: member.userId,
+  });
+  done(path, "Calling your phone now. Pick up and press 1 to connect.");
 }
 
 // Past-job photos on the public roofing link (owner only; public bucket).
