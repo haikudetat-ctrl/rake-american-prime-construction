@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { googleCalendarConfig, googleCalendarReady } from "@/lib/integrations/google-calendar/config";
-import { eventId, nextDay, stopEvent, subJobEvent, type StopForCalendar, type SubJobForCalendar } from "@/lib/integrations/google-calendar/events";
+import {
+  appointmentEvent,
+  eventId,
+  nextDay,
+  roofingJobEvent,
+  stopEvent,
+  subJobEvent,
+  type AppointmentForCalendar,
+  type RoofingJobForCalendar,
+  type StopForCalendar,
+  type SubJobForCalendar,
+} from "@/lib/integrations/google-calendar/events";
 import { authorizeUrl } from "@/lib/integrations/google-calendar/google";
 
 const job: SubJobForCalendar = {
@@ -102,5 +113,69 @@ describe("Google Calendar connection", () => {
     expect(() => googleCalendarConfig({ ...env, GOOGLE_TOKEN_KEY: "short" })).toThrow(/32 random bytes/);
     expect(googleCalendarReady({ ...env, GOOGLE_TOKEN_KEY: "short" })).toBe(false);
     expect(googleCalendarReady(env)).toBe(true);
+  });
+});
+
+const install: RoofingJobForCalendar = {
+  id: "5b9e2c1a-7f40-4d2b-9c11-2a3b4c5d6e7f",
+  status: "scheduled",
+  installDate: "2026-12-02",
+  address: "5 Shore Rd, Brigantine, NJ 08203, USA",
+  customer: "Pat Rivera",
+  system: "GAF Timberline HDZ",
+  crew: ["Luis"],
+  notes: null,
+};
+
+const visit: AppointmentForCalendar = {
+  leadId: "9c0d1e2f-3a4b-4c5d-8e6f-7a8b9c0d1e2f",
+  stage: "appointment",
+  appointmentAt: "2026-11-25T15:30:00Z",
+  name: "Pat Rivera",
+  phone: "(609) 555-0123",
+  address: "5 Shore Rd, Brigantine, NJ 08203, USA",
+  need: "repair",
+  notes: "Leak over the kitchen",
+  timeZone: "America/New_York",
+};
+
+describe("Google Calendar: homeowner roofing (Nov 23)", () => {
+  it("keeps every kind's ids apart", () => {
+    const ids = (["sub_job", "stop", "roofing_job", "appointment"] as const).map((k) => eventId(k, install.id));
+    expect(new Set(ids).size).toBe(4);
+    for (const id of ids) expect(id).toMatch(/^[a-v0-9]{5,1024}$/);
+  });
+
+  it("puts a roof install on its install day with the customer, system and crew", () => {
+    const e = roofingJobEvent(install, "https://app.example")!;
+    expect(e.summary).toBe("Roof install: 5 Shore Rd, Brigantine, NJ 08203 (Pat Rivera)");
+    expect(e.start).toEqual({ date: "2026-12-02" });
+    expect(e.end).toEqual({ date: "2026-12-03" });
+    expect(e.description).toContain("System: GAF Timberline HDZ");
+    expect(e.description).toContain("Crew: Luis");
+    expect(e.description).toContain(`https://app.example/office/jobs/${install.id}`);
+    expect(e.transparency).toBe("transparent");
+  });
+
+  it("marks a finished install and leaves an unscheduled one off", () => {
+    expect(roofingJobEvent({ ...install, status: "done" }, "")!.summary).toMatch(/^Roof done: /);
+    expect(roofingJobEvent({ ...install, installDate: null }, "")).toBeNull();
+  });
+
+  it("puts an estimate visit at its time for an hour, marked busy", () => {
+    const e = appointmentEvent(visit, "https://app.example")!;
+    expect(e.summary).toBe("Estimate: 5 Shore Rd, Brigantine, NJ 08203 (Pat Rivera)");
+    expect(e.start).toEqual({ dateTime: "2026-11-25T15:30:00.000Z", timeZone: "America/New_York" });
+    expect(e.end).toEqual({ dateTime: "2026-11-25T16:30:00.000Z", timeZone: "America/New_York" });
+    expect(e.description).toContain("Phone: (609) 555-0123");
+    expect(e.description).toContain("Needs: leak or repair");
+    expect(e.description).toContain(`https://app.example/office/leads/${visit.leadId}`);
+    expect(e.transparency).toBe("opaque");
+  });
+
+  it("takes a visit off when it's cleared or the lead is lost, and keeps it after the visit", () => {
+    expect(appointmentEvent({ ...visit, appointmentAt: null }, "")).toBeNull();
+    expect(appointmentEvent({ ...visit, stage: "lost" }, "")).toBeNull();
+    expect(appointmentEvent({ ...visit, stage: "proposal_sent" }, "")).not.toBeNull();
   });
 });
