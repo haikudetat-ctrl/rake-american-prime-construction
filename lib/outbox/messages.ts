@@ -227,6 +227,67 @@ export function requestReceivedEmail(
 }
 
 /**
+ * To the owner and office, by email, when a roofing lead comes in on the
+ * website or a referral link (Nov 23). The text alert only reaches staff with
+ * a phone on file, so the office never heard about a website lead.
+ * Sent with the homeowner as reply-to, so answering it reaches them.
+ */
+export function leadReceivedEmail(
+  p: {
+    leadId: string;
+    name: string;
+    need: string;
+    source: string;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    notes: string | null;
+    locale?: Locale;
+  },
+  appUrl: string,
+): { subject: string; text: string } {
+  const link = `${appUrl}/office/leads/${p.leadId}`;
+  const need = NEED_TEXT[p.need] ?? NEED_TEXT.other;
+  const es = p.locale === "es";
+  const via = LEAD_SOURCE_TEXT[p.source] ?? null;
+  if (es) {
+    return {
+      subject: `Nuevo cliente de techo: ${p.name} (${need.es})`,
+      text: lines([
+        `${p.name} pidió un presupuesto de techo (${need.es})${via ? `, por ${via.es}` : ""}.`,
+        "",
+        p.address ? `Dirección: ${p.address}` : null,
+        p.phone ? `Teléfono: ${formatPhone(p.phone)}` : null,
+        p.email ? `Correo: ${p.email}` : null,
+        p.notes ? `Notas: ${p.notes}` : null,
+        "",
+        `Ver en Rake: ${link}`,
+        p.email ? "Si responde a este correo, le llega al cliente." : null,
+      ]),
+    };
+  }
+  return {
+    subject: `New roofing lead: ${p.name} (${need.en})`,
+    text: lines([
+      `${p.name} asked for a roofing estimate (${need.en})${via ? `, through ${via.en}` : ""}.`,
+      "",
+      p.address ? `Address: ${p.address}` : null,
+      p.phone ? `Phone: ${formatPhone(p.phone)}` : null,
+      p.email ? `Email: ${p.email}` : null,
+      p.notes ? `Notes: ${p.notes}` : null,
+      "",
+      `Open it in Rake: ${link}`,
+      p.email ? "Replying to this email goes to the homeowner." : null,
+    ]),
+  };
+}
+
+const LEAD_SOURCE_TEXT: Record<string, { en: string; es: string }> = {
+  link: { en: "the website", es: "el sitio web" },
+  referral: { en: "a referral link", es: "un enlace de referido" },
+};
+
+/**
  * To the customer, by email, once the office approves their request (Nov 23).
  * The booking text can't reach customers until the business's own texting
  * registration is approved; this is how they hear in the meantime.

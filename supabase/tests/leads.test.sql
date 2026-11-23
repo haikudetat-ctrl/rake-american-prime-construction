@@ -1,7 +1,7 @@
 -- Roofing leads: public link, pipeline moves, notes, numbers, and who can see them.
 begin;
 \ir support/fixtures.sql
-select plan(21);
+select plan(22);
 
 -- Public link -------------------------------------------------------------------------
 select tests.act_as_service();
@@ -15,8 +15,14 @@ reset role;
 
 select is((select stage from public.leads where id = :'lead1'), 'new', 'link lead starts as new');
 select isnt((select contact_consent_at from public.leads where id = :'lead1'), null, 'consent time recorded');
-select is((select count(*)::int from public.outbox_messages where kind = 'lead_received'), 1,
+select is((select count(*)::int from public.outbox_messages where kind = 'lead_received' and channel = 'sms'), 1,
   'owner with a phone gets a new-lead text (office has none)');
+select is(
+  (select array_agg(payload ->> 'to' order by payload ->> 'to') from public.outbox_messages
+   where kind = 'lead_received' and channel = 'email' and payload ->> 'lead_id' = :'lead1'),
+  array['office@example.com', 'owner@example.com'],
+  'owner and office are emailed about the lead at their sign-in addresses, phone or not'
+);
 select is((select count(*)::int from public.lead_events where lead_id = :'lead1' and kind = 'created'), 1, 'created event logged');
 
 -- Rate limit

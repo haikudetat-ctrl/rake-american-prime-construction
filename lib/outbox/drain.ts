@@ -10,6 +10,7 @@ import {
   aftercareWarrantySms,
   feedbackFollowupSms,
   feedbackRequestSms,
+  leadReceivedEmail,
   leadReceivedSms,
   proposalLinkEmail,
   proposalLinkSms,
@@ -307,6 +308,26 @@ async function deliver(message: OutboxMessage): Promise<void> {
       appUrl,
     );
     // Reply-to is the customer, so answering the alert reaches them.
+    await sendEmail({ apiKey: email.apiKey, from: `${brand.name} <${email.from}>`, to: String(p.to), replyTo: p.email ? String(p.email) : null, ...content });
+    return;
+  }
+  if (message.kind === "lead_received") {
+    const brand = await roofingBrand(message.company_id);
+    const content = leadReceivedEmail(
+      {
+        leadId: String(p.lead_id),
+        name: String(p.name),
+        need: String(p.need),
+        source: String(p.source ?? ""),
+        phone: p.phone ? String(p.phone) : null,
+        email: p.email ? String(p.email) : null,
+        address: p.address ? String(p.address) : null,
+        notes: p.notes ? String(p.notes) : null,
+        locale: isLocale(p.locale) ? p.locale : "en",
+      },
+      appUrl,
+    );
+    // Reply-to is the homeowner, so answering the alert reaches them.
     await sendEmail({ apiKey: email.apiKey, from: `${brand.name} <${email.from}>`, to: String(p.to), replyTo: p.email ? String(p.email) : null, ...content });
     return;
   }

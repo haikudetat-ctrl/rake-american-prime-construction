@@ -1,7 +1,7 @@
 -- Google Calendar sync queue (Nov 23): what queues a "calendar" outbox message, and when.
 begin;
 \ir support/fixtures.sql
-select plan(10);
+select plan(15);
 
 select id as company from public.companies where slug = 'american-prime' \gset
 
@@ -50,12 +50,41 @@ insert into public.stops (company_id, rental_id, kind, scheduled_date, status, s
 values (:'company', :'rental', 'dump', current_date + 4, 'scheduled', 1) returning id as dump_stop \gset
 select is((select count(*)::int from calendar_queue where id = :'dump_stop'), 0, 'a dump run stays off the calendar');
 
+-- Homeowner roofing -----------------------------------------------------------------------------------
+insert into public.leads (id, company_id, brand_id, source, name, phone, address)
+select '00000000-0000-0000-0000-0000000000c1', :'company', b.id, 'office', 'Pat', '+16095550100', '5 Shore Rd, Brigantine, NJ'
+from public.brands b where b.company_id = :'company' and b.kind = 'roofing';
+select is((select count(*)::int from calendar_queue where kind = 'appointment'), 0, 'a lead with no estimate visit stays off the calendar');
+update public.leads set stage = 'appointment', appointment_at = now() + interval '2 days' where id = '00000000-0000-0000-0000-0000000000c1';
+select is((select count(*)::int from calendar_queue where kind = 'appointment' and id = '00000000-0000-0000-0000-0000000000c1'), 1,
+  'setting an estimate visit queues it');
+
+insert into public.catalog_versions (id, company_id, version, data, needs_confirmation, is_active)
+values ('00000000-0000-0000-0000-0000000000c2', :'company', 99, '{}', false, false);
+insert into public.proposals (id, company_id, lead_id, number, catalog_version_id, needs_confirmation, measurement, inputs, options, addons)
+values ('00000000-0000-0000-0000-0000000000c3', :'company', '00000000-0000-0000-0000-0000000000c1', 9001,
+        '00000000-0000-0000-0000-0000000000c2', false, '{}', '{}', '[]', '[]');
+insert into public.roofing_jobs (id, company_id, lead_id, proposal_id, customer_name, system_name, scope, total_cents)
+values ('00000000-0000-0000-0000-0000000000c4', :'company', '00000000-0000-0000-0000-0000000000c1',
+        '00000000-0000-0000-0000-0000000000c3', 'Pat', 'GAF Timberline HDZ', '{}', 2000000);
+select is((select count(*)::int from calendar_queue where kind = 'roofing_job'), 0, 'a roof install with no date yet stays off');
+update public.roofing_jobs set install_date = current_date + 6 where id = '00000000-0000-0000-0000-0000000000c4';
+select is((select count(*)::int from calendar_queue where kind = 'roofing_job' and id = '00000000-0000-0000-0000-0000000000c4'), 1,
+  'scheduling a roof install queues it');
+update public.roofing_jobs set install_date = null where id = '00000000-0000-0000-0000-0000000000c4';
+update public.outbox_messages set status = 'sent' where channel = 'calendar';
+update public.roofing_jobs set notes = 'still unscheduled' where id = '00000000-0000-0000-0000-0000000000c4';
+select is((select count(*)::int from calendar_queue where kind = 'roofing_job' and status = 'pending'), 0,
+  'an unscheduled install that was never on the calendar queues nothing');
+update public.roofing_jobs set install_date = current_date + 6 where id = '00000000-0000-0000-0000-0000000000c4';
+
 -- Backfill on connect -------------------------------------------------------------------------------
 delete from public.outbox_messages where channel = 'calendar';
 update public.sub_jobs set status = 'void', void_reason = 'test' where id = :'job2';
 delete from public.outbox_messages where channel = 'calendar';
-select is(public.calendar_backfill(:'company'), 2, 'backfill queues the open job and the drop, not the voided job');
-select is((select count(*)::int from calendar_queue), 2, 'and they are in the queue');
+select is(public.calendar_backfill(:'company'), 4,
+  'backfill queues the open job, the drop, the roof install and the estimate visit, not the voided job');
+select is((select count(*)::int from calendar_queue), 4, 'and they are in the queue');
 
 -- Staff can't reach the stored sign-in ----------------------------------------------------------------
 select tests.act_as('00000000-0000-0000-0000-000000000001');

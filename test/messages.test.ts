@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { StatementView } from "@/lib/billing/statement";
 import {
   reminderEmail,
+  leadReceivedEmail,
   requestApprovedEmail,
   requestApprovedSms,
   requestReceivedEmail,
@@ -113,5 +114,43 @@ describe("dumpster request emails (Nov 23)", () => {
     expect(text).toMatch(/^Hi,\n/);
     expect(text).toContain("Just reply to this email.");
     expect(text).not.toContain("null");
+  });
+});
+
+describe("roofing lead email", () => {
+  const lead = {
+    leadId: "lead-1",
+    name: "Pat Rivera",
+    need: "repair",
+    source: "link",
+    phone: "+16095550123",
+    email: "pat@example.com",
+    address: "12 Ocean Ave, Brigantine, NJ 08203, USA",
+    notes: "Leak over the kitchen",
+  };
+
+  it("tells staff who, what, where and how to reach them, with the lead link", () => {
+    const { subject, text } = leadReceivedEmail(lead, "https://app.example");
+    expect(subject).toBe("New roofing lead: Pat Rivera (repair)");
+    expect(text).toContain("through the website");
+    expect(text).toContain("Address: 12 Ocean Ave, Brigantine, NJ 08203, USA");
+    expect(text).toContain("Phone: (609) 555-0123");
+    expect(text).toContain("Notes: Leak over the kitchen");
+    expect(text).toContain("https://app.example/office/leads/lead-1");
+    expect(text).toContain("Replying to this email goes to the homeowner.");
+  });
+
+  it("leaves out what the homeowner didn't give", () => {
+    const { text } = leadReceivedEmail({ ...lead, email: null, notes: null, address: null, source: "office" }, "");
+    expect(text).not.toContain("Email:");
+    expect(text).not.toContain("Notes:");
+    expect(text).not.toContain("Address:");
+    expect(text).not.toContain("through");
+    expect(text).not.toContain("Replying");
+    expect(text).not.toContain("null");
+  });
+
+  it("writes to staff in Spanish when that is their language", () => {
+    expect(leadReceivedEmail({ ...lead, locale: "es" }, "").subject).toBe("Nuevo cliente de techo: Pat Rivera (reparación)");
   });
 });

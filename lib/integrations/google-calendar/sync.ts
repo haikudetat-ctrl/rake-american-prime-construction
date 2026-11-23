@@ -3,7 +3,8 @@ import { open, seal } from "@/lib/integrations/quickbooks/crypto";
 import { one } from "@/lib/office/team";
 import { adminClient } from "@/lib/supabase/admin";
 import { googleCalendarConfig, type GoogleCalendarConfig } from "./config";
-import { stopEvent, subJobEvent, eventId, type CalendarEvent, type CalendarKind } from "./events";
+import { formatPhone } from "@/lib/phone";
+import { appointmentEvent, roofingJobEvent, stopEvent, subJobEvent, eventId, type CalendarEvent, type CalendarKind } from "./events";
 import { accessToken, deleteEvent, GoogleError, putEvent } from "./google";
 
 export type Connection = {
@@ -137,10 +138,78 @@ async function stop(companyId: string, id: string, appUrl: string): Promise<Cale
   );
 }
 
+async function roofingJob(companyId: string, id: string, appUrl: string): Promise<CalendarEvent | null> {
+  const db = adminClient();
+  const { data } = await db
+    .from("roofing_jobs")
+    .select("id, status, install_date, address, customer_name, system_name, crew_ids, notes")
+    .eq("id", id)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (!data) return null;
+  const job = data as {
+    id: string; status: string; install_date: string | null; address: string | null; customer_name: string;
+    system_name: string; crew_ids: string[] | null; notes: string | null;
+  };
+  let crew: string[] = [];
+  if (job.crew_ids?.length) {
+    const { data: profiles } = await db.from("profiles").select("user_id, full_name").in("user_id", job.crew_ids);
+    const names = new Map((profiles ?? []).map((p: { user_id: string; full_name: string | null }) => [p.user_id, p.full_name]));
+    crew = job.crew_ids.map((uid) => names.get(uid)).filter((n): n is string => Boolean(n));
+  }
+  return roofingJobEvent(
+    {
+      id: job.id,
+      status: job.status,
+      installDate: job.install_date,
+      address: job.address,
+      customer: job.customer_name,
+      system: job.system_name,
+      crew,
+      notes: job.notes,
+    },
+    appUrl,
+  );
+}
+
+async function appointment(companyId: string, leadId: string, appUrl: string): Promise<CalendarEvent | null> {
+  const db = adminClient();
+  const [{ data }, { data: company }] = await Promise.all([
+    db.from("leads").select("id, stage, appointment_at, name, phone, address, need, notes").eq("id", leadId).eq("company_id", companyId).maybeSingle(),
+    db.from("companies").select("timezone").eq("id", companyId).maybeSingle(),
+  ]);
+  if (!data) return null;
+  const lead = data as {
+    id: string; stage: string; appointment_at: string | null; name: string; phone: string | null;
+    address: string | null; need: string; notes: string | null;
+  };
+  return appointmentEvent(
+    {
+      leadId: lead.id,
+      stage: lead.stage,
+      appointmentAt: lead.appointment_at,
+      name: lead.name,
+      phone: lead.phone ? formatPhone(lead.phone) : null,
+      address: lead.address,
+      need: lead.need,
+      notes: lead.notes,
+      timeZone: (company as { timezone: string } | null)?.timezone ?? "America/New_York",
+    },
+    appUrl,
+  );
+}
+
+const LOADERS: Record<CalendarKind, (companyId: string, id: string, appUrl: string) => Promise<CalendarEvent | null>> = {
+  sub_job: subJob,
+  stop,
+  roofing_job: roofingJob,
+  appointment,
+};
+
 export type SyncOutcome = { done: true } | { skipped: string };
 
 /**
- * Puts one job or stop on the connected calendar as it stands now, or takes it
+ * Puts one job, stop, roof install or estimate visit on the connected calendar as it stands now, or takes it
  * off. Run by the outbox for each queued "calendar" message; a throw retries
  * it with backoff, and the last error is shown in Settings.
  */
@@ -152,11 +221,12 @@ export async function syncCalendarItem(companyId: string, payload: Record<string
 
   const kind = payload.kind as CalendarKind;
   const id = String(payload.id);
-  if (kind !== "sub_job" && kind !== "stop") return { skipped: `unknown calendar item ${String(payload.kind)}` };
+  const load = Object.hasOwn(LOADERS, kind) ? LOADERS[kind] : null;
+  if (!load) return { skipped: `unknown calendar item ${String(payload.kind)}` };
 
   const db = adminClient();
   try {
-    const event = kind === "sub_job" ? await subJob(companyId, id, appUrl) : await stop(companyId, id, appUrl);
+    const event = await load(companyId, id, appUrl);
     const token = await tokenFor(config, connection);
     if (event) await putEvent(token, connection.calendarId, event);
     else await deleteEvent(token, connection.calendarId, eventId(kind, id));

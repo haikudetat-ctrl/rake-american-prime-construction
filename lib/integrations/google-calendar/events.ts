@@ -6,13 +6,41 @@ export type CalendarEvent = {
   summary: string;
   description: string;
   location: string;
-  start: { date: string };
-  end: { date: string };
-  /** All-day jobs don't mark the owner busy for the day. */
-  transparency: "transparent";
+  /** All-day ({ date }) for work days; timed ({ dateTime }) for an estimate visit. */
+  start: EventTime;
+  end: EventTime;
+  /** All-day jobs don't mark the owner busy for the day; an estimate visit does. */
+  transparency: "transparent" | "opaque";
 };
 
-export type CalendarKind = "sub_job" | "stop";
+export type EventTime = { date: string } | { dateTime: string; timeZone: string };
+
+export type CalendarKind = "sub_job" | "stop" | "roofing_job" | "appointment";
+
+/** A homeowner roof install, from a signed proposal (Nov 23). */
+export type RoofingJobForCalendar = {
+  id: string;
+  status: string;
+  installDate: string | null;
+  address: string | null;
+  customer: string;
+  system: string;
+  crew: string[];
+  notes: string | null;
+};
+
+/** An estimate visit set on a roofing lead (Nov 23). */
+export type AppointmentForCalendar = {
+  leadId: string;
+  stage: string;
+  appointmentAt: string | null;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  need: string;
+  notes: string | null;
+  timeZone: string;
+};
 
 export type SubJobForCalendar = {
   id: string;
@@ -42,9 +70,14 @@ export type StopForCalendar = {
  * Google event ids are 5 to 1024 characters of a-v and 0-9. A uuid without
  * its dashes is hex, which fits; the prefix keeps jobs and stops apart.
  */
+const ID_PREFIX: Record<CalendarKind, string> = { sub_job: "rkj", stop: "rks", roofing_job: "rkr", appointment: "rka" };
+
 export function eventId(kind: CalendarKind, id: string): string {
-  return (kind === "sub_job" ? "rkj" : "rks") + id.replace(/-/g, "").toLowerCase();
+  return ID_PREFIX[kind] + id.replace(/-/g, "").toLowerCase();
 }
+
+/** How long an estimate visit holds the calendar. */
+export const VISIT_MINUTES = 60;
 
 /** "2026-11-24" → "2026-11-25": an all-day event ends the day after. */
 export function nextDay(date: string): string {
@@ -103,5 +136,68 @@ export function stopEvent(stop: StopForCalendar, appUrl: string): CalendarEvent 
     start: { date: stop.date },
     end: { date: nextDay(stop.date) },
     transparency: "transparent",
+  };
+}
+
+/** A homeowner roof install on its install day, or null until it has one. */
+export function roofingJobEvent(job: RoofingJobForCalendar, appUrl: string): CalendarEvent | null {
+  if (!job.installDate) return null;
+  const address = job.address ?? "Address not set";
+  return {
+    id: eventId("roofing_job", job.id),
+    summary: `${job.status === "done" ? "Roof done" : "Roof install"}: ${short(address)} (${job.customer})`,
+    description: lines([
+      `Customer: ${job.customer}`,
+      `System: ${job.system}`,
+      `Crew: ${job.crew.length ? job.crew.join(", ") : "not assigned"}`,
+      job.notes ? `Notes: ${job.notes}` : null,
+      "",
+      `Open in Rake: ${appUrl}/office/jobs/${job.id}`,
+    ]),
+    location: address,
+    start: { date: job.installDate },
+    end: { date: nextDay(job.installDate) },
+    transparency: "transparent",
+  };
+}
+
+const NEED_WORDS: Record<string, string> = {
+  replacement: "roof replacement",
+  repair: "leak or repair",
+  inspection: "inspection",
+  gutters: "gutters",
+  storm: "storm damage",
+};
+
+/** "2026-11-24T15:30:00.000Z" plus minutes, as an ISO time. */
+function addMinutes(iso: string, minutes: number): string {
+  return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
+}
+
+/**
+ * An estimate visit at its set time, an hour long and marked busy, or null
+ * when there is none or the lead was lost. It stays after the visit, as a
+ * record of when it happened.
+ */
+export function appointmentEvent(visit: AppointmentForCalendar, appUrl: string): CalendarEvent | null {
+  if (!visit.appointmentAt || visit.stage === "lost") return null;
+  const start = new Date(visit.appointmentAt).toISOString();
+  const address = visit.address ?? "Address not set";
+  const need = NEED_WORDS[visit.need];
+  return {
+    id: eventId("appointment", visit.leadId),
+    summary: `Estimate: ${short(address)} (${visit.name})`,
+    description: lines([
+      `Homeowner: ${visit.name}`,
+      visit.phone ? `Phone: ${visit.phone}` : null,
+      need ? `Needs: ${need}` : null,
+      visit.notes ? `Notes: ${visit.notes}` : null,
+      "",
+      `Open in Rake: ${appUrl}/office/leads/${visit.leadId}`,
+    ]),
+    location: address,
+    start: { dateTime: start, timeZone: visit.timeZone },
+    end: { dateTime: addMinutes(start, VISIT_MINUTES), timeZone: visit.timeZone },
+    transparency: "opaque",
   };
 }

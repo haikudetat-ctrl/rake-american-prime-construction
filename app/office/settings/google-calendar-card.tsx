@@ -23,7 +23,7 @@ export async function GoogleCalendarCard({ companyId }: { companyId: string }) {
       ) : !connection ? (
         <>
           <p className="text-sm text-muted">
-            Puts crew jobs and dumpster drops and pickups on a &ldquo;Rake jobs&rdquo; calendar in your Google account, and keeps it
+            Puts roof installs, estimate visits, crew jobs and dumpster drops and pickups on a &ldquo;Rake jobs&rdquo; calendar in your Google account, and keeps it
             up to date as they&apos;re scheduled, moved or cancelled. Rake only gets access to that calendar.
           </p>
           <a className="btn" href="/api/google-calendar/connect">Connect Google Calendar</a>
