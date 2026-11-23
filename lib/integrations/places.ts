@@ -13,18 +13,21 @@
  * An abandoned search (typed, never picked) is billed per autocomplete call.
  */
 
-const AUTOCOMPLETE_ENDPOINT = "https://places.googleapis.com/v1/places:autocomplete";
+import { SERVICE_AREA } from "./service-area";
+
+const AUTOCOMPLETE_ENDPOINT ="https://places.googleapis.com/v1/places:autocomplete";
 const DETAILS_ENDPOINT = "https://places.googleapis.com/v1/places/";
 const TIMEOUT_MS = 6_000;
 
 /**
- * Every American Prime job is in New Jersey (see lib/integrations/geocode.ts).
- * A rectangle can't follow a state line, so this also admits Philadelphia,
- * Staten Island and northern Delaware; that's acceptable for a search box.
+ * Suggestions come from the service area (lib/integrations/service-area.ts):
+ * New Jersey and eastern Pennsylvania. Until Nov 23 this box stopped at the
+ * Delaware's west bank plus a few miles, so most of the Pennsylvania side
+ * never appeared in the dropdown.
  */
-export const NJ_RECTANGLE = {
-  low: { latitude: 38.92, longitude: -75.57 },
-  high: { latitude: 41.36, longitude: -73.88 },
+export const SERVICE_RECTANGLE = {
+  low: { latitude: SERVICE_AREA.south, longitude: SERVICE_AREA.west },
+  high: { latitude: SERVICE_AREA.north, longitude: SERVICE_AREA.east },
 };
 
 /** Street addresses and buildings only: no businesses, towns or bare streets. */
@@ -106,7 +109,7 @@ export async function autocompleteAddresses(
         sessionToken,
         includedPrimaryTypes: ADDRESS_TYPES,
         includedRegionCodes: ["us"],
-        locationRestriction: { rectangle: NJ_RECTANGLE },
+        locationRestriction: { rectangle: SERVICE_RECTANGLE },
         languageCode: "en",
       }),
     },
