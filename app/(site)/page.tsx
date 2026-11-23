@@ -3,9 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 import roofingLogo from "@/public/brand/authority-roofing-lockup.png";
 import dropwiseLogo from "@/public/brand/dropwise-logo.png";
+import { ContactLinks } from "./_components/contact";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "./_components/chrome";
 import { Faq, Journey, PhotoHero, ServiceArea, TrustStrip, type JourneyStep } from "./_components/marketing";
 import { COMPANY_NAME, DROPWISE_NAME, PATHS, REQUEST_HREF, ROOFING_NAME, canonicalUrl } from "@/lib/site/config";
+import { getSiteContent } from "@/lib/site/content";
 import s from "./site.module.css";
 
 export const metadata: Metadata = {
@@ -23,7 +25,11 @@ const HOW: JourneyStep[] = [
   { who: "us", title: "We get to work", body: "We schedule the crew or the drop-off and keep you posted until it's done." },
 ];
 
-export default function CompanyHome() {
+export default async function CompanyHome() {
+  // The parent page had no phone or email at all (Nov 23). It shows the roofing
+  // brand's, as saved in Settings, or DropWise's if roofing has none.
+  const { contacts } = await getSiteContent();
+  const contact = contacts.roofing.phone || contacts.roofing.email ? contacts.roofing : contacts.dumpster;
   return <>
     <SkipLink /><SiteHeader brand="company" nav={nav} cta={{ href: "#services", label: "Request an estimate" }} />
     <main id="main">
@@ -68,8 +74,8 @@ export default function CompanyHome() {
         { question: "Do you work in my area?", answer: "We work from Hamilton Township in Mercer County down to Atlantic City, and about 50 miles either side of that line. Send the address and we'll confirm." },
         { question: "Can you handle a roof and a dumpster on the same job?", answer: "Yes. That's how DropWise started. Put both in your request and we'll line them up together." },
       ]} />
-      <section className={s.closingSection}><div className={`${s.wrap} ${s.closing}`}><div><h2 className={s.h2}>What&apos;s going on at your house?</h2><p className={s.serifCopy}>Tell us. We&apos;ll give you a straight answer.</p></div><div className={s.actions}><Link href={REQUEST_HREF.roofing} prefetch={false} className={`${s.btn} ${s.roofingAccent}`}>Roofing estimate <span aria-hidden="true">↗</span></Link><Link href={REQUEST_HREF.dumpster} prefetch={false} className={`${s.btn} ${s.dropwiseAccent}`}>Dumpster estimate <span aria-hidden="true">↗</span></Link></div></div></section>
+      <section className={s.closingSection}><div className={`${s.wrap} ${s.closing}`}><div><h2 className={s.h2}>What&apos;s going on at your house?</h2><p className={s.serifCopy}>Tell us. We&apos;ll give you a straight answer.</p></div><div className={s.actions}><Link href={REQUEST_HREF.roofing} prefetch={false} className={`${s.btn} ${s.roofingAccent}`}>Roofing estimate <span aria-hidden="true">↗</span></Link><Link href={REQUEST_HREF.dumpster} prefetch={false} className={`${s.btn} ${s.dropwiseAccent}`}>Dumpster estimate <span aria-hidden="true">↗</span></Link><ContactLinks contact={contact} /></div></div></section>
     </main><SiteFooter />
-    <JsonLd data={{ "@context": "https://schema.org", "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company"), logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/american-prime-drive.png`, brand: [{ "@type": "Brand", name: ROOFING_NAME, url: canonicalUrl("roofing") }, { "@type": "Brand", name: DROPWISE_NAME, url: canonicalUrl("dumpster") }] }} />
+    <JsonLd data={{ "@context": "https://schema.org", "@type": "Organization", name: COMPANY_NAME, url: canonicalUrl("company"), logo: `${canonicalUrl("company").replace(/\/$/, "")}/brand/american-prime-drive.png`, brand: [{ "@type": "Brand", name: ROOFING_NAME, url: canonicalUrl("roofing") }, { "@type": "Brand", name: DROPWISE_NAME, url: canonicalUrl("dumpster") }], ...(contact.phone ? { telephone: contact.phone } : {}), ...(contact.email ? { email: contact.email } : {}) }} />
   </>;
 }
