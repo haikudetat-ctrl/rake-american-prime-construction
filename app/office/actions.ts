@@ -375,6 +375,21 @@ export async function disconnectQuickBooks() {
   done("/office/settings", "QuickBooks disconnected.");
 }
 
+// Google Calendar ----------------------------------------------------------------------
+
+/**
+ * Stops the sync and forgets the sign-in. The "Rake jobs" calendar stays in
+ * Google, as it was, for the owner to keep or delete. Removing Rake's access
+ * on Google's side (myaccount.google.com, Third-party connections) is separate.
+ */
+export async function disconnectGoogleCalendar() {
+  const owner = await requireOwner();
+  const db = adminClient();
+  await db.from("google_calendar_connections").delete().eq("company_id", owner.companyId);
+  await db.from("outbox_messages").delete().eq("company_id", owner.companyId).eq("channel", "calendar").in("status", ["pending", "failed"]);
+  done("/office/settings", "Google Calendar disconnected. The Rake jobs calendar stays in Google as it was.");
+}
+
 const QBO_ITEM_FIELDS = ["item_delivery", "item_extended_days", "item_tonnage", "item_charge", "item_adjustment"] as const;
 
 export async function saveQuickBooksSync(form: FormData) {

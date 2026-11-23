@@ -1,6 +1,8 @@
 import "server-only";
 import { loadStatement } from "@/lib/billing/statement";
 import { isLocale } from "@/lib/i18n";
+import { googleCalendarReady } from "@/lib/integrations/google-calendar/config";
+import { syncCalendarItem } from "@/lib/integrations/google-calendar/sync";
 import { sendEmail } from "@/lib/integrations/resend";
 import { SmsProviderError, TwilioMessagingClient } from "@/lib/integrations/twilio";
 import {
@@ -38,7 +40,7 @@ import { adminClient } from "@/lib/supabase/admin";
 type OutboxMessage = {
   id: string;
   company_id: string;
-  channel: "sms" | "email";
+  channel: "sms" | "email" | "calendar";
   kind: string;
   payload: Record<string, unknown>;
   attempts: number;
@@ -186,6 +188,12 @@ async function sendReply(sms: SmsClient, message: OutboxMessage): Promise<void> 
 async function deliver(message: OutboxMessage): Promise<void> {
   const p = message.payload;
   const appUrl = process.env.APP_URL ?? "";
+
+  if (message.channel === "calendar") {
+    const outcome = await syncCalendarItem(message.company_id, p, appUrl);
+    if ("skipped" in outcome) throw new Skip(outcome.skipped);
+    return;
+  }
 
   if (message.channel === "sms") {
     // Staff alerts may go out on the ops sender; customer texts only ever on the
@@ -387,7 +395,11 @@ async function deliver(message: OutboxMessage): Promise<void> {
  * so their messages wait instead of failing.
  */
 export async function drainOutbox(batchSize = 20) {
-  const channels = [canSendSms(process.env) && "sms", emailConfig() && "email"].filter(Boolean) as string[];
+  const channels = [
+    canSendSms(process.env) && "sms",
+    emailConfig() && "email",
+    googleCalendarReady() && "calendar",
+  ].filter(Boolean) as string[];
   if (channels.length === 0) return { claimed: 0, sent: 0, failed: 0, skipped: 0, channels };
 
   const db = adminClient();
