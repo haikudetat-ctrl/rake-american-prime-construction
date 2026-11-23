@@ -2,7 +2,7 @@
 -- statement → payment → reminders, checking the billing side effects of each.
 begin;
 \ir support/fixtures.sql
-select plan(43);
+select plan(45);
 
 -- Request link (service role, as the public route calls it) ---------------------
 select tests.act_as_service();
@@ -15,8 +15,14 @@ reset role;
 
 select is((select status from public.rental_requests where id = :'request_id'), 'pending', 'request lands pending');
 select is(
-  (select count(*)::int from public.outbox_messages where kind = 'request_received'),
+  (select count(*)::int from public.outbox_messages where kind = 'request_received' and channel = 'sms'),
   1, 'owner with a phone is texted about the request (office has no phone)'
+);
+select is(
+  (select array_agg(payload ->> 'to' order by payload ->> 'to') from public.outbox_messages
+   where kind = 'request_received' and channel = 'email'),
+  array['office@example.com', 'owner@example.com'],
+  'owner and office are emailed about the request at their sign-in addresses, phone or not'
 );
 select throws_ok(
   $$ select public.submit_rental_request('nope', 'x', null, '+1', null, 'a', null, null, null, null,
@@ -43,7 +49,11 @@ select is((select name from public.customers c join public.rentals r on r.custom
   'Shore Roofing', 'customer created from the request');
 select is((select count(*)::int from public.stops where rental_id = :'rental_id' and kind = 'drop'
   and driver_id = '00000000-0000-0000-0000-000000000003'), 1, 'drop stop assigned to driver A');
-select is((select count(*)::int from public.outbox_messages where kind = 'request_approved'), 1, 'customer confirmation queued');
+select is((select count(*)::int from public.outbox_messages where kind = 'request_approved' and channel = 'sms'), 1, 'customer confirmation queued');
+select is(
+  (select payload ->> 'to' from public.outbox_messages where kind = 'request_approved' and channel = 'email'),
+  'billing@shore.example', 'customer confirmation emailed to the address on the request'
+);
 select tests.act_as('00000000-0000-0000-0000-000000000002');
 select throws_ok(
   format($$ select public.approve_request(%L, null, null) $$, :'request_id'),
