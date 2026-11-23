@@ -3,6 +3,7 @@ import { addPlace, addTeamMember, publishPriceBook, setMemberActive, updateBrand
 import { Notice } from "@/app/office/_notice";
 import { saveDumpsterPriceItem, setDumpsterPriceItemActive } from "@/app/office/dumpsters/actions";
 import { GalleryCard } from "@/app/office/settings/gallery-card";
+import { GoogleCalendarCard } from "@/app/office/settings/google-calendar-card";
 import { EquipmentCostCard } from "@/app/office/settings/equipment-cost-card";
 import { PhoneCard } from "@/app/office/settings/phone-card";
 import { ReviewSettingsCard } from "@/app/office/settings/review-settings-card";
@@ -137,6 +138,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
       {isOwner && <EquipmentCostCard companyId={member.companyId} />}
       {isOwner && <ProposalTermsCard companyId={member.companyId} />}
       {isOwner && <PhoneCard companyId={member.companyId} />}
+      {isOwner && <GoogleCalendarCard companyId={member.companyId} />}
       {isOwner && <QuickBooksCard companyId={member.companyId} />}
 
       <section className="card space-y-3">
