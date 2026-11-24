@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { bridgeCallForm } from "@/lib/phone/outbound";
 import { validTwilioSignature } from "@/lib/phone/twiml";
 import { adminClient } from "@/lib/supabase/admin";
 
@@ -87,4 +88,36 @@ export function twiml(body: string): NextResponse {
 export function twilioAuthHeader(): string | null {
   const { TWILIO_API_KEY_SID: sid, TWILIO_API_KEY_SECRET: secret } = process.env;
   return sid && secret ? `Basic ${Buffer.from(`${sid}:${secret}`).toString("base64")}` : null;
+}
+
+/**
+ * Rings a staff member's phone from the business number; the webhook at `url`
+ * then connects them to the customer (see lib/phone/outbound.ts). Uses the
+ * business's own Twilio account: TWILIO_ACCOUNT_SID and TWILIO_API_KEY_*.
+ * Returns the call's SID, or throws with Twilio's reason.
+ */
+export async function startBridgeCall(
+  p: { staffPhone: string; businessNumber: string; url: string; statusCallback: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const auth = twilioAuthHeader();
+  if (!accountSid || !/^AC[0-9a-fA-F]{32}$/.test(accountSid) || !auth) throw new Error("Calling isn't set up yet.");
+  let response: Response;
+  try {
+    response = await fetchImpl(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
+      method: "POST",
+      headers: { authorization: auth, "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+      body: bridgeCallForm(p).toString(),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    throw new Error("Twilio could not be reached.");
+  }
+  const payload = (await response.json().catch(() => null)) as { sid?: string; message?: string } | null;
+  if (!response.ok || !payload?.sid || !/^CA[0-9a-fA-F]{32}$/.test(payload.sid)) {
+    throw new Error(payload?.message ?? "Twilio didn't start the call.");
+  }
+  return payload.sid;
 }

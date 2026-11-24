@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addLeadNote, moveLead, setLeadReferrer, updateLead, uploadRoofReport } from "@/app/office/actions";
+import { addLeadNote, callLead, moveLead, setLeadReferrer, updateLead, uploadRoofReport } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime, utcToZonedInput } from "@/lib/dates";
 import { NEED_LABEL, NEEDS, SOURCE_LABEL, STAGE_LABEL, STAGES, type Need, type Stage } from "@/lib/leads/schema";
 import { formatCents } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
+import { loadPhoneSettings } from "@/lib/phone/server";
 import { adminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -21,6 +22,7 @@ type Event = {
 };
 
 const CALL_RESULT: Record<string, string> = { ringing: "Call", answered: "Call answered", missed: "Missed call", voicemail: "Voicemail" };
+const CALL_OUT_RESULT: Record<string, string> = { ringing: "Calling them", answered: "Called them", missed: "Call out didn't connect" };
 
 function describe(e: Event): string {
   if (e.kind === "call") return e.body ?? "Call";
@@ -33,7 +35,7 @@ function describe(e: Event): string {
 }
 
 export default async function LeadPage({ params, searchParams }: PageProps<"/office/leads/[id]">) {
-  await requireStaff();
+  const member = await requireStaff();
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createSupabaseServerClient();
@@ -44,7 +46,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
     supabase.from("lead_events").select("*").eq("lead_id", id).order("created_at", { ascending: false }),
     supabase.from("lead_photos").select("id, path").eq("lead_id", id).order("created_at"),
     supabase.from("profiles").select("user_id, full_name"),
-    supabase.from("phone_calls").select("id, status, recording_url, recording_seconds, created_at").eq("lead_id", id),
+    supabase.from("phone_calls").select("id, status, direction, recording_url, recording_seconds, created_at").eq("lead_id", id),
     supabase.from("messages").select("id, direction, body, sent_by, created_at").eq("lead_id", id),
     supabase.from("measurements").select("id, source, squares, pitch, created_at").eq("lead_id", id).order("created_at", { ascending: false }).limit(5),
     supabase.from("proposals").select("id, number, status, options, needs_confirmation, updated_at").eq("lead_id", id).order("created_at", { ascending: false }),
@@ -57,7 +59,8 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
     ...((leadEvents ?? []) as Event[]),
     ...(calls ?? []).map((c) => ({
       id: c.id, kind: "call" as const, from_stage: null, to_stage: null, actor_id: null, created_at: c.created_at,
-      body: c.status === "voicemail" ? `Voicemail (${c.recording_seconds ?? 0}s)` : (CALL_RESULT[c.status] ?? "Call"),
+      body: c.status === "voicemail" ? `Voicemail (${c.recording_seconds ?? 0}s)`
+        : ((c.direction === "out" ? CALL_OUT_RESULT : CALL_RESULT)[c.status] ?? "Call"),
       recordingCallId: c.recording_url ? c.id : undefined,
     })),
     ...(texts ?? []).map((m) => ({
@@ -71,6 +74,7 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
     (photos ?? []).map(async (p) => (await adminClient().storage.from("lead-photos").createSignedUrl(p.path, 600)).data?.signedUrl),
   );
 
+  const canCallOut = Boolean((await loadPhoneSettings({ companyId: member.companyId })).businessNumber);
   const stage = lead.stage as Stage;
   const mapsUrl = lead.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lead.address)}` : null;
 
@@ -91,8 +95,14 @@ export default async function LeadPage({ params, searchParams }: PageProps<"/off
         <div>
           <p className="text-xs text-muted">Phone</p>
           {lead.phone ? (
-            <p className="flex gap-3"><a className="underline" href={`tel:${lead.phone}`}>{formatPhone(lead.phone)}</a>
-              <Link className="underline" href={`/office/inbox/${encodeURIComponent(lead.phone)}`}>Text</Link></p>
+            <div className="flex flex-wrap items-center gap-3"><a className="underline" href={`tel:${lead.phone}`}>{formatPhone(lead.phone)}</a>
+              <Link className="underline" href={`/office/inbox/${encodeURIComponent(lead.phone)}`}>Text</Link>
+              {canCallOut && (
+                <form action={callLead}>
+                  <input type="hidden" name="leadId" value={lead.id} />
+                  <button className="btn-secondary" title="Rings your phone, then connects you from the business number">Call from business line</button>
+                </form>
+              )}</div>
           ) : <p>—</p>}
         </div>
         <div>

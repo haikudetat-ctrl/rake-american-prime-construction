@@ -13,6 +13,7 @@ const CALL_STATUS: Record<string, string> = {
   missed: "Missed",
   voicemail: "Voicemail",
 };
+const CALL_OUT_STATUS: Record<string, string> = { ringing: "Calling out", answered: "Called out", missed: "Call out didn't connect" };
 
 export default async function InboxPage({ searchParams }: PageProps<"/office/inbox">) {
   await requireStaff();
@@ -71,13 +72,13 @@ async function Threads({ supabase }: { supabase: Awaited<ReturnType<typeof creat
 async function CallLog({ supabase }: { supabase: Awaited<ReturnType<typeof createSupabaseServerClient>> }) {
   const { data } = await supabase
     .from("phone_calls")
-    .select("id, from_number, status, after_hours, duration_seconds, recording_url, recording_seconds, created_at, lead_id, customer_id, leads(name), customers(name)")
+    .select("id, from_number, status, direction, after_hours, duration_seconds, recording_url, recording_seconds, created_at, lead_id, customer_id, leads(name), customers(name)")
     .order("created_at", { ascending: false })
     .limit(100);
   return (
     <section className="card overflow-x-auto">
       <table className="table">
-        <thead><tr><th>When</th><th>From</th><th>Result</th><th>Voicemail</th></tr></thead>
+        <thead><tr><th>When</th><th>Who</th><th>Result</th><th>Voicemail</th></tr></thead>
         <tbody>
           {(data ?? []).map((c) => {
             const lead = Array.isArray(c.leads) ? c.leads[0] : c.leads;
@@ -92,7 +93,7 @@ async function CallLog({ supabase }: { supabase: Awaited<ReturnType<typeof creat
                   <div className="text-xs text-muted"><a className="underline" href={`tel:${c.from_number}`}>{formatPhone(c.from_number)}</a></div>
                 </td>
                 <td>
-                  {CALL_STATUS[c.status] ?? c.status}
+                  {(c.direction === "out" ? CALL_OUT_STATUS : CALL_STATUS)[c.status] ?? c.status}
                   {c.after_hours && <span className="text-xs text-muted"> · after hours</span>}
                   {c.status === "answered" && c.duration_seconds ? <span className="text-xs text-muted"> · {Math.round(c.duration_seconds / 60)} min</span> : null}
                 </td>
