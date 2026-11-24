@@ -12,6 +12,7 @@ import {
 import { Notice } from "@/app/office/_notice";
 import { addInvoiceCharges } from "@/app/office/dumpsters/actions";
 import { ConfirmAction } from "@/app/_ui/confirm-action";
+import { StatusPill } from "@/app/_ui/status-pill";
 import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -90,16 +91,42 @@ export default async function RentalPage({ params, searchParams }: PageProps<"/o
   const statement = one(invoice?.statements);
   // Only the newest completed step can be undone (the database enforces this too).
   const lastDone = [...(stops ?? [])].filter((s) => s.status === "done").sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))[0];
+  // The step the office is waiting on (Figma V2 47): the earliest one still scheduled.
+  const nextStop = [...(stops ?? [])]
+    .filter((s) => s.status === "scheduled")
+    .sort((a, b) => String(a.scheduled_date).localeCompare(String(b.scheduled_date)) || String(a.created_at).localeCompare(String(b.created_at)))[0];
 
   return (
     <>
       <Notice searchParams={query} />
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="page-title">
-          {customer?.name} · {site?.address}
-        </h1>
-        <span className="pill">{STATUS[rental.status] ?? rental.status}</span>
-      </div>
+      <header className="space-y-1">
+        <p className="eyebrow">Dumpsters · Rental</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="page-title break-words">
+            {customer?.name} · {site?.address}
+          </h1>
+          <StatusPill tone={rental.status === "cancelled" ? "danger" : rental.status === "closed" ? "success" : "neutral"}>
+            {STATUS[rental.status] ?? rental.status}
+          </StatusPill>
+        </div>
+      </header>
+      {nextStop && (
+        <section className={`space-y-1 rounded-card p-4 sm:p-5 ${nextStop.driver_id ? "bg-ok-soft" : "bg-warn-soft"}`}>
+          <p className={`text-xs font-semibold tracking-wide uppercase ${nextStop.driver_id ? "text-ok" : "text-warn"}`}>
+            Next: {KIND[nextStop.kind as keyof typeof KIND].toLowerCase()} scheduled
+          </p>
+          <p className="text-lg font-semibold">
+            {formatDate(nextStop.scheduled_date)} · {names.get(nextStop.driver_id) ?? "No driver yet"}
+            {can && nextStop.kind !== "drop" ? ` · can ${can.label}` : ""}
+          </p>
+          {(site?.notes || rental.notes) && nextStop.kind !== "dump" && (
+            <p className="text-sm break-words">{[site?.notes, rental.notes].filter(Boolean).join(" · ")}</p>
+          )}
+          <Link href={`/office/dumpsters?date=${nextStop.scheduled_date}`} className="inline-block pt-1 text-sm font-semibold text-accent hover:underline">
+            Open that day’s dispatch
+          </Link>
+        </section>
+      )}
       <p className="text-sm text-muted">
         <Link className="underline" href={`/office/customers/${customer?.id}`}>Customer</Link> · Drop requested{" "}
         {formatDate(rental.requested_drop_date)}
