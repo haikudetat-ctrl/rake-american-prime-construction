@@ -7,20 +7,38 @@ import {
   COMPANY_NAME,
   DROPWISE_NAME,
   HIC_NUMBER,
-  PATHS,
+  LEGAL_PATHS,
   REQUEST_HREF,
   ROOFING_NAME,
+  canonicalUrl,
 } from "@/lib/site/config";
 import s from "../site.module.css";
 import { MobileMenu } from "./mobile-menu";
 
 type NavItem = { href: string; label: string; current?: boolean };
 
-const LOGOS: Record<"company" | "roofing" | "dumpster", { src: StaticImageData; alt: string; height: number; href: string }> = {
-  company: { src: companyLockup, alt: COMPANY_NAME, height: 62, href: PATHS.company },
-  dumpster: { src: dumpsterLogo, alt: DROPWISE_NAME, height: 58, href: PATHS.dumpster },
-  roofing: { src: roofingLockup, alt: ROOFING_NAME, height: 44, href: PATHS.roofing },
-};
+/**
+ * Links between the brands are absolute canonical URLs, so each domain links
+ * to the others' home pages rather than serving a second copy of them
+ * (dropwisedumpsters.com/roofing). Read per request: the brand domains come
+ * from the environment.
+ */
+function logos(): Record<"company" | "roofing" | "dumpster", { src: StaticImageData; alt: string; height: number; href: string }> {
+  return {
+    company: { src: companyLockup, alt: COMPANY_NAME, height: 62, href: canonicalUrl("company") },
+    dumpster: { src: dumpsterLogo, alt: DROPWISE_NAME, height: 58, href: canonicalUrl("dumpster") },
+    roofing: { src: roofingLockup, alt: ROOFING_NAME, height: 44, href: canonicalUrl("roofing") },
+  };
+}
+
+/** Header links to the three businesses, for pages that belong to none of them (Privacy, Terms). */
+export function siteNav(): NavItem[] {
+  return [
+    { href: canonicalUrl("roofing"), label: "Roofing & gutters" },
+    { href: canonicalUrl("dumpster"), label: "Dumpsters" },
+    { href: canonicalUrl("company"), label: "Our company" },
+  ];
+}
 
 export function SkipLink() {
   return (
@@ -39,7 +57,7 @@ export function SiteHeader({
   nav: NavItem[];
   cta?: { href: string; label: string };
 }) {
-  const logo = LOGOS[brand];
+  const logo = logos()[brand];
   return (
     <header className={s.header}>
       <div className={`${s.wrap} ${s.headerInner}`}>
@@ -72,7 +90,7 @@ export function SiteFooter() {
       <div className={s.wrap}>
         <div className={s.footerGrid}>
           <div>
-            <Link href={PATHS.company} aria-label={`${COMPANY_NAME} home`}><Image src={companyLockup} alt={COMPANY_NAME} className={s.footerLogo} /></Link>
+            <Link href={canonicalUrl("company")} aria-label={`${COMPANY_NAME} home`}><Image src={companyLockup} alt={COMPANY_NAME} className={s.footerLogo} /></Link>
             <p>
               {ROOFING_NAME} and {DROPWISE_NAME} are services of {COMPANY_NAME}.
             </p>
@@ -82,21 +100,23 @@ export function SiteFooter() {
             <h2>Roofing</h2>
             <ul>
               <li><Link href={REQUEST_HREF.roofing} prefetch={false}>Get a roofing estimate</Link></li>
-              <li><Link href={PATHS.roofing}>Roofing and gutters</Link></li>
-              <li><Link href={PATHS.contractors}>Crews for contractors</Link></li>
+              <li><Link href={canonicalUrl("roofing")}>Roofing and gutters</Link></li>
+              <li><Link href={canonicalUrl("contractors")}>Crews for contractors</Link></li>
             </ul>
           </div>
           <div>
             <h2>Dumpsters</h2>
             <ul>
               <li><Link href={REQUEST_HREF.dumpster} prefetch={false}>Request a dumpster</Link></li>
-              <li><Link href={`${PATHS.dumpster}#sizes`}>Our 20-yard dumpster</Link></li>
+              <li><Link href={`${canonicalUrl("dumpster")}#sizes`}>Our 20-yard dumpster</Link></li>
             </ul>
           </div>
           <div>
             <h2>Company</h2>
             <ul>
-              <li><Link href={PATHS.company}>{COMPANY_NAME}</Link></li>
+              <li><Link href={canonicalUrl("company")}>{COMPANY_NAME}</Link></li>
+              <li><Link href={LEGAL_PATHS.privacy}>Privacy Policy</Link></li>
+              <li><Link href={LEGAL_PATHS.terms}>Terms of Use</Link></li>
               <li><Link href="/login" prefetch={false}>Team sign in</Link></li>
             </ul>
           </div>

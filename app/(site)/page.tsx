@@ -6,7 +6,7 @@ import dropwiseLogo from "@/public/brand/dropwise-logo.png";
 import { ContactLinks } from "./_components/contact";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "./_components/chrome";
 import { Faq, Journey, PhotoHero, ServiceArea, TrustStrip, type JourneyStep } from "./_components/marketing";
-import { COMPANY_NAME, DROPWISE_NAME, PATHS, REQUEST_HREF, ROOFING_NAME, canonicalUrl } from "@/lib/site/config";
+import { COMPANY_NAME, DROPWISE_NAME, REQUEST_HREF, ROOFING_NAME, canonicalUrl } from "@/lib/site/config";
 import { getSiteContent } from "@/lib/site/content";
 import s from "./site.module.css";
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: canonicalUrl("company") }, robots: { index: true, follow: true },
   openGraph: { title: COMPANY_NAME, description: "Good work gets around. Roofing, gutters and dumpsters from Hamilton to Atlantic City.", url: canonicalUrl("company"), siteName: COMPANY_NAME, type: "website" },
 };
-const nav = [{ href: PATHS.roofing, label: "Roofing & gutters" }, { href: PATHS.dumpster, label: "Dumpsters" }, { href: "#about", label: "Our company" }, { href: "#service-area", label: "Service area" }];
+const nav = [{ href: canonicalUrl("roofing"), label: "Roofing & gutters" }, { href: canonicalUrl("dumpster"), label: "Dumpsters" }, { href: "#about", label: "Our company" }, { href: "#service-area", label: "Service area" }];
 
 const HOW: JourneyStep[] = [
   { who: "you", title: "Tell us what's going on", body: "Pick roofing or a dumpster and give us the address. No account, no hoops.", link: { href: "#services", label: "Pick a service", arrow: "↑" } },
@@ -47,7 +47,7 @@ export default async function CompanyHome() {
             <p className={s.muted}>A leak, storm damage or a full replacement. We measure, show you every option with its price in writing, and tell you which one actually makes sense for your house.</p>
             <ul className={s.inlineList}><li>Roof replacement</li><li>Repairs</li><li>Gutters</li></ul>
             <Link href={REQUEST_HREF.roofing} prefetch={false} className={s.btn}>Request a roofing estimate <span aria-hidden="true">↗</span></Link>
-            <Link href={PATHS.roofing} className={s.textLink}>See Authority Roofing</Link>
+            <Link href={canonicalUrl("roofing")} className={s.textLink}>See Authority Roofing</Link>
           </article>
           <article className={`${s.serviceCard} ${s.dropwiseAccent}`}>
             <div className={s.serviceLogo}><Image src={dropwiseLogo} alt={DROPWISE_NAME} /></div>
@@ -55,7 +55,7 @@ export default async function CompanyHome() {
             <p className={s.muted}>DropWise started with the debris from our own roofing jobs. Now we drop roll-offs for tear-offs, renovations and job sites, and pick them up when the work is done.</p>
             <ul className={s.inlineList}><li>20-yard roll-offs</li><li>Delivery & pickup</li><li>Job sites & renovations</li></ul>
             <Link href={REQUEST_HREF.dumpster} prefetch={false} className={s.btn}>Request a dumpster estimate <span aria-hidden="true">↗</span></Link>
-            <Link href={PATHS.dumpster} className={s.textLink}>See DropWise</Link>
+            <Link href={canonicalUrl("dumpster")} className={s.textLink}>See DropWise</Link>
           </article>
         </div>
       </section>
@@ -67,7 +67,7 @@ export default async function CompanyHome() {
         <Journey steps={HOW} />
       </section>
       <ServiceArea company />
-      <section className={`${s.wrap} ${s.contractorBand}`}><div><h2 className={s.h3}>Roofing contractor with more work than hands?</h2><p className={s.muted}>Our crews install roofs for other contractors too. Labor only, invoiced per job.</p></div><Link href={PATHS.contractors} className={s.textLink}>For contractors <span aria-hidden="true">↗</span></Link></section>
+      <section className={`${s.wrap} ${s.contractorBand}`}><div><h2 className={s.h3}>Roofing contractor with more work than hands?</h2><p className={s.muted}>Our crews install roofs for other contractors too. Labor only, invoiced per job.</p></div><Link href={canonicalUrl("contractors")} className={s.textLink}>For contractors <span aria-hidden="true">↗</span></Link></section>
       <Faq items={[
         { question: "Which one do I contact?", answer: "Roofs, leaks, inspections or gutters: Authority Roofing. A roll-off dumpster: DropWise. It's the same company behind both, so if you need both, say so in your request." },
         { question: "Do I need to make an account?", answer: "No. Both request forms take a couple of minutes and don't ask you to sign up. We just need a way to reach you and the project address." },

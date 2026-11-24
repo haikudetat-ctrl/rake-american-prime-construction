@@ -95,3 +95,70 @@ export function brandRewrites(): Map<string, Record<string, string>> {
   if (roofing) hosts.set(new URL(roofing).host, { "/": PATHS.roofing, "/contractors": PATHS.contractors });
   return hosts;
 }
+
+/** Which public site a request host belongs to. "other" is any host that is not a production domain (vercel.app, previews, localhost). */
+export type SiteHost = "company" | "roofing" | "dumpster" | "other";
+
+function hostOf(origin: string | null): string | null {
+  return origin ? new URL(origin).host : null;
+}
+
+export function siteForHost(host: string): SiteHost {
+  const h = host.toLowerCase();
+  if (h === hostOf(brandOrigin("roofing"))) return "roofing";
+  if (h === hostOf(brandOrigin("dumpster"))) return "dumpster";
+  // Only a real domain counts as the main site. Falling back to the Vercel
+  // host or localhost would make those indexable.
+  if (h === hostOf(clean(process.env.APP_URL))) return "company";
+  return "other";
+}
+
+/** Origin for a host's own robots.txt and sitemap. */
+export function originForSite(site: Exclude<SiteHost, "other">): string {
+  if (site === "company") return siteOrigin();
+  return brandOrigin(site) ?? siteOrigin();
+}
+
+/**
+ * Indexable pages a host's sitemap lists. Each URL is its canonical, so a
+ * page appears in exactly one domain's sitemap. The legal pages are
+ * reachable on every domain but stay out of search (noindex), so they are
+ * not listed.
+ */
+export function sitemapPages(site: SiteHost): { url: string; priority: number }[] {
+  if (site === "other") return [];
+  const origin = originForSite(site);
+  const all: { page: keyof typeof PATHS; priority: number }[] = [
+    { page: "company", priority: 1 },
+    { page: "roofing", priority: 0.9 },
+    { page: "contractors", priority: 0.6 },
+    { page: "dumpster", priority: 0.9 },
+  ];
+  return all
+    .map(({ page, priority }) => ({ url: canonicalUrl(page), priority }))
+    .filter(({ url }) => url === `${origin}/` || url.startsWith(`${origin}/`));
+}
+
+export const LEGAL_PATHS = { privacy: "/privacy", terms: "/terms" } as const;
+
+/**
+ * A brand page requested on a host that is not its canonical home gets a
+ * permanent redirect there (apconstructionnj.com/dumpsters, or /roofing on
+ * the roofing domain itself). Only once a brand domain is set; until then
+ * the paths are the brand's home. Returns null to serve the request.
+ */
+export function brandRedirect(host: string, pathname: string): string | null {
+  const brandPaths: [string, keyof typeof PATHS][] = [
+    [PATHS.dumpster, "dumpster"],
+    [PATHS.contractors, "contractors"],
+    [PATHS.roofing, "roofing"],
+  ];
+  const match = brandPaths.find(([path]) => pathname === path);
+  if (!match) return null;
+  const page = match[1];
+  const brand = page === "dumpster" ? "dumpster" : "roofing";
+  if (!brandOrigin(brand)) return null;
+  const target = canonicalUrl(page);
+  const here = `https://${host.toLowerCase()}${pathname}`;
+  return target === here ? null : target;
+}

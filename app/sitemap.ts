@@ -1,16 +1,15 @@
 import type { MetadataRoute } from "next";
-import { brandOrigin, canonicalUrl } from "@/lib/site/config";
+import { headers } from "next/headers";
+import { siteForHost, sitemapPages } from "@/lib/site/config";
 
 /**
- * The four public pages. A brand on its own domain is listed by that
- * domain's own sitemap once it is verified in Search Console, so it drops
- * out of this one.
+ * Each domain lists only the pages whose canonical URL is on that domain:
+ * the parent site lists its homepage, authorityroofingnj.com its two
+ * roofing pages, dropwisedumpsters.com its dumpster page. Until a brand has
+ * its own domain, its pages are listed by the main site.
  */
-export default function sitemap(): MetadataRoute.Sitemap {
-  const pages: { url: string; priority: number }[] = [{ url: canonicalUrl("company"), priority: 1 }];
-  if (!brandOrigin("roofing")) {
-    pages.push({ url: canonicalUrl("roofing"), priority: 0.9 }, { url: canonicalUrl("contractors"), priority: 0.6 });
-  }
-  if (!brandOrigin("dumpster")) pages.push({ url: canonicalUrl("dumpster"), priority: 0.9 });
-  return pages.map((page) => ({ ...page, changeFrequency: "monthly" }));
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const h = await headers();
+  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").split(",")[0].trim();
+  return sitemapPages(siteForHost(host)).map((page) => ({ ...page, changeFrequency: "monthly" }));
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { AddressField } from "@/app/_components/address-field";
+import { PolicyLinks } from "@/app/_components/policy-links";
 import { Flash } from "@/app/_components/flash";
 import { useIntakeSubmit } from "@/app/_components/use-intake-submit";
 import { DUMPSTER_SIZES } from "@/lib/intake/sizes";
@@ -86,7 +87,9 @@ export function RequestForm({
         </label>
 
         <p className="text-xs text-muted">
-          By sending this you agree we may call or text you about this rental. Message and data rates may apply.
+          By sending this request you agree that DropWise Dumpsters, a service of American Prime Construction, may call and text
+          this number about this rental (confirmations, delivery and pickup), including by automated technology. Message frequency
+          varies. Message and data rates may apply. Reply STOP to opt out, HELP for help. <PolicyLinks />
         </p>
         <button disabled={pending} className="btn w-full py-3 text-base">
           {pending ? "Sending…" : "Send request"}

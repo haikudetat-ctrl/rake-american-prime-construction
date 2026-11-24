@@ -41,14 +41,37 @@ or town lists until Andre provides them.
 ## Search and sharing
 
 - Each page sets its title, description, canonical URL and `index, follow`. Everything else
-  stays `noindex` from the root layout, and `app/robots.ts` keeps crawlers out of staff
-  screens and tokenized customer links.
-- `app/sitemap.ts` lists the four pages. JSON-LD: Organization (`/`), RoofingContractor
-  (`/roofing`), Service (`/roofing/contractors`), LocalBusiness (`/dumpsters`).
+  stays `noindex` from the root layout.
+- **One robots.txt and sitemap per domain.** `app/robots.ts` and `app/sitemap.ts` read the
+  request host (`siteForHost` in `lib/site/config.ts`). Each production domain points at its own
+  sitemap, and each sitemap lists only the pages whose canonical URL is on that domain. Every
+  robots.txt keeps crawlers out of staff screens, the API and tokenized customer links.
+- **Any other host** (the vercel.app address, previews, localhost) gets `X-Robots-Tag: noindex,
+  nofollow` from the proxy and a robots.txt with no sitemap. Only the host in `APP_URL` counts
+  as the main site.
+- **Brand paths redirect home.** Once a brand has its own domain, `/roofing`,
+  `/roofing/contractors` and `/dumpsters` on any other host (or the long path on the brand's own
+  domain) 308 to the canonical URL, and links between the brands are absolute.
+- JSON-LD: Organization (`/`), RoofingContractor (`/roofing`), Service (`/roofing/contractors`),
+  LocalBusiness (`/dumpsters`).
 - Share images are `opengraph-image.png` files in each segment, made from the kit's logos.
 - Vercel Web Analytics (`app/_components/site-analytics.tsx`) counts public pages and the
   request forms, never `/office`, `/driver`, `/crew`, `/login` or token links (`/p`, `/f`, `/r`).
-  Turn it on in the Vercel project (Analytics tab) for data to show up.
+  It is cookieless. Turn it on in the Vercel project (Analytics tab) for data to show up.
+
+## Privacy Policy, Terms and text consent
+
+- `/privacy` and `/terms` are served on every domain (A2P 10DLC reviewers check the privacy page
+  on the domain the opt-in lives on), linked from every footer and from both request forms, and
+  kept `noindex`. They describe what the code actually does: when a form field, tracker, vendor
+  or kind of text is added, update `app/(site)/privacy/page.tsx` in the same change.
+- The legal name and notice address come from Settings (the proposal legal name and the
+  roofing brand's address), the contact email from the roofing brand. Until they are filled in
+  the pages show a bracketed placeholder. The texting number, lead retention period and
+  effective date are in `lib/site/legal.ts`.
+- The roofing form's consent text (`CONTACT_CONSENT` in `lib/leads/schema.ts`) is stored with the
+  lead word for word. Changing it changes what new leads agree to; old leads keep theirs.
+- Draft for review, not legal advice: a New Jersey attorney should read both pages before launch.
 
 ## Domains
 
