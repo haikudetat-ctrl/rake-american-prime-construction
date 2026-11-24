@@ -10,7 +10,6 @@ import { NEED_LABEL, type Need } from "@/lib/leads/schema";
 import {
   COMPANY_NAME,
   HIC_NUMBER,
-  PATHS,
   REQUEST_HREF,
   ROOFING_NAME,
   WORKMANSHIP_WARRANTY_YEARS,
@@ -237,7 +236,7 @@ export default async function RoofingPage() {
                 Other roofing companies already hire our crews to install their jobs. Labor only, one job
                 or the whole week, invoiced when each one is done.
               </p>
-              <Link href={PATHS.contractors} className={s.textLink}>
+              <Link href={canonicalUrl("contractors")} className={s.textLink}>
                 Crews for contractors
               </Link>
             </div>

@@ -5,7 +5,8 @@ import { Flash } from "@/app/_components/flash";
 import { useIntakeSubmit } from "@/app/_components/use-intake-submit";
 import { shrinkPhoto } from "@/lib/images/shrink";
 import { intakeErrorText, type IntakeFailure } from "@/lib/intake/messages";
-import { CONTACT_CONSENT, MAX_PHOTOS, NEED_LABEL, NEEDS, type Need } from "@/lib/leads/schema";
+import { CONSENT_BODY, MAX_PHOTOS, NEED_LABEL, NEEDS, type Need } from "@/lib/leads/schema";
+import { PolicyLinks } from "@/app/_components/policy-links";
 
 /** Server actions accept ~4 MB per request; leave room for the text fields. */
 const MAX_UPLOAD_BYTES = 3_500_000;
@@ -85,7 +86,8 @@ export function LeadForm({
 
         <label className="flex items-start gap-2 text-xs text-muted">
           <input type="checkbox" name="consent" className="mt-0.5" />
-          <span>{CONTACT_CONSENT}</span>
+          {/* Same words as CONTACT_CONSENT, which is what gets stored. */}
+          <span>{CONSENT_BODY} <PolicyLinks /></span>
         </label>
         <button disabled={pending} className="btn w-full py-3 text-base">
           {pending ? "Sending…" : "Send"}

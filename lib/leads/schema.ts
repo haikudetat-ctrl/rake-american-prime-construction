@@ -34,9 +34,19 @@ export const SOURCE_LABEL: Record<string, string> = {
   referral: "Referral",
 };
 
-/** Shown next to the checkbox and stored with the lead word for word. */
-export const CONTACT_CONSENT =
-  "You may call or text me at this number about my roof, including by automated text. Consent is not a condition of purchase. Message and data rates may apply; reply STOP to opt out.";
+/**
+ * Shown next to the checkbox and stored with the lead word for word, so the
+ * record shows exactly what the homeowner agreed to. It names who will text,
+ * what about, frequency, rates, STOP and HELP, and points to the Terms and
+ * Privacy Policy, which is what carriers' A2P 10DLC reviewers look for. It
+ * also covers follow-ups (feedback and referral texts), which are closer to
+ * marketing than to the job itself. Not legal advice.
+ */
+export const CONSENT_BODY =
+  "I agree that American Prime Construction (Authority Roofing) may call and text me at this number about my request and job, and with follow-ups such as feedback requests and referral offers, including by automated technology. Consent is not a condition of purchase. Message frequency varies. Message and data rates may apply. Reply STOP to opt out, HELP for help.";
+/** The last sentence; the form links its two names. */
+export const CONSENT_POLICIES = "See our Terms of Use and Privacy Policy.";
+export const CONTACT_CONSENT = `${CONSENT_BODY} ${CONSENT_POLICIES}`;
 
 /** Homeowner photos on the public form. */
 export const MAX_PHOTOS = 4;

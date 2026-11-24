@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { brandRewrites } from "@/lib/site/config";
+import { brandRedirect, brandRewrites, siteForHost } from "@/lib/site/config";
 
 /**
  * Refreshes the Supabase session cookie on every matched request.
@@ -22,18 +22,36 @@ export async function proxy(request: NextRequest) {
     .split(",")[0]
     .trim()
     .toLowerCase();
+  // A brand page on a host that isn't its home (apconstructionnj.com/dumpsters,
+  // or /roofing on the roofing domain itself) moves there for good, so each
+  // page has one address in search.
+  const moved = brandRedirect(host, request.nextUrl.pathname);
+  if (moved) {
+    const url = new URL(moved);
+    url.search = request.nextUrl.search;
+    return NextResponse.redirect(url, 308);
+  }
+
+  // Any host that is not a production domain (the vercel.app address,
+  // previews) stays out of search entirely.
+  const hidden = siteForHost(host) === "other";
+  const keepOut = <T extends NextResponse>(res: T): T => {
+    if (hidden) res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return res;
+  };
+
   const rewrite = brandRewrites().get(host)?.[request.nextUrl.pathname];
   if (rewrite) {
     const url = request.nextUrl.clone();
     url.pathname = rewrite;
-    return NextResponse.rewrite(url);
+    return keepOut(NextResponse.rewrite(url));
   }
 
   let response = NextResponse.next({ request });
 
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !key) return response;
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !key) return keepOut(response);
 
   const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL, key, {
     cookies: {
@@ -49,7 +67,7 @@ export async function proxy(request: NextRequest) {
   });
 
   await supabase.auth.getUser();
-  return response;
+  return keepOut(response);
 }
 
 export const config = {

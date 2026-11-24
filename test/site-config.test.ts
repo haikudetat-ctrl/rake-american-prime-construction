@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { brandRewrites, canonicalUrl, siteOrigin } from "@/lib/site/config";
+import { brandRedirect, brandRewrites, canonicalUrl, siteForHost, siteOrigin, sitemapPages } from "@/lib/site/config";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -49,5 +49,75 @@ describe("brand domain rewrites", () => {
   it("ignores a value that is not a URL", () => {
     env({ DROPWISE_SITE_URL: "not a url" });
     expect(brandRewrites().size).toBe(0);
+  });
+});
+
+const PROD = {
+  APP_URL: "https://www.americanprime.example",
+  DROPWISE_SITE_URL: "https://dropwise.example",
+  ROOFING_SITE_URL: "https://aproof.example",
+};
+
+describe("one robots.txt and sitemap per domain", () => {
+  it("knows which site a host is, and treats anything else as hidden", () => {
+    env(PROD);
+    expect(siteForHost("www.americanprime.example")).toBe("company");
+    expect(siteForHost("APROOF.example")).toBe("roofing");
+    expect(siteForHost("dropwise.example")).toBe("dumpster");
+    expect(siteForHost("rake-american-prime-construction.vercel.app")).toBe("other");
+    expect(siteForHost("localhost:3000")).toBe("other");
+  });
+
+  it("never treats the Vercel fallback origin as the main site", () => {
+    env({ VERCEL_PROJECT_PRODUCTION_URL: "rake-american-prime-construction.vercel.app" });
+    expect(siteForHost("rake-american-prime-construction.vercel.app")).toBe("other");
+  });
+
+  it("lists each page in its own domain's sitemap only", () => {
+    env(PROD);
+    expect(sitemapPages("company").map((p) => p.url)).toEqual(["https://www.americanprime.example/"]);
+    expect(sitemapPages("roofing").map((p) => p.url)).toEqual(["https://aproof.example/", "https://aproof.example/contractors"]);
+    expect(sitemapPages("dumpster").map((p) => p.url)).toEqual(["https://dropwise.example/"]);
+    expect(sitemapPages("other")).toEqual([]);
+  });
+
+  it("lists every page on the main site until brands have domains", () => {
+    env({ APP_URL: "https://www.americanprime.example" });
+    expect(sitemapPages("company").map((p) => p.url)).toEqual([
+      "https://www.americanprime.example/",
+      "https://www.americanprime.example/roofing",
+      "https://www.americanprime.example/roofing/contractors",
+      "https://www.americanprime.example/dumpsters",
+    ]);
+  });
+});
+
+describe("brand pages redirect to their own domain", () => {
+  it("sends brand paths on other hosts to the brand domain", () => {
+    env(PROD);
+    expect(brandRedirect("www.americanprime.example", "/dumpsters")).toBe("https://dropwise.example/");
+    expect(brandRedirect("dropwise.example", "/roofing")).toBe("https://aproof.example/");
+    expect(brandRedirect("dropwise.example", "/roofing/contractors")).toBe("https://aproof.example/contractors");
+  });
+
+  it("collapses the long path on the brand's own domain to its root", () => {
+    env(PROD);
+    expect(brandRedirect("aproof.example", "/roofing")).toBe("https://aproof.example/");
+    expect(brandRedirect("aproof.example", "/roofing/contractors")).toBe("https://aproof.example/contractors");
+    expect(brandRedirect("dropwise.example", "/dumpsters")).toBe("https://dropwise.example/");
+  });
+
+  it("leaves the root, request links and legal pages alone", () => {
+    env(PROD);
+    for (const path of ["/", "/contractors", "/request/dumpster", "/roof/roof", "/privacy", "/terms", "/login"]) {
+      expect(brandRedirect("aproof.example", path)).toBeNull();
+      expect(brandRedirect("www.americanprime.example", path)).toBeNull();
+    }
+  });
+
+  it("does nothing until a brand has a domain", () => {
+    env({ APP_URL: "https://www.americanprime.example" });
+    expect(brandRedirect("www.americanprime.example", "/dumpsters")).toBeNull();
+    expect(brandRedirect("www.americanprime.example", "/roofing")).toBeNull();
   });
 });

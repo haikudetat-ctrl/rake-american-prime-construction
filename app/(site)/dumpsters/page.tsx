@@ -3,7 +3,7 @@ import Link from "next/link";
 import { JsonLd, SiteFooter, SiteHeader, SkipLink } from "@/app/(site)/_components/chrome";
 import { Closing, Faq, Journey, PhotoHero, ServiceArea, type JourneyStep } from "@/app/(site)/_components/marketing";
 import { ContactLinks } from "@/app/(site)/_components/contact";
-import { COMPANY_NAME, DROPWISE_NAME, PATHS, REQUEST_HREF, canonicalUrl } from "@/lib/site/config";
+import { COMPANY_NAME, DROPWISE_NAME, REQUEST_HREF, canonicalUrl } from "@/lib/site/config";
 import { getSiteContent } from "@/lib/site/content";
 import s from "../site.module.css";
 
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   alternates: { canonical: canonicalUrl("dumpster") }, robots: { index: true, follow: true },
   openGraph: { title: `Tear it out. We’ll haul it away. | ${DROPWISE_NAME}`, description: "Roll-off dumpsters for construction debris, from a roofing company that uses them on its own jobs.", url: canonicalUrl("dumpster"), siteName: DROPWISE_NAME, type: "website" },
 };
-const nav = [{ href: "#sizes", label: "The dumpster" }, { href: "#how", label: "How it works" }, { href: "#service-area", label: "Service area" }, { href: PATHS.company, label: "American Prime" }];
+const nav = [{ href: "#sizes", label: "The dumpster" }, { href: "#how", label: "How it works" }, { href: "#service-area", label: "Service area" }, { href: canonicalUrl("company"), label: "American Prime" }];
 
 const HOW: JourneyStep[] = [
   { who: "you", title: "Tell us about the project", body: "The address, the day you want it, and what's going in it.", link: { href: REQUEST_HREF.dumpster, label: "Request a dumpster", arrow: "↗", request: true } },

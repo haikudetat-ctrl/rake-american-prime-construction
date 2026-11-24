@@ -24,6 +24,8 @@ export type SiteContent = {
   /** Names of the optional extras on a proposal (gutters, flashing...). */
   addons: string[];
   gallery: GalleryPhoto[];
+  /** For the Privacy Policy and Terms: the same legal name and address proposals print (Settings). */
+  legal: { name: string | null; address: string | null };
 };
 
 const NO_CONTACT: BrandContact = { phone: null, email: null };
@@ -32,6 +34,7 @@ const EMPTY: SiteContent = {
   systems: [],
   addons: [],
   gallery: [],
+  legal: { name: null, address: null },
 };
 const TIER_ORDER = { good: 0, better: 1, best: 2 } as const;
 const COMPANY_SLUG = "american-prime";
@@ -43,20 +46,26 @@ async function load(): Promise<SiteContent> {
     const { data: company } = await db.from("companies").select("id").eq("slug", COMPANY_SLUG).maybeSingle();
     if (!company) return EMPTY;
 
-    const [brands, catalog, photos] = await Promise.all([
-      db.from("brands").select("id, kind, phone, email").eq("company_id", company.id),
+    const [brands, catalog, photos, settings] = await Promise.all([
+      db.from("brands").select("id, kind, phone, email, address").eq("company_id", company.id),
       db.from("catalog_versions").select("data").eq("company_id", company.id).eq("is_active", true).maybeSingle(),
       db.from("gallery_photos").select("path, caption, brand_id").eq("company_id", company.id)
         .order("sort").order("created_at").limit(12),
+      db.from("proposal_settings").select("legal_name").eq("company_id", company.id).maybeSingle(),
     ]);
 
     const contacts = { roofing: NO_CONTACT, dumpster: NO_CONTACT };
     let roofingBrandId: string | null = null;
+    let roofingAddress: string | null = null;
     for (const b of brands.data ?? []) {
       const kind = b.kind as "roofing" | "dumpster";
       contacts[kind] = { phone: b.phone ?? null, email: b.email ?? null };
-      if (kind === "roofing") roofingBrandId = b.id;
+      if (kind === "roofing") {
+        roofingBrandId = b.id;
+        roofingAddress = b.address?.trim() || null;
+      }
     }
+    const legal = { name: settings.data?.legal_name?.trim() || null, address: roofingAddress };
 
     type Item = { tier?: string; name?: string; active?: boolean };
     const data = (catalog.data?.data ?? null) as { systems?: Item[]; addons?: Item[] } | null;
@@ -75,14 +84,14 @@ async function load(): Promise<SiteContent> {
       .filter((p) => p.brand_id === roofingBrandId)
       .map((p) => ({ url: db.storage.from("gallery").getPublicUrl(p.path).data.publicUrl, caption: p.caption ?? null }));
 
-    return { contacts, systems, addons, gallery };
+    return { contacts, systems, addons, gallery, legal };
   } catch (error) {
     console.error("site content unavailable", error);
     return EMPTY;
   }
 }
 
-export const getSiteContent = unstable_cache(load, ["site-content-v1"], {
+export const getSiteContent = unstable_cache(load, ["site-content-v2"], {
   tags: [SITE_CONTENT_TAG],
   revalidate: 3600,
 });
