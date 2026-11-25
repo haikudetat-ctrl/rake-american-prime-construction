@@ -140,6 +140,71 @@ export function buildQueues(
   ];
 }
 
+export type TicketRow = { id: string; picked_up_at: string | null; sites: Embed<{ address: string }>; customers: Embed<{ name: string }> };
+export type StatementRow = {
+  id: string; number: number; issued_on: string; due_on: string; total_cents: number; sent_at: string | null;
+  customers: Embed<{ name: string; billing_email: string | null }>;
+  payments?: { amount_cents: number }[] | null;
+};
+
+/** What is still owed on a dumpster statement. */
+export function statementBalance(s: Pick<StatementRow, "total_cents" | "payments">): number {
+  return s.total_cents - (s.payments ?? []).reduce((sum, p) => sum + p.amount_cents, 0);
+}
+
+/**
+ * Billing to fix (Figma Future "Earned work, ready to bill"): money that is stuck, each item
+ * opening its own record. Three kinds: a rental picked up but still waiting on its scale
+ * ticket, so it can't be billed; a statement that hasn't been emailed a day after it was
+ * issued; and a dumpster statement past its due date. Deliberately no dollar total, since
+ * the three kinds don't add up to one meaningful number. If any part fails to load the
+ * whole queue reads as unavailable rather than showing a partial count.
+ */
+export function billingExceptions(
+  today: string,
+  r: { tickets: Result<TicketRow>; unsent: Result<StatementRow>; pastDue: Result<StatementRow> },
+): TodayQueue {
+  const id = "billing-fix";
+  const label = "Billing to fix";
+  const href = "/office/billing";
+  if ([r.tickets, r.unsent, r.pastDue].some((x) => x.error || !x.data)) return { id, label, href, count: null, items: [] };
+  // Tickets usually go in the same day as the pickup, so only an earlier pickup counts as stuck.
+  const waitingOnTicket = r.tickets.data!.filter((t) => t.picked_up_at && dayOf(t.picked_up_at) < today);
+  const sorted: (TodayItem & { since: string })[] = [
+    ...waitingOnTicket.map((t) => {
+      const since = dayOf(t.picked_up_at!);
+      return {
+        key: `ticket-${t.id}`, since,
+        href: `/office/rentals/${t.id}`,
+        title: [one(t.customers)?.name ?? "Customer", one(t.sites)?.address].filter(Boolean).join(" · "),
+        detail: `Picked up ${formatDate(since)} · can't bill until the scale ticket is in`,
+        action: "Enter ticket",
+      };
+    }),
+    // A statement already past due is listed once, as past due, even if it also never went out.
+    ...r.unsent.data!.filter((s) => s.due_on >= today).map((s) => {
+      const c = one(s.customers);
+      return {
+        key: `unsent-${s.id}`, since: s.issued_on,
+        href: `/office/billing/${s.id}`,
+        title: `${c?.name ?? "Customer"} · statement ${s.number}`,
+        detail: `Issued ${formatDate(s.issued_on)} · ${c?.billing_email?.trim() ? "email not confirmed sent" : "no billing email, send it yourself"}`,
+        action: "Check delivery",
+      };
+    }),
+    ...r.pastDue.data!.map((s) => ({
+      key: `due-${s.id}`, since: s.due_on,
+      href: `/office/billing/${s.id}`,
+      title: `${one(s.customers)?.name ?? "Customer"} · statement ${s.number}`,
+      detail: `${formatCents(statementBalance(s))} was due ${formatDate(s.due_on)} · ${waited(daysBetween(s.due_on, today))} past due${s.sent_at ? "" : " · never emailed"}`,
+      action: "Follow up",
+    })),
+  ].sort((a, b) => a.since.localeCompare(b.since));
+  const unsentShown = r.unsent.data!.filter((s) => s.due_on >= today).length;
+  const count = waitingOnTicket.length + unsentShown + Math.max(r.pastDue.count ?? 0, r.pastDue.data!.length);
+  return { id, label, href, count, items: sorted.slice(0, QUEUE_LIMIT).map((i) => ({ key: i.key, href: i.href, title: i.title, detail: i.detail, action: i.action })) };
+}
+
 /** "4 items need a next step", told honestly when some queues could not load. */
 export function summarize(queues: TodayQueue[]): { waiting: number; unavailable: TodayQueue[] } {
   const unavailable = queues.filter((q) => q.count === null);

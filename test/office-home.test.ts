@@ -118,8 +118,23 @@ describe('Today', () => {
     expect(html).not.toContain('Nothing needs review');
   });
 
+  it('lists a statement past due under Billing to fix, after the invoices ready to bill', async () => {
+    fixture.rows = { ...SYNTHETIC, statements: [{ id: 'st-1', number: 30, issued_on: '2026-10-01', due_on: '2026-10-16', total_cents: 90000, sent_at: '2026-10-01T13:00:00Z', customers: { name: 'Example Builders', billing_email: 'billing@example.test' }, payments: [] }] };
+    const html = await render();
+    expect(html).toContain('Billing to fix');
+    expect(html).toContain('/office/billing/st-1');
+    expect(html).toContain('$900.00 was due Fri, Oct 16 · 6 days past due');
+    expect(html.indexOf('Dumpster invoices ready')).toBeLessThan(html.indexOf('Billing to fix'));
+  });
+
+  it('reports Billing to fix as unknown when statements fail to load', async () => {
+    fixture.rows = SYNTHETIC; fixture.failed.add('statements');
+    const html = await render();
+    expect(html).toContain('Billing to fix could not load');
+  });
+
   it('never claims there is nothing to do when every queue failed', async () => {
-    for (const t of ['leads', 'rental_requests', 'sub_jobs', 'invoices', 'sub_invoices', 'proposals']) fixture.failed.add(t);
+    for (const t of ['leads', 'rental_requests', 'sub_jobs', 'invoices', 'sub_invoices', 'proposals', 'rentals', 'statements']) fixture.failed.add(t);
     const html = await render();
     expect(html).toContain('the total is unknown');
     expect(html).not.toContain('Nothing needs');

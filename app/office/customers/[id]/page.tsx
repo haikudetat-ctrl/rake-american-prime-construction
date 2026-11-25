@@ -2,11 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { addContact, addSite, createRental, updateCustomer } from "@/app/office/actions";
 import { Notice } from "@/app/office/_notice";
+import { Callout } from "@/app/_ui/callout";
+import { RailCard, WithRail } from "@/app/_ui/context-rail";
+import { Empty } from "@/app/_ui/states";
+import { StatusPill, type Tone } from "@/app/_ui/status-pill";
+import { WorkList, WorkRow } from "@/app/_ui/work-row";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { assignable, loadTeam, one } from "@/lib/office/team";
-import { formatPhone } from "@/lib/phone";
+import { formatPhone, toE164 } from "@/lib/phone";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function CustomerPage({ params, searchParams }: PageProps<"/office/customers/[id]">) {
@@ -29,12 +34,51 @@ export default async function CustomerPage({ params, searchParams }: PageProps<"
   if (!customer) notFound();
   const people = assignable(team);
 
+  const email = customer.billing_email?.trim();
+  const phone = customer.phone ? toE164(customer.phone) : null;
+  const RENTAL_STATUS: Record<string, { label: string; tone: Tone }> = {
+    scheduled: { label: "Scheduled", tone: "neutral" },
+    on_site: { label: "On site", tone: "neutral" },
+    pickup_requested: { label: "Pickup asked", tone: "warning" },
+    picked_up: { label: "Needs ticket", tone: "warning" },
+    closed: { label: "Closed", tone: "success" },
+    cancelled: { label: "Cancelled", tone: "neutral" },
+  };
+
   return (
     <>
       <Notice searchParams={query} />
-      <h1 className="page-title">{customer.name}</h1>
+      <header className="space-y-1">
+        <p className="eyebrow">Office · Customers</p>
+        <h1 className="page-title">{customer.name}</h1>
+        <nav aria-label="Contact" className="flex flex-wrap gap-2 pt-1">
+          {phone && <a className="btn-secondary" href={`tel:${phone}`}>Call {formatPhone(phone)}</a>}
+          {phone && <Link className="btn-secondary" href={`/office/inbox/${encodeURIComponent(phone)}`}>Texts</Link>}
+          {email && <a className="btn-secondary" href={`mailto:${email}`}>Email billing</a>}
+        </nav>
+      </header>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {!email && (
+        <Callout tone="warning" title="No billing email on file">
+          Statements for {customer.name} still issue, but nothing is emailed. Add a billing email under Details, or download and send each statement yourself.
+        </Callout>
+      )}
+
+      <WithRail
+        rail={
+          <RailCard title="Details and billing">
+            <form action={updateCustomer} className="space-y-2">
+              <input type="hidden" name="customerId" value={id} />
+              <label className="label"><span>Name</span><input name="name" defaultValue={customer.name} required className="input" /></label>
+              <label className="label"><span>Phone</span><input name="phone" defaultValue={customer.phone ?? ""} className="input" /></label>
+              <label className="label"><span>Billing email</span><input name="billingEmail" type="email" defaultValue={customer.billing_email ?? ""} className="input" /></label>
+              <label className="label"><span>Terms (days)</span><input name="terms" type="number" min={0} defaultValue={customer.payment_terms_days} className="input" /></label>
+              <label className="label"><span>Notes</span><input name="notes" defaultValue={customer.notes ?? ""} className="input" /></label>
+              <button className="btn-secondary w-full">Save details</button>
+            </form>
+          </RailCard>
+        }
+      >
         <section className="card space-y-3">
           <h2 className="font-semibold">Book a dumpster</h2>
           {(sites ?? []).length === 0 ? (
@@ -59,75 +103,70 @@ export default async function CustomerPage({ params, searchParams }: PageProps<"
               </label>
               <label className="label"><span>Size (yd)</span><input name="sizeYards" type="number" min={1} className="input" /></label>
               <label className="label"><span>Notes for driver</span><input name="notes" className="input" /></label>
-              <button className="btn sm:col-span-2">Book</button>
+              <button className="btn sm:col-span-2 sm:justify-self-start">Book</button>
             </form>
           )}
         </section>
 
-        <section className="card space-y-3">
-          <h2 className="font-semibold">Details</h2>
-          <form action={updateCustomer} className="grid gap-2 sm:grid-cols-2">
-            <input type="hidden" name="customerId" value={id} />
-            <label className="label sm:col-span-2"><span>Name</span><input name="name" defaultValue={customer.name} required className="input" /></label>
-            <label className="label"><span>Phone</span><input name="phone" defaultValue={customer.phone ?? ""} className="input" /></label>
-            <label className="label"><span>Billing email</span><input name="billingEmail" type="email" defaultValue={customer.billing_email ?? ""} className="input" /></label>
-            <label className="label"><span>Terms (days)</span><input name="terms" type="number" min={0} defaultValue={customer.payment_terms_days} className="input" /></label>
-            <label className="label"><span>Notes</span><input name="notes" defaultValue={customer.notes ?? ""} className="input" /></label>
-            <button className="btn-secondary sm:col-span-2 sm:justify-self-start">Save</button>
-          </form>
-        </section>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="card space-y-3">
+            <h2 className="font-semibold">Job addresses</h2>
+            {(sites ?? []).length === 0 ? <p className="text-sm text-muted">None yet.</p> : (
+              <ul className="space-y-1.5 text-sm">
+                {(sites ?? []).map((s) => (
+                  <li key={s.id} className="flex flex-wrap items-center gap-2">{s.address}{s.lat == null && <StatusPill tone="warning">Not on map</StatusPill>}</li>
+                ))}
+              </ul>
+            )}
+            <form action={addSite} className="flex flex-wrap gap-2">
+              <input type="hidden" name="customerId" value={id} />
+              <input name="address" required placeholder="Street, town" aria-label="New job address" className="input flex-1" />
+              <button className="btn-secondary">Add address</button>
+            </form>
+          </section>
 
-        <section className="card space-y-3">
-          <h2 className="font-semibold">Job addresses</h2>
-          <ul className="space-y-1 text-sm">
-            {(sites ?? []).map((s) => (
-              <li key={s.id}>{s.address}{s.lat == null && <span className="ml-1 text-warn">(not on map)</span>}</li>
-            ))}
-          </ul>
-          <form action={addSite} className="flex flex-wrap gap-2">
-            <input type="hidden" name="customerId" value={id} />
-            <input name="address" required placeholder="Street, town" className="input flex-1" />
-            <button className="btn-secondary">Add address</button>
-          </form>
-        </section>
+          <section className="card space-y-3">
+            <h2 className="font-semibold">People who order</h2>
+            {(contacts ?? []).length === 0 ? <p className="text-sm text-muted">None yet.</p> : (
+              <ul className="space-y-1.5 text-sm">
+                {(contacts ?? []).map((c) => (
+                  <li key={c.id}>{c.name} · {formatPhone(c.phone)}{c.email && <> · {c.email}</>}</li>
+                ))}
+              </ul>
+            )}
+            <form action={addContact} className="grid gap-2 sm:grid-cols-2">
+              <input type="hidden" name="customerId" value={id} />
+              <input name="name" required placeholder="Name" aria-label="Contact name" className="input" />
+              <input name="phone" type="tel" placeholder="Phone" aria-label="Contact phone" className="input" />
+              <input name="email" type="email" placeholder="Email" aria-label="Contact email" className="input" />
+              <button className="btn-secondary">Add person</button>
+            </form>
+          </section>
+        </div>
 
-        <section className="card space-y-3">
-          <h2 className="font-semibold">People who order</h2>
-          <ul className="space-y-1 text-sm">
-            {(contacts ?? []).map((c) => (
-              <li key={c.id}>{c.name} · {formatPhone(c.phone)}{c.email && <> · {c.email}</>}</li>
-            ))}
-          </ul>
-          <form action={addContact} className="grid gap-2 sm:grid-cols-4">
-            <input type="hidden" name="customerId" value={id} />
-            <input name="name" required placeholder="Name" className="input" />
-            <input name="phone" type="tel" placeholder="Phone" className="input" />
-            <input name="email" type="email" placeholder="Email" className="input" />
-            <button className="btn-secondary">Add</button>
-          </form>
+        <section aria-labelledby="rentals" className="space-y-2.5">
+          <h2 id="rentals" className="text-base">Rentals <span className="font-normal text-muted">{(rentals ?? []).length || ""}</span></h2>
+          {(rentals ?? []).length === 0 ? (
+            <Empty title="No rentals yet" />
+          ) : (
+            <WorkList label="Rentals" headings={["Drop / address", "Can / invoice"]}>
+              {(rentals ?? []).map((r) => {
+                const invoice = one(r.invoices);
+                const status = RENTAL_STATUS[r.status] ?? { label: r.status.replaceAll("_", " "), tone: "neutral" as Tone };
+                return (
+                  <WorkRow
+                    key={r.id}
+                    href={`/office/rentals/${r.id}`}
+                    title={`${formatDate(r.requested_drop_date)} · ${one(r.sites)?.address ?? ""}`}
+                    detail={[one(r.cans)?.label ? `Can ${one(r.cans)?.label}` : "No can yet", invoice ? `invoice #${invoice.number} · ${formatCents(invoice.total_cents)} · ${invoice.status.replaceAll("_", " ")}` : null].filter(Boolean).join(" · ")}
+                    aside={<StatusPill tone={status.tone}>{status.label}</StatusPill>}
+                  />
+                );
+              })}
+            </WorkList>
+          )}
         </section>
-      </div>
-
-      <section className="card overflow-x-auto">
-        <h2 className="mb-2 font-semibold">Rentals</h2>
-        <table className="table">
-          <thead><tr><th>Drop</th><th>Address</th><th>Can</th><th>Status</th><th>Invoice</th></tr></thead>
-          <tbody>
-            {(rentals ?? []).map((r) => {
-              const invoice = one(r.invoices);
-              return (
-                <tr key={r.id}>
-                  <td><Link className="underline" href={`/office/rentals/${r.id}`}>{formatDate(r.requested_drop_date)}</Link></td>
-                  <td>{one(r.sites)?.address}</td>
-                  <td>{one(r.cans)?.label ?? "—"}</td>
-                  <td>{r.status.replaceAll("_", " ")}</td>
-                  <td>{invoice ? <>#{invoice.number} · {formatCents(invoice.total_cents)} · {invoice.status.replace("_", " ")}</> : "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
+      </WithRail>
     </>
   );
 }

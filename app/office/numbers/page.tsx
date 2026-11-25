@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { Unavailable } from "@/app/office/_unavailable";
+import { Callout } from "@/app/_ui/callout";
+import { Unavailable as UnavailableCallout } from "@/app/_ui/states";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate, weekStart } from "@/lib/dates";
 import { cansNeeded, fleetVerdict, maxDaysPerTurn } from "@/lib/metrics/turnaround";
@@ -27,7 +30,7 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
     open_balance_cents: number;
     overdue_cents: number;
   }>();
-  if (!data) return <p className="card">Numbers are unavailable.</p>;
+  if (!data) return <Unavailable eyebrow="Office · Numbers" area="This week’s numbers" />;
 
   const avgOut = data.avg_days_out === null ? null : Number(data.avg_days_out);
   const perTurn = maxDaysPerTurn(data.cans_in_service, WEEKLY_TARGET);
@@ -46,15 +49,17 @@ export default async function NumbersPage({ searchParams }: PageProps<"/office/n
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="page-title">Week of {formatDate(week)}</h1>
-        <div className="flex gap-2">
-          <Link className="btn-secondary" href={`/office/numbers?week=${addDays(week, -7)}`}>← Prev</Link>
-          <Link className="btn-secondary" href="/office/numbers">This week</Link>
-          <Link className="btn-secondary" href={`/office/numbers?week=${addDays(week, 7)}`}>Next →</Link>
-        </div>
-      </div>
-      <p className="text-sm text-muted">Dumpster operations and balances for this week. Roofing metrics follow below.</p>
+      <header className="space-y-1">
+        <p className="eyebrow">Office · Numbers</p>
+        <h1 className="page-title">This week’s numbers</h1>
+        <p className="text-muted">{formatDate(week)} to {formatDate(addDays(week, 6))} · dumpsters first, then roofing, reviews and cash.</p>
+      </header>
+      <nav aria-label="Week" className="flex flex-wrap gap-2">
+        <Link className="btn-secondary" href={`/office/numbers?week=${addDays(week, -7)}`}>‹ Previous week</Link>
+        {week !== weekStart(companyToday()) && <Link className="btn-secondary" href="/office/numbers">This week</Link>}
+        <Link className="btn-secondary" href={`/office/numbers?week=${addDays(week, 7)}`}>Next week ›</Link>
+      </nav>
+      <h2 className="text-lg font-semibold">Dumpsters</h2>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {tiles.map((tile) => (
           <div key={tile.label} className="card-stripe">
@@ -86,7 +91,7 @@ const ROOFING_DAYS = 90;
 async function RoofingNumbers() {
   const supabase = await createSupabaseServerClient();
   const since = addDays(companyToday(), -ROOFING_DAYS);
-  const { data } = await supabase.rpc("lead_numbers", { p_since: since }).single<{
+  const { data, error } = await supabase.rpc("lead_numbers", { p_since: since }).single<{
     by_stage: Partial<Record<Stage, number>>;
     new_since: number;
     by_source: Record<string, number>;
@@ -95,7 +100,7 @@ async function RoofingNumbers() {
     stale_proposals: number;
     uncontacted: number;
   }>();
-  if (!data) return null;
+  if (error || !data) return <UnavailableCallout area="Roofing numbers">Reload to try again.</UnavailableCallout>;
   const rate = winRate(data.won, data.lost);
   const open = (["new", "contacted", "appointment", "proposal_sent"] as Stage[])
     .map((s) => `${STAGE_LABEL[s]} ${data.by_stage[s] ?? 0}`).join(" · ");
@@ -141,12 +146,14 @@ async function CashView() {
     supabase.rpc("money_owed").single<{ roofing_cents: number; dumpster_cents: number }>(),
   ]);
   const rows = (weeks ?? []) as { week_start: string; cash_out_cents: number; cash_in_cents: number }[];
-  if (weeksError || owedError || !owed) return <p className="card" role="status">Roofing + dumpster cash is unavailable. Reload to try again. Subcontracting cash is not included in this report.</p>;
+  if (weeksError || owedError || !owed) return <UnavailableCallout area="Roofing and dumpster cash">Reload to try again. Subcontracting cash isn&apos;t part of this report either way.</UnavailableCallout>;
   const owedTotal = Number(owed.roofing_cents) + Number(owed.dumpster_cents);
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Roofing + dumpster cash</h2>
-      <p className="text-sm text-muted">Excludes subcontracting cash and balances. These are not all-business totals. <Link className="underline" href="/office/subs/invoices">View subcontracting invoices</Link>.</p>
+      <h2 className="text-lg font-semibold">Roofing and dumpster cash</h2>
+      <Callout tone="neutral" title="Not an all-business total">
+        Subcontracting cash and balances aren&apos;t included. <Link className="underline" href="/office/subs/invoices">See contractor invoices</Link> for those.
+      </Callout>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="card-stripe"><p className="eyebrow">Owed to you</p><p className="stat-value">{formatCents(owedTotal)}</p>
           <p className="text-xs text-muted">Roofing {formatCents(Number(owed.roofing_cents))} · dumpsters {formatCents(Number(owed.dumpster_cents))}</p></div>
@@ -180,11 +187,11 @@ async function CashView() {
 /** Aftercare: did finished jobs turn into reviews and referrals? */
 async function ReviewNumbers() {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.rpc("review_numbers", { p_since: addDays(companyToday(), -ROOFING_DAYS) }).single<{
+  const { data, error } = await supabase.rpc("review_numbers", { p_since: addDays(companyToday(), -ROOFING_DAYS) }).single<{
     finals: number; responses: number; great: number; review_clicks: number; open_follow_ups: number;
     referrals: number; referrals_won: number; rewards_owed_cents: number;
   }>();
-  if (!data) return null;
+  if (error || !data) return <UnavailableCallout area="Review and referral numbers">Reload to try again.</UnavailableCallout>;
   const tiles = [
     { label: "Jobs marked final", value: String(data.finals), note: `${data.responses} answered "how did we do?"` },
     { label: "Rated great", value: String(data.great), note: `${data.review_clicks} opened the Google review` },
