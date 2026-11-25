@@ -22,9 +22,11 @@ export async function POST(req: Request) {
   if (open) {
     return twiml(ringTwiml({
       numbers: settings.ringNumbers,
-      callerId: From,
+      // The number they called, so a staff phone sees a business call. The
+      // caller's own number stays on the call record and is read out by the screen.
+      callerId: To,
       timeoutSeconds: settings.ringSeconds,
-      screenUrl: webhookUrl("/api/twilio/voice/screen"),
+      screenUrl: webhookUrl(`/api/twilio/voice/screen?call=${encodeURIComponent(CallSid)}`),
       doneUrl: webhookUrl("/api/twilio/voice/dial-done"),
     }));
   }

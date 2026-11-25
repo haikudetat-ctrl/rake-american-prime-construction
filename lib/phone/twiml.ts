@@ -39,7 +39,8 @@ export const hangupTwiml = () => doc("<Hangup/>");
 /**
  * Ring every number at once. Each answering phone first hears the screen
  * (press 1), so a personal voicemail that picks up can't take the call.
- * The caller's own number shows as caller ID.
+ * callerId is the business number, so staff phones see a business call (not
+ * a personal one they might auto-reply to); the screen says who is calling.
  */
 export function ringTwiml(p: {
   numbers: string[];
@@ -54,10 +55,48 @@ export function ringTwiml(p: {
   );
 }
 
-/** Played to whoever picks up, before they're connected. */
-export function screenTwiml(p: { brandName: string; doneUrl: string }): string {
+/**
+ * A phone number as speech: US numbers in 3-3-4 groups ("6 0 9, 5 5 5, 0 1 0 0"),
+ * anything else digit by digit. Null when there are no digits (a blocked or
+ * anonymous caller).
+ */
+// What Twilio puts in From for anonymous, restricted, blocked and unavailable callers.
+const HIDDEN_CALLER = new Set(["266696687", "7378742833", "2562533", "8656696"]);
+
+export function spokenNumber(phone: string | null | undefined): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (!digits || HIDDEN_CALLER.has(digits)) return null;
+  const us = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  const spell = (d: string) => d.split("").join(" ");
+  if (us.length === 10) return `${spell(us.slice(0, 3))}, ${spell(us.slice(3, 6))}, ${spell(us.slice(6))}`;
+  return spell(digits);
+}
+
+/** Placeholder names Rake gives a stranger's lead ("New caller +1609…"); not worth saying. */
+const PLACEHOLDER_NAME = /^new (caller|texter)\b/i;
+
+/**
+ * Who to announce on the screen: the lead's (or customer's) name when it's a
+ * real one, else the number read out, else "a blocked number". The name is
+ * cleaned of control characters and capped, so odd data can't make the
+ * whisper run on; xml() escapes it when it goes into TwiML.
+ */
+export function callerAnnouncement(p: { name?: string | null; phone?: string | null }): string {
+  const name = (p.name ?? "")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60)
+    .trim();
+  if (name && /\p{L}/u.test(name) && !PLACEHOLDER_NAME.test(name)) return name;
+  return spokenNumber(p.phone) ?? "a blocked number";
+}
+
+/** Played to whoever picks up, before they're connected: which business, who's calling. */
+export function screenTwiml(p: { brandName: string; caller?: string | null; doneUrl: string }): string {
+  const from = p.caller ? ` from ${xml(p.caller)}` : "";
   return doc(
-    `<Gather numDigits="1" timeout="6" action="${xml(p.doneUrl)}" method="POST"><Say>Call for ${xml(p.brandName)}. Press 1 to answer.</Say></Gather><Hangup/>`,
+    `<Gather numDigits="1" timeout="6" action="${xml(p.doneUrl)}" method="POST"><Say>Call for ${xml(p.brandName)}${from}. Press 1 to answer.</Say></Gather><Hangup/>`,
   );
 }
 
