@@ -187,14 +187,15 @@ export default async function SettingsPage({ searchParams }: PageProps<"/office/
             <label className="label"><span>Name</span><input name="name" required className="input" /></label>
             <label className="label"><span>Role</span>
               <select name="role" className="input" defaultValue="driver">
-                <option value="driver">Driver</option><option value="office">Office</option><option value="owner">Owner</option>
+                <option value="driver">Driver</option><option value="crew">Crew</option><option value="office">Office</option><option value="owner">Owner</option>
               </select>
             </label>
             <label className="label"><span>Mobile</span><input name="phone" type="tel" className="input" /></label>
             <label className="label"><span>Email</span><input name="email" type="email" className="input" /></label>
             <button className="btn">Add</button>
             <p className="text-xs text-muted sm:col-span-5">
-              Drivers sign in with a code texted to their mobile. Owners and office sign in with an emailed link.
+              Drivers and crew sign in with a code texted to their mobile. Crew see only the roofing jobs they&apos;re put on.
+              Owners and office sign in with an emailed link.
               Add a mobile for anyone who should get a text when a request comes in.
             </p>
           </form>
