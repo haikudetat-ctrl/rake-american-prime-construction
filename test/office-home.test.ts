@@ -161,7 +161,7 @@ describe('office data states', () => {
   it('does not render zero earnings or mutation forms when subcontract data is unavailable', async () => {
     fixture.failed.add('sub_jobs');
     const html = renderToStaticMarkup(await SubsPage(props()));
-    expect(html).toContain('Subcontracting unavailable');
+    expect(html).toContain('Subcontracting is unavailable');
     expect(html).not.toContain('$0.00');
     expect(html).not.toContain('<form');
   });

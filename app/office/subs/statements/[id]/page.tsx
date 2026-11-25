@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StatusPill } from "@/app/_ui/status-pill";
 import { notFound } from "next/navigation";
 import { recordSubStatementPayment, voidSubStatement } from "@/app/office/subs/actions";
 import { Notice } from "@/app/office/_notice";
@@ -25,17 +26,24 @@ export default async function SubStatementPage({ params, searchParams }: PagePro
     <>
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href="/office/subs/statements">← Statements</Link></p>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="page-title">Statement #{statement.number} · {statement.contractor.name}</h1>
-        <a className="btn-secondary" href={`${here}/pdf`} target="_blank" rel="noreferrer">PDF</a>
-      </div>
+      <header className="space-y-1">
+        <p className="eyebrow">Subcontracting · Statement</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="page-title break-words">Statement #{statement.number} · {statement.contractor.name}</h1>
+            <StatusPill tone={statement.status === "void" ? "neutral" : statement.status === "paid" ? "success" : "warning"}>
+              {statement.status === "void" ? "Void" : statement.status === "paid" ? "Paid" : "Open"}
+            </StatusPill>
+          </div>
+          <a className="btn-secondary" href={`${here}/pdf`} target="_blank" rel="noreferrer">PDF</a>
+        </div>
+      </header>
       <p className="text-sm text-muted">
         Work {periodText(statement.periodStart, statement.periodEnd)} · issued {formatDate(statement.issuedOn)} · due {formatDate(statement.dueOn)} ·{" "}
         {statement.sentAt
           ? `emailed to ${statement.contractor.billingEmail} ${formatDateTime(statement.sentAt)}`
           : statement.contractor.billingEmail ? "email queued" : "no billing email on file"}
         {statement.status === "void" && <strong> · Void: {statement.voidReason}</strong>}
-        {statement.status === "paid" && <strong> · Paid</strong>}
       </p>
 
       {statement.status !== "void" && (

@@ -15,7 +15,9 @@ import {
   voidSubPayment,
 } from "@/app/office/subs/actions";
 import { CrewPicker, rateText, STATUS_LABEL } from "@/app/office/subs/_parts";
+import { Callout } from "@/app/_ui/callout";
 import { ConfirmAction } from "@/app/_ui/confirm-action";
+import { StatusPill } from "@/app/_ui/status-pill";
 import { MoneyForm } from "@/app/_ui/money-form";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
@@ -102,15 +104,28 @@ export default async function SubJobPage({ params, searchParams }: PageProps<"/o
       <p className="text-sm">
         <Link className="underline" href={`/office/subs${returnQuery}`}>← Back to jobs</Link>
       </p>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="page-title">{job.address}</h1>
-        <span className={`pill ${job.status === "scheduled" ? "border-warn text-warn" : ""}`}>{STATUS_LABEL[job.status]}</span>
-      </div>
-      <p className="text-sm text-muted">
-        {contractor?.name} · {formatDate(job.work_date)} · {crew.length ? crew.map((c) => c.name).join(", ") : "no crew yet"}
-        {job.notes && <> · {job.notes}</>}
-        {job.status === "void" && job.void_reason && <> · Cancelled: {job.void_reason}</>}
-      </p>
+      <header className="space-y-1">
+        <p className="eyebrow">Subcontracting · Job</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="page-title break-words">{job.address}</h1>
+          <StatusPill tone={job.status === "scheduled" ? "warning" : job.status === "done" ? "success" : "neutral"}>{STATUS_LABEL[job.status]}</StatusPill>
+        </div>
+        <p className="text-muted">
+          {contractor?.name} · {formatDate(job.work_date)} · {crew.length ? crew.map((c) => c.name).join(", ") : "no crew yet"}
+          {job.notes && <> · {job.notes}</>}
+        </p>
+      </header>
+      {job.status === "void" && (
+        <Callout tone="neutral" title="This job was cancelled">
+          {job.void_reason ? `Reason: ${job.void_reason}. ` : ""}No invoice was issued and no crew pay was recorded. If the work happens after all, add a new job.
+        </Callout>
+      )}
+      {job.status === "done" && invoice && !weekly && !invoice.sentAt && invoice.status !== "void" && !invoice.contractor.billingEmail && (
+        <Callout tone="warning" title="This invoice hasn't been sent">
+          {invoice.contractor.name} has no billing email, so invoice #{invoice.number} is ready to download but nothing went out. Add an email in{" "}
+          <Link className="underline" href="/office/subs/setup">Setup</Link> for the next one, and send this one yourself.
+        </Callout>
+      )}
 
       {job.status === "scheduled" && (
         <>

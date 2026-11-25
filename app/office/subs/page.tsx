@@ -3,6 +3,11 @@ import { Unavailable } from "../_unavailable";
 import { subQuery } from "@/lib/subcontract/navigation";
 import Link from "next/link";
 import { STATUS_LABEL } from "@/app/office/subs/_parts";
+import { Callout } from "@/app/_ui/callout";
+import { RailCard, WithRail } from "@/app/_ui/context-rail";
+import { Empty } from "@/app/_ui/states";
+import { StatusPill } from "@/app/_ui/status-pill";
+import { WorkList, WorkRow } from "@/app/_ui/work-row";
 import { Notice } from "@/app/office/_notice";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate, weekStart } from "@/lib/dates";
@@ -69,107 +74,115 @@ export default async function SubsPage({ searchParams }: PageProps<"/office/subs
   const days = [...new Set(visible.map((j) => j.work_date))];
   const ready = (contractors ?? []).length > 0 && (workers ?? []).length > 0;
 
+  const weekLabel = `${formatDate(week)} to ${formatDate(addDays(week, 6))}`;
+  const scheduled = rows.filter((j) => j.status === "scheduled").length;
+
   return (
     <>
       <Notice searchParams={query} />
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="eyebrow">Subcontracting</p>
-          <h1 className="page-title">Week of {formatDate(week)}</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link className="btn-secondary" href={`/office/subs${subQuery({ week: addDays(week, -7), filter })}`}>← Prev</Link>
-          <Link className="btn-secondary" href="/office/subs">This week</Link>
-          <Link className="btn-secondary" href={`/office/subs${subQuery({ week: addDays(week, 7), filter })}`}>Next →</Link>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="card-stripe">
-          <p className="eyebrow">Billed</p>
-          <p className="stat-value">{formatCents(billed)}</p>
-          <p className="text-xs text-muted">{closed.length} closed · {Math.round(squares * 100) / 100} sq</p>
-        </div>
-        <div className="card-stripe">
-          <p className="eyebrow">Crew pay earned</p>
-          <p className="stat-value">{formatCents(crew)}</p>
-          <p className="text-xs text-muted"><Link className="underline" href={`/office/subs/payroll${returnQuery}`}>Earned by person</Link></p>
-        </div>
-        <div className="card-stripe">
-          <p className="eyebrow">Billed less crew</p>
-          <p className="stat-value">{formatCents(billed - crew)}</p>
-          <p className="text-xs text-muted">{billed ? `${Math.round(((billed - crew) / billed) * 100)}% of billed` : "after crew pay"}</p>
-        </div>
-        <div className="card-stripe">
-          <p className="eyebrow">Contractors owe</p>
-          <p className="stat-value">{formatCents(owed)}</p>
-          <p className="text-xs text-muted">all open invoices</p>
-        </div>
-      </div>
-
-      {stillOpen > 0 && (
-        <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm">
-          {stillOpen} {stillOpen === 1 ? "job is" : "jobs are"} still open from today or earlier. Close {stillOpen === 1 ? "it" : "them"} so the contractor
-          gets billed and the crew has earnings recorded.
+      <header className="space-y-1">
+        <p className="eyebrow">Subcontracting</p>
+        <h1 className="page-title">Weekly subcontract work</h1>
+        <p className="text-muted">
+          {weekLabel} · {rows.length === 0 ? "no jobs yet" : `${scheduled} scheduled · ${closed.length} finished`}
         </p>
-      )}
+      </header>
 
-      <section className="card space-y-3">
-        <div>
-          <h2 className="font-semibold">Add jobs</h2>
-          <p className="text-sm text-muted">
-            One job or a whole list. Missed one? Put it in with its day, squares and pitch and it closes and bills as it goes in.
-          </p>
-        </div>
-        {!ready ? (
-          <p className="text-sm text-muted">
-            Add the contractors you work for and your crew in <Link className="underline" href="/office/subs/setup">Setup</Link> first.
-          </p>
-        ) : (
-          <AddJobs contractors={options} workers={workers ?? []} crewRate={crewRateFrom(settings)} today={today}
-            defaultDate={week === weekStart(today) ? today : week} />
+      <nav aria-label="Week" className="flex flex-wrap items-center gap-2">
+        <Link className="btn-secondary" href={`/office/subs${subQuery({ week: addDays(week, -7), filter })}`}>‹ Previous week</Link>
+        {week !== weekStart(today) && <Link className="btn-secondary" href="/office/subs">This week</Link>}
+        <Link className="btn-secondary" href={`/office/subs${subQuery({ week: addDays(week, 7), filter })}`}>Next week ›</Link>
+        {ready && <a className="btn" href="#add-jobs">Add jobs</a>}
+      </nav>
+
+      <WithRail
+        rail={
+          <>
+            <RailCard title="This week so far">
+              <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5">
+                <dt className="text-muted">Billed to contractors</dt>
+                <dd className="text-right font-semibold">{formatCents(billed)}</dd>
+                <dt className="text-muted">Crew earnings</dt>
+                <dd className="text-right font-semibold">{formatCents(crew)}</dd>
+                <dt className="text-muted">Billed less crew</dt>
+                <dd className="text-right font-semibold">{formatCents(billed - crew)}{billed ? ` (${Math.round(((billed - crew) / billed) * 100)}%)` : ""}</dd>
+              </dl>
+              <p className="text-xs text-muted">{closed.length} finished {closed.length === 1 ? "job" : "jobs"} · {Math.round(squares * 100) / 100} sq. Scheduled jobs count once they are finished.</p>
+              <Link className="text-sm font-semibold text-accent hover:underline" href={`/office/subs/payroll${returnQuery}`}>Weekly crew earnings</Link>
+            </RailCard>
+            <RailCard title="Contractors owe">
+              <p className="text-2xl font-bold">{formatCents(owed)}</p>
+              <p className="text-xs text-muted">Across every open invoice, not just this week.</p>
+              <Link className="text-sm font-semibold text-accent hover:underline" href="/office/subs/invoices">Contractor invoices</Link>
+            </RailCard>
+            <p className="px-3 text-xs text-muted">
+              <Link className="underline" href="/office/subs/setup">Setup: contractors, crew, rates</Link>
+            </p>
+          </>
+        }
+      >
+        {stillOpen > 0 && (
+          <Callout tone="warning" title={`${stillOpen} ${stillOpen === 1 ? "job is" : "jobs are"} still open from today or earlier`}>
+            Finish {stillOpen === 1 ? "it" : "them"} so the contractor gets billed and the crew has earnings recorded.
+          </Callout>
         )}
-      </section>
 
-      <nav aria-label="Job status filter" className="flex flex-wrap gap-2">{[{ value: 'all', label: 'All work' }, { value: 'scheduled', label: 'Needs finishing' }, { value: 'done', label: 'Work complete' }].map(f => <Link key={f.value} className={filter === f.value ? 'btn' : 'btn-secondary'} aria-current={filter === f.value ? 'page' : undefined} href={`/office/subs${subQuery({ week, filter: f.value })}`}>{f.label}</Link>)}</nav>
-      {visible.length === 0 && <p className="card text-muted">No jobs match this week and filter.</p>}
+        <nav aria-label="Job status filter" className="flex flex-wrap gap-2">
+          {[{ value: "all", label: "All work" }, { value: "scheduled", label: "Needs finishing" }, { value: "done", label: "Work complete" }].map((f) => (
+            <Link key={f.value} className={filter === f.value ? "btn" : "btn-secondary"} aria-current={filter === f.value ? "page" : undefined} href={`/office/subs${subQuery({ week, filter: f.value })}`}>{f.label}</Link>
+          ))}
+        </nav>
+        {visible.length === 0 && (
+          <Empty title={rows.length === 0 ? "No jobs this week" : "No jobs match this filter"}>
+            {rows.length === 0 ? "Add the week's jobs below, one at a time or as a pasted list." : "Pick another filter to see the rest of the week."}
+          </Empty>
+        )}
 
-      {days.map((day) => (
-        <section key={day} className="space-y-2">
-          <h2 className="font-semibold">{formatDate(day)}{day === today && <span className="ml-2 pill">Today</span>}</h2>
-          <ul className="space-y-2">
-            {visible.filter((j) => j.work_date === day).map((job) => {
-              const invoice = (job.sub_invoices ?? []).find((i) => i.status !== "void");
-              const names = (job.sub_job_crew ?? []).map((c) => one(c.sub_workers)?.name ?? "").filter(Boolean).sort((a, b) => a.localeCompare(b));
-              return (
-                <li key={job.id}>
-                  <Link href={`/office/subs/${job.id}${returnQuery}`} className={`card block hover:border-brand ${job.status === "void" ? "opacity-50" : ""}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium">{job.address}</p>
-                        <p className="text-sm text-muted">{one(job.sub_contractors)?.name} · {names.length ? names.join(", ") : "no crew yet"}</p>
-                      </div>
-                      <span className={`pill ${job.status === "scheduled" ? "border-warn text-warn" : ""}`}>{STATUS_LABEL[job.status]}</span>
-                    </div>
-                    {job.status === "scheduled" && <p className="mt-3 text-sm font-semibold text-accent">{names.length ? "Review and finish job →" : "Assign crew →"}</p>}
-                    {job.status === "done" && (
-                      <p className="mt-2 text-sm">
-                        {Number(job.squares) > 0 ? `${Number(job.squares)} sq at ${job.pitch}/12` : "Gutters and extras"} · billed {formatCents(job.bill_total_cents)}
-                        {invoice && <> · invoice #{invoice.number}: {invoice.status === "paid" ? "contractor paid" : "payment outstanding"}</>} · crew earnings {formatCents(job.pay_total_cents)}
-                      </p>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+        {days.map((day) => (
+          <section key={day} aria-labelledby={`day-${day}`} className="space-y-2.5">
+            <h2 id={`day-${day}`} className="text-base">
+              {formatDate(day)}{day === today && <span className="ml-2 align-middle"><StatusPill>Today</StatusPill></span>}
+            </h2>
+            <WorkList label={formatDate(day)}>
+              {visible.filter((j) => j.work_date === day).map((job) => {
+                const invoice = (job.sub_invoices ?? []).find((i) => i.status !== "void");
+                const names = (job.sub_job_crew ?? []).map((c) => one(c.sub_workers)?.name ?? "").filter(Boolean).sort((a, b) => a.localeCompare(b));
+                const detail =
+                  job.status === "done"
+                    ? `${one(job.sub_contractors)?.name} · ${Number(job.squares) > 0 ? `${Number(job.squares)} sq at ${job.pitch}/12` : "gutters and extras"} · billed ${formatCents(job.bill_total_cents)} · crew ${formatCents(job.pay_total_cents)}${invoice ? ` · invoice #${invoice.number} ${invoice.status === "paid" ? "paid" : "outstanding"}` : ""}`
+                    : `${one(job.sub_contractors)?.name} · ${names.length ? names.join(", ") : "no crew yet"}`;
+                return (
+                  <WorkRow
+                    key={job.id}
+                    href={`/office/subs/${job.id}${returnQuery}`}
+                    title={job.address}
+                    detail={detail}
+                    action={job.status === "scheduled" ? (names.length ? "Review and finish" : "Assign crew") : undefined}
+                    aside={<StatusPill tone={job.status === "scheduled" ? "warning" : job.status === "done" ? "success" : "neutral"}>{STATUS_LABEL[job.status]}</StatusPill>}
+                  />
+                );
+              })}
+            </WorkList>
+          </section>
+        ))}
+
+        <section id="add-jobs" className="card space-y-3">
+          <div>
+            <h2 className="font-semibold">Add jobs</h2>
+            <p className="text-sm text-muted">
+              One job or a whole list. Missed one? Put it in with its day, squares and pitch and it closes and bills as it goes in.
+            </p>
+          </div>
+          {!ready ? (
+            <p className="text-sm text-muted">
+              Add the contractors you work for and your crew in <Link className="underline" href="/office/subs/setup">Setup</Link> first.
+            </p>
+          ) : (
+            <AddJobs contractors={options} workers={workers ?? []} crewRate={crewRateFrom(settings)} today={today}
+              defaultDate={week === weekStart(today) ? today : week} />
+          )}
         </section>
-      ))}
-
-      <p className="text-sm text-muted">
-        <Link className="underline" href={`/office/subs/payroll${returnQuery}`}>Crew earnings for this week</Link> ·{" "}
-        <Link className="underline" href="/office/subs/setup">Setup: contractors, crew, rates</Link>
-      </p>
+      </WithRail>
     </>
   );
 }
