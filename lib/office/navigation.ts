@@ -27,7 +27,7 @@ export const sections: Record<Workspace, NavItem[]> = {
 };
 
 /** Office pages outside the three workspaces. Listed in the desktop sidebar and on More. */
-export const utilities: NavItem[] = [{ href: '/office/customers', label: 'Customers' }, { href: '/office/numbers', label: 'Reporting' }, { href: '/office/settings', label: 'Settings' }];
+export const utilities: NavItem[] = [{ href: '/office/invoices', label: 'Invoices' }, { href: '/office/customers', label: 'Customers' }, { href: '/office/numbers', label: 'Reporting' }, { href: '/office/settings', label: 'Settings' }];
 
 export function within(path: string, root: string) { return path === root || path.startsWith(`${root}/`); }
 
@@ -43,7 +43,7 @@ export function primaryFor(path: string): Primary | null {
   if (path === '/office') return 'today';
   if (within(path, '/office/inbox')) return 'inbox';
   if (within(path, '/office/workspaces') || workspaceFor(path)) return 'jobs';
-  if (['more', 'customers', 'numbers', 'settings'].some(p => within(path, `/office/${p}`))) return 'more';
+  if (['more', 'invoices', 'customers', 'numbers', 'settings'].some(p => within(path, `/office/${p}`))) return 'more';
   return null;
 }
 

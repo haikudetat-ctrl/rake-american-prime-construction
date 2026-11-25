@@ -7,6 +7,7 @@ import { addDays, companyToday, formatDate, weekStart } from "@/lib/dates";
 import { cansNeeded, fleetVerdict, maxDaysPerTurn } from "@/lib/metrics/turnaround";
 import { SOURCE_LABEL, STAGE_LABEL, winRate, type Stage } from "@/lib/leads/schema";
 import { formatCents } from "@/lib/money";
+import { quickBalance } from "@/lib/office/today";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /** The goal from the discovery call: 20 rentals a week within six months. */
@@ -141,13 +142,15 @@ const CASH_WEEKS = 8;
 async function CashView() {
   const supabase = await createSupabaseServerClient();
   const from = addDays(weekStart(companyToday()), -7 * (CASH_WEEKS - 1));
-  const [{ data: weeks, error: weeksError }, { data: owed, error: owedError }] = await Promise.all([
+  const [{ data: weeks, error: weeksError }, { data: owed, error: owedError }, { data: quick, error: quickError }] = await Promise.all([
     supabase.rpc("cash_weeks", { p_from: from, p_weeks: CASH_WEEKS }),
     supabase.rpc("money_owed").single<{ roofing_cents: number; dumpster_cents: number }>(),
+    supabase.from("quick_invoices").select("total_cents, quick_invoice_payments(amount_cents, voided_at)").eq("status", "open").limit(1000),
   ]);
   const rows = (weeks ?? []) as { week_start: string; cash_out_cents: number; cash_in_cents: number }[];
-  if (weeksError || owedError || !owed) return <UnavailableCallout area="Roofing and dumpster cash">Reload to try again. Subcontracting cash isn&apos;t part of this report either way.</UnavailableCallout>;
-  const owedTotal = Number(owed.roofing_cents) + Number(owed.dumpster_cents);
+  if (weeksError || owedError || quickError || !owed) return <UnavailableCallout area="Roofing and dumpster cash">Reload to try again. Subcontracting cash isn&apos;t part of this report either way.</UnavailableCallout>;
+  const quickCents = (quick ?? []).reduce((sum, q) => sum + quickBalance(q), 0);
+  const owedTotal = Number(owed.roofing_cents) + Number(owed.dumpster_cents) + quickCents;
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Roofing and dumpster cash</h2>
@@ -156,7 +159,7 @@ async function CashView() {
       </Callout>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <div className="card-stripe"><p className="eyebrow">Owed to you</p><p className="stat-value">{formatCents(owedTotal)}</p>
-          <p className="text-xs text-muted">Roofing {formatCents(Number(owed.roofing_cents))} · dumpsters {formatCents(Number(owed.dumpster_cents))}</p></div>
+          <p className="text-xs text-muted">Roofing {formatCents(Number(owed.roofing_cents))} · dumpsters {formatCents(Number(owed.dumpster_cents))}{quickCents ? <> · <Link className="underline" href="/office/invoices">quick invoices</Link> {formatCents(quickCents)}</> : null}</p></div>
       </div>
       <div className="card overflow-x-auto">
         <table className="table text-sm">
@@ -176,7 +179,7 @@ async function CashView() {
           </tbody>
         </table>
         <p className="mt-2 text-xs text-muted">
-          Out: crew pay, supplier bills, permits and stock buys. In: roofing and dumpster payments. A negative week is normal when
+          Out: crew pay, supplier bills, permits and stock buys. In: roofing and dumpster payments (quick invoice payments aren&apos;t counted here yet). A negative week is normal when
           payroll lands before the customers pay; check &quot;Owed to you&quot; next to it.
         </p>
       </div>

@@ -51,6 +51,11 @@ const props = () => ({ params: Promise.resolve({}), searchParams: Promise.resolv
 const render = async () => renderToStaticMarkup(await HomePage(props()));
 
 describe('Today', () => {
+  it('has a quick invoice button at the top', async () => {
+    const html = await render();
+    expect(html).toMatch(/<a class="btn ml-auto" href="\/office\/invoices\/new">Quick invoice<\/a>/);
+  });
+
   it('says plainly when nothing needs review and nothing is scheduled', async () => {
     const html = await render();
     expect(html).toContain('Keep work moving');

@@ -22,7 +22,7 @@ describe('office workspace routes', () => {
 
   it('lists the three lines of business as workspaces', () => {
     expect(workspaces.map(w => w.label)).toEqual(['Roofing', 'Subcontracting', 'Dumpsters']);
-    expect(utilities.map(u => u.label)).toEqual(['Customers', 'Reporting', 'Settings']);
+    expect(utilities.map(u => u.label)).toEqual(['Invoices', 'Customers', 'Reporting', 'Settings']);
   });
 
   it('starts every workspace on its first section', () => {
@@ -32,7 +32,7 @@ describe('office workspace routes', () => {
   it.each([
     ['/office', 'today'], ['/office/inbox', 'inbox'], ['/office/inbox/123', 'inbox'],
     ['/office/workspaces', 'jobs'], ['/office/leads/abc', 'jobs'], ['/office/subs/payroll', 'jobs'], ['/office/billing', 'jobs'],
-    ['/office/more', 'more'], ['/office/customers/abc', 'more'], ['/office/numbers', 'more'], ['/office/settings', 'more'],
+    ['/office/more', 'more'], ['/office/invoices/abc', 'more'], ['/office/customers/abc', 'more'], ['/office/numbers', 'more'], ['/office/settings', 'more'],
     ['/office/inboxes', null], ['/driver', null],
   ])('%s highlights %s in the main navigation', (path, id) => expect(primaryFor(path)).toBe(id));
 

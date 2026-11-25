@@ -3,6 +3,7 @@ import { WorkList, WorkRow } from "@/app/_ui/work-row";
 import { requireStaff } from "@/lib/auth";
 
 const OFFICE = [
+  { href: "/office/invoices", label: "Invoices", detail: "Quick invoices: drafts, what's owed and what's paid" },
   { href: "/office/customers", label: "Customers", detail: "Billing contacts, emails and payment terms" },
   { href: "/office/numbers", label: "Reporting", detail: "This week's work, cash and balances" },
   { href: "/office/settings", label: "Settings", detail: "Prices, customer links, team and business names" },

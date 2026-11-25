@@ -66,6 +66,9 @@ export default async function BillingPage({ searchParams }: PageProps<"/office/b
             <p className="px-3 text-xs text-muted">
               <Link className="underline" href="/office/customers">Customers and billing emails</Link>
             </p>
+            <p className="px-3 text-xs text-muted">
+              A one-off charge that isn&apos;t a rental? <Link className="underline" href="/office/invoices/new">Make a quick invoice</Link>. It stays off the Monday statement.
+            </p>
           </>
         }
       >

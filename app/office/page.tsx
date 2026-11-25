@@ -26,7 +26,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/office">) 
   const followUpBefore = `${addDays(today, -PROPOSAL_FOLLOW_UP_DAYS)}T12:00:00Z`;
   const db = await createSupabaseServerClient();
   const n = QUEUE_LIMIT;
-  const [leads, requests, closeout, ready, overdue, proposals, roofing, subs, stops, tickets, unsent, pastDue] = await Promise.all([
+  const [leads, requests, closeout, ready, overdue, proposals, roofing, subs, stops, tickets, unsent, pastDue, quick] = await Promise.all([
     db.from("leads").select("id, name, address, area, need, created_at", { count: "exact" }).eq("stage", "new").order("created_at").limit(n),
     db.from("rental_requests").select("id, contact_name, company_name, address, requested_date", { count: "exact" }).eq("status", "pending").order("requested_date").limit(n),
     db.from("sub_jobs").select("id, address, work_date, sub_contractors(name)", { count: "exact" }).eq("status", "scheduled").lte("work_date", today).order("work_date").limit(n),
@@ -39,11 +39,13 @@ export default async function TodayPage({ searchParams }: PageProps<"/office">) 
     db.from("rentals").select("id, picked_up_at, sites(address), customers(name)").eq("status", "picked_up").order("picked_up_at").limit(200),
     db.from("statements").select("id, number, issued_on, due_on, total_cents, sent_at, customers(name, billing_email)").eq("status", "open").is("sent_at", null).lt("issued_on", today).order("issued_on").limit(200),
     db.from("statements").select("id, number, issued_on, due_on, total_cents, sent_at, customers(name, billing_email), payments(amount_cents)", { count: "exact" }).eq("status", "open").lt("due_on", today).order("due_on").limit(n),
+    // Quick invoices that need a hand: drafts and open ones; billingExceptions keeps the stuck ones.
+    db.from("quick_invoices").select("id, number, status, bill_to_name, due_on, created_at, total_cents, quick_invoice_payments(amount_cents, voided_at)").in("status", ["draft", "open"]).order("created_at").limit(200),
   ]);
 
   const queues = buildQueues(today, { leads, requests, closeout, ready, overdue, proposals });
   // Billing to fix sits right after the invoices that are ready, so dumpster money reads together.
-  queues.splice(queues.findIndex((q) => q.id === "billing") + 1, 0, billingExceptions(today, { tickets, unsent, pastDue }));
+  queues.splice(queues.findIndex((q) => q.id === "billing") + 1, 0, billingExceptions(today, { tickets, unsent, pastDue, quick }));
   const { waiting, unavailable } = summarize(queues);
   const shown = queues.filter((q) => q.count);
   const items = (k: number) => (k === 1 ? "1 item needs" : `${k} items need`);
@@ -53,7 +55,10 @@ export default async function TodayPage({ searchParams }: PageProps<"/office">) 
       <Notice searchParams={query} />
       <header className="space-y-1">
         <p className="eyebrow">Today · {formatDate(today)}</p>
-        <h1 className="page-title">Keep work moving</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="page-title">Keep work moving</h1>
+          <Link href="/office/invoices/new" className="btn ml-auto">Quick invoice</Link>
+        </div>
         <p className="text-muted">
           {unavailable.length
             ? waiting ? `At least ${items(waiting)} a next step.` : "Some work could not load, so the total is unknown."
