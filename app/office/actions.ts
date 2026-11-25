@@ -15,6 +15,7 @@ import { composeTerms, missingNjFacts } from "@/lib/proposals/disclosures";
 import { contractorFacts, loadFullProposal } from "@/lib/proposals/server";
 import { zonedToUtc } from "@/lib/dates";
 import { formatCents, parseDollarsToCents } from "@/lib/money";
+import { newMemberProblem } from "@/lib/office/new-member";
 import { toE164 } from "@/lib/phone";
 import { loadPhoneSettings, startBridgeCall, webhookUrl } from "@/lib/phone/server";
 import { SITE_CONTENT_TAG } from "@/lib/site/content";
@@ -321,20 +322,19 @@ export async function updateBrand(form: FormData) {
 }
 
 /**
- * Adds a team member. Owners and office sign in by email; drivers by phone.
+ * Adds a team member. Owners and office sign in by email; drivers and crew by
+ * phone. Crew land on /crew and see only the roofing jobs they're put on.
  * Uses the auth admin API (service role) because there is no self sign-up.
  */
 export async function addTeamMember(form: FormData) {
   const owner = await requireOwner();
   const role = str(form, "role");
-  if (!["owner", "office", "driver"].includes(role)) back("/office/settings", "Pick a role.", "error");
   const name = str(form, "name");
   const email = optional(form, "email")?.toLowerCase() ?? null;
   const phone = optional(form, "phone");
+  const problem = newMemberProblem({ role, email, phone });
+  if (problem) back("/office/settings", problem, "error");
   const e164 = phone ? toE164(phone) : null;
-  if (phone && !e164) back("/office/settings", "That phone number isn't a 10-digit US number.", "error");
-  if (role === "driver" && !e164) back("/office/settings", "Drivers sign in by phone; add their mobile number.", "error");
-  if (role !== "driver" && !email) back("/office/settings", "Office and owners sign in by email; add their email.", "error");
 
   const admin = adminClient();
   const created = await admin.auth.admin.createUser({
