@@ -6,7 +6,7 @@ import { Empty } from "@/app/_ui/states";
 import { WorkList, WorkRow } from "@/app/_ui/work-row";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate } from "@/lib/dates";
-import { buildQueues, PROPOSAL_FOLLOW_UP_DAYS, QUEUE_LIMIT, summarize } from "@/lib/office/today";
+import { billingExceptions, buildQueues, PROPOSAL_FOLLOW_UP_DAYS, QUEUE_LIMIT, summarize } from "@/lib/office/today";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Notice } from "./_notice";
 
@@ -26,7 +26,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/office">) 
   const followUpBefore = `${addDays(today, -PROPOSAL_FOLLOW_UP_DAYS)}T12:00:00Z`;
   const db = await createSupabaseServerClient();
   const n = QUEUE_LIMIT;
-  const [leads, requests, closeout, ready, overdue, proposals, roofing, subs, stops] = await Promise.all([
+  const [leads, requests, closeout, ready, overdue, proposals, roofing, subs, stops, tickets, unsent, pastDue] = await Promise.all([
     db.from("leads").select("id, name, address, area, need, created_at", { count: "exact" }).eq("stage", "new").order("created_at").limit(n),
     db.from("rental_requests").select("id, contact_name, company_name, address, requested_date", { count: "exact" }).eq("status", "pending").order("requested_date").limit(n),
     db.from("sub_jobs").select("id, address, work_date, sub_contractors(name)", { count: "exact" }).eq("status", "scheduled").lte("work_date", today).order("work_date").limit(n),
@@ -36,9 +36,14 @@ export default async function TodayPage({ searchParams }: PageProps<"/office">) 
     db.from("roofing_jobs").select("id, address, status").eq("install_date", today).order("created_at").limit(20),
     db.from("sub_jobs").select("id, address, status").eq("work_date", today).neq("status", "void").order("created_at").limit(20),
     db.from("stops").select("id", { count: "exact", head: true }).eq("scheduled_date", today).eq("status", "scheduled"),
+    db.from("rentals").select("id, picked_up_at, sites(address), customers(name)").eq("status", "picked_up").order("picked_up_at").limit(200),
+    db.from("statements").select("id, number, issued_on, due_on, total_cents, sent_at, customers(name, billing_email)").eq("status", "open").is("sent_at", null).lt("issued_on", today).order("issued_on").limit(200),
+    db.from("statements").select("id, number, issued_on, due_on, total_cents, sent_at, customers(name, billing_email), payments(amount_cents)", { count: "exact" }).eq("status", "open").lt("due_on", today).order("due_on").limit(n),
   ]);
 
   const queues = buildQueues(today, { leads, requests, closeout, ready, overdue, proposals });
+  // Billing to fix sits right after the invoices that are ready, so dumpster money reads together.
+  queues.splice(queues.findIndex((q) => q.id === "billing") + 1, 0, billingExceptions(today, { tickets, unsent, pastDue }));
   const { waiting, unavailable } = summarize(queues);
   const shown = queues.filter((q) => q.count);
   const items = (k: number) => (k === 1 ? "1 item needs" : `${k} items need`);

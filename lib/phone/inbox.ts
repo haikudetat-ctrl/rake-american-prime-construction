@@ -51,11 +51,13 @@ export function groupThreads(rows: Row[]): Thread[] {
   return [...threads.values()];
 }
 
-export async function loadThreads(supabase: SupabaseClient): Promise<Thread[]> {
-  const { data } = await supabase
+/** The latest texts grouped by number, or null when they could not load (never shown as an empty inbox). */
+export async function loadThreads(supabase: SupabaseClient): Promise<Thread[] | null> {
+  const { data, error } = await supabase
     .from("messages")
     .select("phone, body, direction, read_at, created_at, lead_id, customer_id, leads(name), customers(name)")
     .order("created_at", { ascending: false })
     .limit(500);
+  if (error) return null;
   return groupThreads((data ?? []) as Row[]);
 }
