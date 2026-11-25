@@ -1,3 +1,4 @@
+import type { QuickInvoiceView } from "@/lib/billing/quick-invoice";
 import type { StatementView } from "@/lib/billing/statement";
 import type { SubInvoiceView } from "@/lib/subcontract/invoice";
 import type { SubStatementView } from "@/lib/subcontract/statement";
@@ -329,6 +330,31 @@ export function subInvoiceEmail(i: SubInvoiceView): { subject: string; text: str
       `Pay by check to ${i.brand.name}${i.brand.address ? ` (${i.brand.address})` : ""} or ACH; reply for bank details.`,
       "",
       `Thank you,`,
+      i.brand.name,
+      i.brand.phone ? formatPhone(i.brand.phone) : "",
+    ]
+      .join("\n")
+      .trimEnd(),
+  };
+}
+
+/** A quick invoice, emailed when it's issued (after the 15-minute hold) or sent again from its page. */
+export function quickInvoiceEmail(i: QuickInvoiceView): { subject: string; text: string } {
+  return {
+    subject: `Invoice #${i.number} from ${i.brand.name}: ${formatCents(i.balanceCents)} due ${formatDate(i.dueOn)}`,
+    text: [
+      `Hi ${i.billTo.name},`,
+      "",
+      "Here is your invoice. The PDF is attached.",
+      ...(i.memo ? ["", i.memo] : []),
+      "",
+      ...i.lines.map((line) => `  ${line.description}  ${formatCents(line.amountCents)}`),
+      ...(i.taxCents > 0 ? [`  Sales tax  ${formatCents(i.taxCents)}`] : []),
+      "",
+      `${i.paidCents > 0 ? "Balance" : "Total"} due: ${formatCents(i.balanceCents)} by ${formatDate(i.dueOn)}.`,
+      `Pay by check to ${i.brand.name}${i.brand.address ? ` (${i.brand.address})` : ""} or ACH; reply for bank details.`,
+      "",
+      "Thank you,",
       i.brand.name,
       i.brand.phone ? formatPhone(i.brand.phone) : "",
     ]

@@ -147,6 +147,16 @@ export type StatementRow = {
   payments?: { amount_cents: number }[] | null;
 };
 
+export type QuickRow = {
+  id: string; number: number; status: string; bill_to_name: string; due_on: string; created_at: string; total_cents: number;
+  quick_invoice_payments?: { amount_cents: number; voided_at: string | null }[] | null;
+};
+
+/** What is still owed on a quick invoice: its total less payments that were not voided. */
+export function quickBalance(i: Pick<QuickRow, "total_cents" | "quick_invoice_payments">): number {
+  return i.total_cents - (i.quick_invoice_payments ?? []).filter((p) => !p.voided_at).reduce((sum, p) => sum + p.amount_cents, 0);
+}
+
 /** What is still owed on a dumpster statement. */
 export function statementBalance(s: Pick<StatementRow, "total_cents" | "payments">): number {
   return s.total_cents - (s.payments ?? []).reduce((sum, p) => sum + p.amount_cents, 0);
@@ -159,15 +169,20 @@ export function statementBalance(s: Pick<StatementRow, "total_cents" | "payments
  * issued; and a dumpster statement past its due date. Deliberately no dollar total, since
  * the three kinds don't add up to one meaningful number. If any part fails to load the
  * whole queue reads as unavailable rather than showing a partial count.
+ *
+ * Quick invoices add two more: a draft left unissued since an earlier day, and one past due.
  */
 export function billingExceptions(
   today: string,
-  r: { tickets: Result<TicketRow>; unsent: Result<StatementRow>; pastDue: Result<StatementRow> },
+  r: { tickets: Result<TicketRow>; unsent: Result<StatementRow>; pastDue: Result<StatementRow>; quick?: Result<QuickRow> },
 ): TodayQueue {
   const id = "billing-fix";
   const label = "Billing to fix";
   const href = "/office/billing";
-  if ([r.tickets, r.unsent, r.pastDue].some((x) => x.error || !x.data)) return { id, label, href, count: null, items: [] };
+  const quick: Result<QuickRow> = r.quick ?? { data: [], error: null };
+  if ([r.tickets, r.unsent, r.pastDue, quick].some((x) => x.error || !x.data)) return { id, label, href, count: null, items: [] };
+  const staleDrafts = quick.data!.filter((q) => q.status === "draft" && dayOf(q.created_at) < today);
+  const quickPastDue = quick.data!.filter((q) => q.status === "open" && q.due_on < today);
   // Tickets usually go in the same day as the pickup, so only an earlier pickup counts as stuck.
   const waitingOnTicket = r.tickets.data!.filter((t) => t.picked_up_at && dayOf(t.picked_up_at) < today);
   const sorted: (TodayItem & { since: string })[] = [
@@ -199,9 +214,26 @@ export function billingExceptions(
       detail: `${formatCents(statementBalance(s))} was due ${formatDate(s.due_on)} · ${waited(daysBetween(s.due_on, today))} past due${s.sent_at ? "" : " · never emailed"}`,
       action: "Follow up",
     })),
+    ...staleDrafts.map((q) => {
+      const since = dayOf(q.created_at);
+      return {
+        key: `quick-draft-${q.id}`, since,
+        href: `/office/invoices/${q.id}`,
+        title: `${q.bill_to_name} · draft invoice ${q.number}`,
+        detail: `Started ${formatDate(since)} · ${formatCents(q.total_cents)} · not issued yet`,
+        action: "Issue or discard",
+      };
+    }),
+    ...quickPastDue.map((q) => ({
+      key: `quick-due-${q.id}`, since: q.due_on,
+      href: `/office/invoices/${q.id}`,
+      title: `${q.bill_to_name} · invoice ${q.number}`,
+      detail: `${formatCents(quickBalance(q))} was due ${formatDate(q.due_on)} · ${waited(daysBetween(q.due_on, today))} past due`,
+      action: "Follow up",
+    })),
   ].sort((a, b) => a.since.localeCompare(b.since));
   const unsentShown = r.unsent.data!.filter((s) => s.due_on >= today).length;
-  const count = waitingOnTicket.length + unsentShown + Math.max(r.pastDue.count ?? 0, r.pastDue.data!.length);
+  const count = waitingOnTicket.length + unsentShown + Math.max(r.pastDue.count ?? 0, r.pastDue.data!.length) + staleDrafts.length + quickPastDue.length;
   return { id, label, href, count, items: sorted.slice(0, QUEUE_LIMIT).map((i) => ({ key: i.key, href: i.href, title: i.title, detail: i.detail, action: i.action })) };
 }
 

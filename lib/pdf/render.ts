@@ -1,7 +1,9 @@
 import "server-only";
 import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
+import type { QuickInvoiceView } from "@/lib/billing/quick-invoice";
 import type { StatementView } from "@/lib/billing/statement";
+import { QuickInvoiceDocument } from "@/lib/pdf/quick-invoice-document";
 import { ProposalDocument, type ProposalPdfProps } from "@/lib/pdf/proposal-document";
 import { StatementDocument } from "@/lib/pdf/statement-document";
 import { SubInvoiceDocument } from "@/lib/pdf/sub-invoice-document";
@@ -23,4 +25,8 @@ export function renderSubInvoicePdf(invoice: SubInvoiceView): Promise<Buffer> {
 
 export function renderSubStatementPdf(statement: SubStatementView): Promise<Buffer> {
   return renderToBuffer(React.createElement(SubStatementDocument, { statement }) as Parameters<typeof renderToBuffer>[0]);
+}
+
+export function renderQuickInvoicePdf(invoice: QuickInvoiceView, today: string): Promise<Buffer> {
+  return renderToBuffer(React.createElement(QuickInvoiceDocument, { invoice, today }) as Parameters<typeof renderToBuffer>[0]);
 }

@@ -1,5 +1,7 @@
 import "server-only";
+import { loadQuickInvoice } from "@/lib/billing/quick-invoice";
 import { loadStatement } from "@/lib/billing/statement";
+import { companyToday } from "@/lib/dates";
 import { isLocale } from "@/lib/i18n";
 import { googleCalendarReady } from "@/lib/integrations/google-calendar/config";
 import { syncCalendarItem } from "@/lib/integrations/google-calendar/sync";
@@ -16,6 +18,7 @@ import {
   proposalLinkSms,
   proposalSignedEmail,
   proposalSignedSms,
+  quickInvoiceEmail,
   referralEarnedSms,
   referralInviteSms,
   referralPaidSms,
@@ -33,7 +36,7 @@ import {
   type Brand,
 } from "@/lib/outbox/messages";
 import { canSendSms, senderFor, withSenderName, type SmsSender } from "@/lib/outbox/sms-sender";
-import { renderStatementPdf, renderSubInvoicePdf, renderSubStatementPdf } from "@/lib/pdf/render";
+import { renderQuickInvoicePdf, renderStatementPdf, renderSubInvoicePdf, renderSubStatementPdf } from "@/lib/pdf/render";
 import { loadSubInvoice } from "@/lib/subcontract/invoice";
 import { loadSubStatement } from "@/lib/subcontract/statement";
 import { adminClient } from "@/lib/supabase/admin";
@@ -363,6 +366,24 @@ async function deliver(message: OutboxMessage): Promise<void> {
       attachments: [{ filename: `invoice-${invoice.number}.pdf`, content: await renderSubInvoicePdf(invoice) }],
     });
     await adminClient().from("sub_invoices").update({ sent_at: new Date().toISOString() }).eq("id", invoice.id);
+    return;
+  }
+  if (message.kind === "quick_invoice_issued") {
+    const invoice = await loadQuickInvoice(adminClient(), String(p.invoice_id));
+    if (!invoice) throw new Skip("invoice not found");
+    // Voided during the 15-minute hold: nothing goes out.
+    if (invoice.status !== "open" && invoice.status !== "paid") throw new Skip(`invoice is ${invoice.status}`);
+    const content = quickInvoiceEmail(invoice);
+    await sendEmail({
+      apiKey: email.apiKey,
+      from: `${invoice.brand.name} <${email.from}>`,
+      to: String(p.to),
+      replyTo: invoice.brand.email,
+      subject: content.subject,
+      text: content.text,
+      attachments: [{ filename: `invoice-${invoice.number}.pdf`, content: await renderQuickInvoicePdf(invoice, companyToday()) }],
+    });
+    await adminClient().from("quick_invoices").update({ sent_at: new Date().toISOString(), sent_to: String(p.to) }).eq("id", invoice.id);
     return;
   }
   if (message.kind === "sub_statement_issued") {
