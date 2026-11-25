@@ -13,7 +13,7 @@ export function CrewPicker({ workers, selected = [] }: { workers: Worker[]; sele
       <legend className="text-sm font-medium">Crew</legend>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {workers.map((w) => (
-          <label key={w.id} className="flex min-h-11 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm has-[:checked]:border-brand has-[:checked]:bg-sunken">
+          <label key={w.id} className="flex min-h-11 items-center gap-2 rounded-row border border-border px-3 py-2 text-sm has-[:checked]:border-accent has-[:checked]:bg-sunken">
             <input type="checkbox" name="workerId" value={w.id} defaultChecked={selected.includes(w.id)} className="h-4 w-4" />
             <span>{w.name}</span>
           </label>

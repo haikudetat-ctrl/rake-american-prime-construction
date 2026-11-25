@@ -1,6 +1,9 @@
 import { subQuery } from "@/lib/subcontract/navigation";
 import { Unavailable } from "../../_unavailable";
 import Link from "next/link";
+import { Callout } from "@/app/_ui/callout";
+import { RailCard, WithRail } from "@/app/_ui/context-rail";
+import { Empty } from "@/app/_ui/states";
 import { requireStaff } from "@/lib/auth";
 import { addDays, companyToday, formatDate, weekStart } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -32,7 +35,7 @@ export default async function PayrollPage({ searchParams }: PageProps<"/office/s
     supabase.from("sub_jobs").select("id", { count: "exact", head: true }).eq("status", "scheduled").gte("work_date", week).lt("work_date", end),
   ]);
 
-  if (sharesError || jobsError) return <Unavailable area="Crew Pay" />;
+  if (sharesError || jobsError) return <Unavailable area="Weekly crew earnings" />;
   const rows: PayrollRow[] = (shares ?? []).map((s) => {
     const job = one(s.sub_jobs)!;
     return {
@@ -50,64 +53,72 @@ export default async function PayrollPage({ searchParams }: PageProps<"/office/s
   });
   const { workers, totalCents } = payrollByWorker(rows);
 
+  const jobs = new Set(rows.map((r) => r.jobId)).size;
+  const back = `/office/subs${subQuery({ week, filter: query.filter })}`;
+
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="eyebrow">Subcontracting · Crew Pay</p>
-          <h1 className="page-title">{formatDate(week)} – {formatDate(addDays(week, 6))}</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link className="btn-secondary" href={`/office/subs/payroll?week=${addDays(week, -7)}`}>← Prev</Link>
-          <Link className="btn-secondary" href={`/office/subs/payroll?week=${addDays(week, 7)}`}>Next →</Link>
-        </div>
-      </div>
-      <p className="text-sm text-muted">Earned shares from completed jobs. Worker payments are not tracked here.</p>
-      <p className="text-sm">
-        <Link className="underline" href={`/office/subs${subQuery({ week, filter: query.filter })}`}>← Jobs for this week</Link>
-      </p>
+      <header className="space-y-1">
+        <p className="eyebrow">Subcontracting · Crew earnings</p>
+        <h1 className="page-title">Weekly crew earnings</h1>
+        <p className="text-muted">{formatDate(week)} to {formatDate(addDays(week, 6))}</p>
+      </header>
+      <nav aria-label="Week" className="flex flex-wrap items-center gap-2">
+        <Link className="btn-secondary" href={`/office/subs/payroll?week=${addDays(week, -7)}`}>‹ Previous week</Link>
+        <Link className="btn-secondary" href={`/office/subs/payroll?week=${addDays(week, 7)}`}>Next week ›</Link>
+        <Link className="btn-secondary" href={back}>Jobs for this week</Link>
+      </nav>
 
-      {(stillOpen ?? 0) > 0 && (
-        <p className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-sm">
-          {stillOpen} {stillOpen === 1 ? "job" : "jobs"} this week {stillOpen === 1 ? "isn't" : "aren't"} closed yet, so{" "}
-          {stillOpen === 1 ? "it's" : "they're"} not in these totals. <Link className="underline" href={`/office/subs${subQuery({ week, filter: query.filter })}`}>Close them</Link> first.
-        </p>
-      )}
+      <WithRail
+        rail={
+          <RailCard title="How this total works">
+            <p>Finished jobs only, Monday through Sunday. Each job&apos;s crew pay is split equally between the people on it; leftover cents go one each to the first names in order.</p>
+            <p>This is a record of what each person earned. It doesn&apos;t pay anyone, track whether they were paid, or work out taxes.</p>
+          </RailCard>
+        }
+      >
+        <section className="space-y-1 rounded-card border border-border/60 bg-surface p-4 sm:p-5">
+          <p className="text-2xl font-bold">{formatCents(totalCents)} earned</p>
+          <p className="text-sm text-muted">
+            {workers.length} {workers.length === 1 ? "person" : "people"} · {jobs} finished {jobs === 1 ? "job" : "jobs"}
+          </p>
+        </section>
 
-      <div className="card-stripe">
-        <p className="eyebrow">Payroll this week</p>
-        <p className="stat-value">{formatCents(totalCents)}</p>
-        <p className="text-xs text-muted">{workers.length} {workers.length === 1 ? "person" : "people"} · {new Set(rows.map((r) => r.jobId)).size} jobs</p>
-      </div>
+        {(stillOpen ?? 0) > 0 && (
+          <Callout tone="warning" title={`${stillOpen} ${stillOpen === 1 ? "job this week isn't" : "jobs this week aren't"} finished, so ${stillOpen === 1 ? "it's" : "they're"} not included`}>
+            <Link className="font-semibold underline" href={`/office/subs${subQuery({ week, filter: "scheduled" })}`}>Review unfinished jobs</Link>
+          </Callout>
+        )}
 
-      {workers.length === 0 && <p className="card text-muted">No closed jobs this week.</p>}
+        {workers.length === 0 && (
+          <Empty title="No finished jobs this week">Earnings show up here as each job is finished.</Empty>
+        )}
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {workers.map((w) => (
-          <section key={w.workerId} className="card space-y-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <h2 className="text-lg font-semibold">{w.name}</h2>
-              <p className="text-lg font-semibold">{formatCents(w.totalCents)}</p>
-            </div>
-            <table className="table">
-              <tbody>
+        <ul className="space-y-3">
+          {workers.map((w) => (
+            <li key={w.workerId} className="space-y-2 rounded-card border border-border/60 bg-surface p-4 sm:p-5">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-lg font-semibold">{w.name}</h2>
+                <p className="text-lg font-semibold">{formatCents(w.totalCents)}</p>
+              </div>
+              <ul className="divide-y divide-border/60">
                 {w.jobs.map((j) => (
-                  <tr key={j.jobId}>
-                    <td className="whitespace-nowrap">{formatDate(j.workDate)}</td>
-                    <td>
-                      <Link className="underline" href={`/office/subs/${j.jobId}`}>{j.address}</Link>
-                      <div className="text-xs text-muted">
+                  <li key={j.jobId} className="flex items-start justify-between gap-3 py-2 text-sm">
+                    <span className="min-w-0">
+                      <Link className="font-medium break-words hover:underline" href={`/office/subs/${j.jobId}`}>{formatDate(j.workDate)} · {j.address}</Link>
+                      <span className="block text-xs text-muted">
                         {j.contractor} · {j.squares > 0 ? `${j.squares} sq at ${pitchLabel(j.pitch)}` : "gutters and extras"} · split {j.crewSize} ways
-                      </div>
-                    </td>
-                    <td className="text-right">{formatCents(j.payCents)}</td>
-                  </tr>
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-medium">{formatCents(j.payCents)}</span>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </section>
-        ))}
-      </div>
+              </ul>
+            </li>
+          ))}
+        </ul>
+        {workers.length > 0 && <p className="text-xs text-muted">All shares total {formatCents(totalCents)}. Open a job to see its closeout.</p>}
+      </WithRail>
     </>
   );
 }

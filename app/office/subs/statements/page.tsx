@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { issueSubStatement } from "@/app/office/subs/actions";
 import { Notice } from "@/app/office/_notice";
 import { ConfirmAction } from "@/app/_ui/confirm-action";
@@ -9,6 +8,9 @@ import { one } from "@/lib/office/team";
 import { periodText } from "@/lib/subcontract/view";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Unavailable } from "../../_unavailable";
+import { Empty } from "@/app/_ui/states";
+import { StatusPill } from "@/app/_ui/status-pill";
+import { WorkList, WorkRow } from "@/app/_ui/work-row";
 
 type Waiting = { contractorId: string; name: string; email: string | null; terms: number; jobs: number; totalCents: number; first: string; last: string };
 
@@ -47,9 +49,9 @@ export default async function SubStatementsPage({ searchParams }: PageProps<"/of
   return (
     <>
       <Notice searchParams={query} />
-      <header>
-        <p className="eyebrow">Subcontracting</p>
-        <h1 className="page-title">Statements</h1>
+      <header className="space-y-1">
+        <p className="eyebrow">Subcontracting · Statements</p>
+        <h1 className="page-title">Weekly statements</h1>
         <p className="text-muted">
           Contractors billed weekly get one statement for all their closed jobs. It goes out every Monday for the week
           before; send one now if they need it sooner.
@@ -58,10 +60,10 @@ export default async function SubStatementsPage({ searchParams }: PageProps<"/of
 
       <section className="card space-y-3">
         <h2 className="font-semibold">Waiting for a statement</h2>
-        {ready.length === 0 && <p className="text-sm text-muted">Nothing waiting. Closed jobs for weekly contractors show up here.</p>}
+        {ready.length === 0 && <Empty title="Nothing waiting">Finished jobs for weekly contractors show up here until their statement goes out.</Empty>}
         <ul className="space-y-3">
           {ready.map((w) => (
-            <li key={w.contractorId} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
+            <li key={w.contractorId} className="flex flex-wrap items-center justify-between gap-3 rounded-row border border-border/60 p-3 sm:p-4">
               <div>
                 <p className="font-medium">{w.name}</p>
                 <p className="text-sm text-muted">
@@ -90,32 +92,28 @@ export default async function SubStatementsPage({ searchParams }: PageProps<"/of
         </ul>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="font-semibold">Sent</h2>
-        {(statements ?? []).length === 0 && <p className="card text-sm text-muted">No statements yet.</p>}
-        <ul className="space-y-3">
+      <section aria-labelledby="sent" className="space-y-2.5">
+        <h2 id="sent" className="text-xl font-semibold">Sent</h2>
+        {(statements ?? []).length === 0 && <Empty title="No statements yet" />}
+        <WorkList label="Sent statements">
           {(statements ?? []).map((s) => {
             const paid = (s.sub_invoices ?? []).flatMap((i) => i.sub_payments ?? []).filter((p) => !p.voided_at).reduce((sum, p) => sum + p.amount_cents, 0);
             const overdue = s.status === "open" && s.due_on < today;
             return (
-              <li key={s.id}>
-                <Link href={`/office/subs/statements/${s.id}`} className={`card block space-y-1 hover:border-brand ${s.status === "void" ? "opacity-60" : ""}`}>
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <span className="font-semibold">#{s.number} · {one(s.sub_contractors)?.name}</span>
-                    <span className={`pill ${overdue ? "border-danger text-danger" : ""}`}>
-                      {s.status === "void" ? "Void" : s.status === "paid" ? "Paid" : overdue ? "Overdue" : "Open"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted">
-                    Work {periodText(s.period_start, s.period_end)} · issued {formatDate(s.issued_on)} · due {formatDate(s.due_on)} ·{" "}
-                    {s.status === "void" ? `was ${formatCents(s.total_cents)}` : `${formatCents(s.total_cents - paid)} of ${formatCents(s.total_cents)} owed`}
-                    {s.status !== "void" && !s.sent_at && " · not emailed"}
-                  </p>
-                </Link>
-              </li>
+              <WorkRow
+                key={s.id}
+                href={`/office/subs/statements/${s.id}`}
+                title={`#${s.number} · ${one(s.sub_contractors)?.name ?? "Contractor"}`}
+                detail={`Work ${periodText(s.period_start, s.period_end)} · due ${formatDate(s.due_on)} · ${s.status === "void" ? `was ${formatCents(s.total_cents)}` : `${formatCents(s.total_cents - paid)} of ${formatCents(s.total_cents)} owed`}${s.status !== "void" && !s.sent_at ? " · not emailed" : ""}`}
+                aside={
+                  <StatusPill tone={s.status === "void" ? "neutral" : s.status === "paid" ? "success" : overdue ? "danger" : "warning"}>
+                    {s.status === "void" ? "Void" : s.status === "paid" ? "Paid" : overdue ? "Overdue" : "Open"}
+                  </StatusPill>
+                }
+              />
             );
           })}
-        </ul>
+        </WorkList>
       </section>
     </>
   );

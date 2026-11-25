@@ -1,4 +1,5 @@
 import { Unavailable } from "../../_unavailable";
+import { Callout } from "@/app/_ui/callout";
 import Link from "next/link";
 import { addSubWorker, saveSubContractor, saveSubPriceItem, saveSubSettings, setSubPriceItemActive, setSubWorkerActive } from "@/app/office/subs/actions";
 import { rateText } from "@/app/office/subs/_parts";
@@ -147,11 +148,16 @@ export default async function SubsSetupPage({ searchParams }: PageProps<"/office
     <>
       <Notice searchParams={query} />
       <p className="text-sm"><Link className="underline" href="/office/subs">← Subcontracting</Link></p>
-      <h1 className="page-title">Subcontracting setup</h1>
-      <p className="text-sm text-muted">
-        Pitch extras are tiers: &ldquo;9: 15, 11: 20&rdquo; is +$15 a square at 9/12 and 10/12, +$20 from 11/12 up.
-        Rate changes apply to jobs closed from then on; closed jobs keep the rates they closed at.
-      </p>
+      <header className="space-y-1">
+        <p className="eyebrow">Subcontracting · Setup</p>
+        <h1 className="page-title">Contractor and crew setup</h1>
+        <p className="text-muted">
+          Pitch extras are tiers: &ldquo;9: 15, 11: 20&rdquo; is +$15 a square at 9/12 and 10/12, +$20 from 11/12 up.
+        </p>
+      </header>
+      <Callout tone="neutral" title="Changing a rate never rewrites a finished job">
+        New rates apply to jobs finished from then on. Finished jobs and their invoices keep the rates they closed at.
+      </Callout>
 
       <section className="card space-y-3">
         <h2 className="font-semibold">What the crew gets</h2>
