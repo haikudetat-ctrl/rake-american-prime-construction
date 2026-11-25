@@ -5,8 +5,10 @@ import { groupThreads } from "@/lib/phone/inbox";
 import {
   dialAnswered,
   isOpen,
+  callerAnnouncement,
   ringTwiml,
   screenTwiml,
+  spokenNumber,
   twilioSignature,
   validTwilioSignature,
   voicemailTwiml,
@@ -51,6 +53,33 @@ describe("TwiML", () => {
     const vm = voicemailTwiml({ greeting: `We're "closed"`, doneUrl: "https://app/d", recordingUrl: "https://app/r" });
     expect(vm).toContain("<Say>We&apos;re &quot;closed&quot;</Say>");
     expect(vm).toContain('recordingStatusCallback="https://app/r"');
+  });
+
+  it("says who is calling on the screen, escaped", () => {
+    const xml = screenTwiml({ brandName: "Authority Roofing", caller: "Jo & <Sam>", doneUrl: "https://app/x" });
+    expect(xml).toContain("<Say>Call for Authority Roofing from Jo &amp; &lt;Sam&gt;. Press 1 to answer.</Say>");
+    expect(xml).toContain('<Gather numDigits="1" timeout="6" action="https://app/x" method="POST">');
+    expect(screenTwiml({ brandName: "Authority Roofing", doneUrl: "https://app/x" })).toContain("Call for Authority Roofing. Press 1");
+  });
+
+  it("reads a phone number out digit by digit", () => {
+    expect(spokenNumber("+16095550100")).toBe("6 0 9, 5 5 5, 0 1 0 0");
+    expect(spokenNumber("6095550100")).toBe("6 0 9, 5 5 5, 0 1 0 0");
+    expect(spokenNumber("+442071838750")).toBe("4 4 2 0 7 1 8 3 8 7 5 0");
+    expect(spokenNumber("+266696687")).toBeNull(); // Twilio's anonymous caller
+    expect(spokenNumber("Restricted")).toBeNull();
+    expect(spokenNumber(null)).toBeNull();
+  });
+
+  it("announces the lead's name, else the number", () => {
+    expect(callerAnnouncement({ name: "Maria Lopez", phone: "+16095550100" })).toBe("Maria Lopez");
+    expect(callerAnnouncement({ name: "  Maria\n\tLopez ", phone: "+16095550100" })).toBe("Maria Lopez");
+    expect(callerAnnouncement({ name: "", phone: "+16095550100" })).toBe("6 0 9, 5 5 5, 0 1 0 0");
+    expect(callerAnnouncement({ name: null, phone: "+16095550100" })).toBe("6 0 9, 5 5 5, 0 1 0 0");
+    expect(callerAnnouncement({ name: "New caller +16095550100", phone: "+16095550100" })).toBe("6 0 9, 5 5 5, 0 1 0 0");
+    expect(callerAnnouncement({ name: "!!!", phone: "+16095550100" })).toBe("6 0 9, 5 5 5, 0 1 0 0");
+    expect(callerAnnouncement({ name: "x".repeat(200), phone: "+16095550100" })).toHaveLength(60);
+    expect(callerAnnouncement({ name: null, phone: "+266696687" })).toBe("a blocked number");
   });
 
   it("treats completed or answered as picked up", () => {
